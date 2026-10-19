@@ -1,0 +1,77 @@
+# Gadget Get There
+
+A third-person, physics-based time-trial platformer for the browser: run, jump and (soon) use one gadget per attempt to get from start to finish as fast as possible.
+
+**Play:** https://eric-birdsall.github.io/gadget-get-there/
+
+- Design spec: `~/Documents/gadget_speedrun_game_spec.md`
+- Decisions that resolve the spec's open questions: [DECISIONS.md](DECISIONS.md)
+
+## Run
+
+```bash
+npm install
+npm run dev        # http://localhost:5173
+npm test           # Vitest: collision, movement, attempt state machine
+npm run build      # typecheck + static build into dist/
+```
+
+Pushing to `main` runs the tests, builds, and deploys to GitHub Pages (`.github/workflows/deploy.yml`).
+
+Click **Play** to capture the mouse. Esc releases it and pauses (the run clock freezes too).
+
+| Action | Keys |
+|---|---|
+| Move | W A S D (or arrows) |
+| Look | Mouse |
+| Jump | Space |
+| Slide (at speed) / crouch-walk (when slow) | Hold Shift; jump out of a slide keeps its speed |
+| Mantle a ledge | Hold Space in the air while moving into a ledge up to ~1 m above your head |
+| Use gadget | Left click (grapple: hold · rollerblades: hold to tuck · launch pad: click to throw) |
+| Pick gadget | 1 2 3, or Q / E (applies now at the start line, otherwise from the next run) |
+| Retry from start | R (or Enter) |
+| Toggle ghost | G |
+| Debug readout (speed, grounded…) | ` |
+| Pause / settings / tuning | Esc |
+
+If the browser refuses to capture the mouse (embedded panes do), the game plays with a visible cursor instead: mouse look works inside the window, and holding the cursor at or past the left/right edge keeps turning. A normal browser tab gives full mouse look.
+
+URL flags: `?nolock` forces that free-cursor mode; `?dev` exposes `window.game` in the console.
+
+## Tuning
+
+Esc → **Tuning** opens a live panel over the movement, gadget and camera configs in [src/config.ts](src/config.ts). Changes are kept in this browser's local storage. **Copy changed values** puts the edits on the clipboard so they can go back into `config.ts`. **Reset to defaults** clears them.
+
+## Layout
+
+```
+src/
+  config.ts            every tunable number (movement, camera, world)
+  sim/                 pure simulation, no DOM: unit-tested
+    collision.ts       oriented boxes, capsule-vs-box contacts, raycasts
+    player.ts          kinematic character controller (fixed 120 Hz tick)
+  gadgets/             grappling hook, rollerblades, launch pad (one runtime per attempt)
+  game/session.ts      attempt state machine, clock, checkpoints, finish, falls/respawn
+  game/ghost.ts        PB ghost recording (20 Hz) and interpolated playback
+  game/medals.ts       medal thresholds
+  course/crossing.ts   "The Crossing", the course
+  course/routeBot.ts   scripted player used by tests to prove every gadget can finish
+  render/              Three.js scene, capsule-bot, camera, anchors/rope/pads/ghost/gate
+  audio/audio.ts       procedural Web Audio SFX and music loop
+  input/input.ts       remappable keyboard + pointer-lock mouse (free-cursor fallback)
+  ui/                  HUD, finish card, pause menu, tuning panel
+  storage/             versioned settings and personal bests that fail safe
+```
+
+## Status
+
+Phases 0–5 of the spec are in place: movement and camera; The Crossing with checkpoints (ON/OFF setting) and a finish gate; the three gadgets; medals, personal bests per checkpoint mode and the PB ghost; procedural sound and music.
+
+Character abilities (slide, crouch-walk, mantle) work with every gadget. The Crossing has two optional ability spots: blocks across the central gap that only a mantle reaches, and a barrier on the final platform with a slide-under slot.
+
+The route-bot tests in `src/course/crossing.test.ts` finish The Crossing without falling on the plain running line with each gadget, on each gadget's own faster line, and on an ability line (mantle + slide). Rough bot times: running ≈ 46 s, grapple ≈ 36 s, rollerblades ≈ 36 s, launch pad ≈ 40 s, abilities ≈ 43 s. Medal thresholds (gold 32 s / silver 40 s / bronze 55 s) are placeholders until real playtests.
+
+## Future ideas
+
+- **Main mode: gadget loadouts.** A level selector where you pick 1–5 gadgets in a set order before the round starts. Each gadget has a limited usage (for example 5 seconds of rollerblades, 2 grapple shots, 1 launch pad). When it runs out you switch to the next gadget automatically, and the HUD always shows what's next. This replaces the spec's one-gadget-per-run rule as the main way to play.
+- **Training mode:** today's free play, one gadget with unlimited use, for practising and testing each gadget.

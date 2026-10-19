@@ -1,0 +1,588 @@
+import { Vector3 } from 'three';
+import { ABILITY_CONFIG, DT, MOVEMENT_CONFIG, PLAYER_SHAPE } from '../config';
+import { type Box, type Contact, capsuleBoxContact, raycast } from './collision';
+
+export type MovementConfig = typeof MOVEMENT_CONFIG;
+
+/** One tick of player intent. Move axes are in [-1, 1], relative to `yaw`. */
+export interface PlayerInput {
+  forward: number;
+  right: number;
+  /** Camera heading, radians; 0 faces -Z. */
+  yaw: number;
+  jump: boolean;
+  /** Slide / crouch held. */
+  crouch: boolean;
+}
+
+export const NO_INPUT: PlayerInput = { forward: 0, right: 0, yaw: 0, jump: false, crouch: false };
+
+export enum Stance {
+  Stand = 'stand',
+  Slide = 'slide',
+  Crouch = 'crouch',
+}
+
+/** A ledge pull-up in progress: the player moves along a fixed path, without collisions. */
+export interface Mantle {
+  from: Vector3;
+  to: Vector3;
+  /** Seconds into the pull-up. */
+  t: number;
+  /** Horizontal velocity to leave with. */
+  exitVel: Vector3;
+  normal: Vector3;
+}
+
+export interface PlayerState {
+  /** Feet: the bottom of the capsule. */
+  pos: Vector3;
+  vel: Vector3;
+  grounded: boolean;
+  groundNormal: Vector3;
+  /** Seconds since last grounded, for coyote time. */
+  airTime: number;
+  /** Seconds since jump was pressed, for jump buffering; Infinity when no press is pending. */
+  jumpQueued: number;
+  jumpHeld: boolean;
+  /** Set for the one tick a jump fires or a landing happens, for animation and sound. */
+  justJumped: boolean;
+  justLanded: boolean;
+  /** Downward speed at the moment of landing, for squash. */
+  landingSpeed: number;
+  /** On a grapple line: always airborne, so the rope (not footing) decides the motion. */
+  tethered: boolean;
+  /** Seconds during which ground contact doesn't count, so a launch isn't glued back down. */
+  airborneLock: number;
+  stance: Stance;
+  /** Seconds until the next slide can give its burst of speed. */
+  slideBoostCooldown: number;
+  mantle: Mantle | null;
+  /** Set for the one tick a slide starts or a mantle grabs, for animation and sound. */
+  justSlid: boolean;
+  justMantled: boolean;
+}
+
+export function createPlayer(pos: Vector3): PlayerState {
+  return {
+    pos: pos.clone(),
+    vel: new Vector3(),
+    grounded: false,
+    groundNormal: new Vector3(0, 1, 0),
+    airTime: 0,
+    jumpQueued: Infinity,
+    jumpHeld: false,
+    justJumped: false,
+    justLanded: false,
+    landingSpeed: 0,
+    tethered: false,
+    airborneLock: 0,
+    stance: Stance.Stand,
+    slideBoostCooldown: 0,
+    mantle: null,
+    justSlid: false,
+    justMantled: false,
+  };
+}
+
+/** Puts a player at `pos`, standing still: used for spawns and respawns. */
+export function resetPlayer(p: PlayerState, pos: Vector3): void {
+  p.pos.copy(pos);
+  p.vel.set(0, 0, 0);
+  p.grounded = false;
+  p.groundNormal.set(0, 1, 0);
+  p.airTime = 0;
+  p.jumpQueued = Infinity;
+  p.justJumped = false;
+  p.justLanded = false;
+  p.landingSpeed = 0;
+  p.tethered = false;
+  p.airborneLock = 0;
+  p.stance = Stance.Stand;
+  p.slideBoostCooldown = 0;
+  p.mantle = null;
+  p.justSlid = false;
+  p.justMantled = false;
+}
+
+/** Capsule height for a stance: sliding and crouching are low. */
+export function stanceHeight(stance: Stance): number {
+  return stance === Stance.Stand ? PLAYER_SHAPE.height : ABILITY_CONFIG.lowHeight;
+}
+
+/** Throws the player into the air with a new velocity (launch pads), unglued from the ground. */
+export function launchPlayer(p: PlayerState, vel: Vector3): void {
+  p.vel.copy(vel);
+  p.grounded = false;
+  p.groundNormal.set(0, 1, 0);
+  p.airTime = Infinity;
+  p.airborneLock = LAUNCH_AIRBORNE_SECONDS;
+}
+/** Long enough to clear the surface you launched from. */
+const LAUNCH_AIRBORNE_SECONDS = 0.12;
+
+export function horizontalSpeed(p: PlayerState): number {
+  return Math.hypot(p.vel.x, p.vel.z);
+}
+
+const UP = new Vector3(0, 1, 0);
+const a = new Vector3();
+const b = new Vector3();
+const contact: Contact = { normal: new Vector3(), depth: 0, onFace: true, point: new Vector3() };
+const bestGround = new Vector3();
+const wish = new Vector3();
+
+/** Largest distance the capsule moves per collision substep; well under the radius, so it can't tunnel. */
+const MAX_SUBSTEP_MOVE = PLAYER_SHAPE.radius * 0.5;
+const RESOLVE_ITERATIONS = 4;
+
+/** Height of the capsule being moved this tick (it shrinks while sliding or crouching). */
+let capsuleHeight = PLAYER_SHAPE.height;
+
+function capsuleEnds(pos: Vector3): void {
+  a.set(pos.x, pos.y + PLAYER_SHAPE.radius, pos.z);
+  b.set(pos.x, pos.y + Math.max(PLAYER_SHAPE.radius, capsuleHeight - PLAYER_SHAPE.radius), pos.z);
+}
+
+function minGroundY(cfg: MovementConfig): number {
+  return Math.cos((cfg.maxGroundAngle * Math.PI) / 180);
+}
+
+/**
+ * Pushes the capsule out of every box it overlaps and clips velocity against the surfaces.
+ * Returns the most upward-facing walkable normal touched, or null.
+ */
+function resolve(p: PlayerState, boxes: readonly Box[], cfg: MovementConfig, clipVelocity: boolean): Vector3 | null {
+  let ground: Vector3 | null = null;
+  const minY = minGroundY(cfg);
+  for (let iter = 0; iter < RESOLVE_ITERATIONS; iter++) {
+    let any = false;
+    for (const box of boxes) {
+      capsuleEnds(p.pos);
+      if (!capsuleBoxContact(a, b, PLAYER_SHAPE.radius, box, contact)) continue;
+      if (contact.depth < 1e-6) continue;
+      any = true;
+      const n = contact.normal;
+      const walkable = n.y >= minY;
+      if (!walkable && p.grounded && clipVelocity && stepUp(p, cfg)) continue;
+      if (walkable && contact.onFace && (p.grounded || !clipVelocity)) {
+        // Standing on ground: push straight up so you don't creep down slopes. Edges push
+        // along their rounded normal instead, or a ledge lip would pop you upward.
+        p.pos.y += contact.depth / n.y;
+      } else {
+        p.pos.addScaledVector(n, contact.depth);
+      }
+      // Running onto a new slope keeps your horizontal speed: the next tick's ground control
+      // re-aims velocity along the surface, so clipping here would just bleed momentum.
+      if (clipVelocity && !(walkable && p.grounded)) {
+        const into = p.vel.dot(n);
+        if (into < 0) {
+          p.vel.addScaledVector(n, -into);
+          const speed = p.vel.length();
+          if (!walkable && n.y > -0.3 && speed > 0) {
+            // Wall: lose along-wall speed in proportion to how head-on the hit was, so
+            // glancing contact (or leaning into a wall while running) costs almost nothing.
+            const headOn = -into / Math.hypot(speed, into);
+            const vy = p.vel.y;
+            p.vel.multiplyScalar(1 - (1 - cfg.collisionSlideFactor) * headOn);
+            p.vel.y = vy;
+          }
+        }
+      }
+      if (walkable) {
+        // An edge holds you up, but its rounded normal isn't a surface to run along.
+        const surface = contact.onFace ? n : UP;
+        if (!ground || surface.y > ground.y) ground = bestGround.copy(surface);
+      }
+    }
+    if (!any) break;
+  }
+  return ground;
+}
+
+/**
+ * Running into a low ledge edge (a kerb, a seam between pieces): lift the bottom sphere just
+ * enough to roll over it instead of treating it as a wall. Uses the contact in `contact`.
+ */
+function stepUp(p: PlayerState, cfg: MovementConfig): boolean {
+  const q = contact.point;
+  const r = PLAYER_SHAPE.radius;
+  const rise = q.y - p.pos.y;
+  if (rise <= 0 || rise > cfg.stepHeight) return false;
+  const dh = Math.hypot(q.x - p.pos.x, q.z - p.pos.z);
+  if (dh >= r) return false;
+  const lift = q.y + Math.sqrt(r * r - dh * dh) - (p.pos.y + r);
+  if (lift <= 0 || lift > cfg.stepHeight) return false;
+  p.pos.y += lift + 1e-4;
+  return true;
+}
+
+function moveTowards(vx: number, vz: number, tx: number, tz: number, maxDelta: number): [number, number] {
+  const dx = tx - vx;
+  const dz = tz - vz;
+  const dist = Math.hypot(dx, dz);
+  if (dist <= maxDelta || dist === 0) return [tx, tz];
+  return [vx + (dx / dist) * maxDelta, vz + (dz / dist) * maxDelta];
+}
+
+/** World-space unit wish direction from input, or zero. Diagonals are normalized. */
+function wishDirection(input: PlayerInput, out: Vector3): Vector3 {
+  let f = Math.max(-1, Math.min(1, input.forward));
+  let r = Math.max(-1, Math.min(1, input.right));
+  const len = Math.hypot(f, r);
+  if (len === 0) return out.set(0, 0, 0);
+  if (len > 1) {
+    f /= len;
+    r /= len;
+  }
+  const sin = Math.sin(input.yaw);
+  const cos = Math.cos(input.yaw);
+  return out.set(-sin * f + cos * r, 0, -cos * f - sin * r);
+}
+
+function groundControl(p: PlayerState, cfg: MovementConfig): void {
+  const vx = p.vel.x;
+  const vz = p.vel.z;
+  const speed = Math.hypot(vx, vz);
+  const hasWish = wish.lengthSq() > 0;
+  let nx: number;
+  let nz: number;
+  if (!hasWish) {
+    [nx, nz] = moveTowards(vx, vz, 0, 0, cfg.groundDeceleration * DT);
+  } else if (speed <= cfg.groundSpeed && cfg.groundAcceleration > 0) {
+    [nx, nz] = moveTowards(vx, vz, wish.x * cfg.groundSpeed, wish.z * cfg.groundSpeed, cfg.groundAcceleration * DT);
+  } else if (speed < 1e-6) {
+    nx = 0;
+    nz = 0;
+  } else {
+    // Over top speed (from a ramp, a gadget, or coasting): steer by turning grip, and bleed
+    // the extra speed slowly. With no push (groundAcceleration 0) you coast toward a stop.
+    const floor = cfg.groundAcceleration > 0 ? cfg.groundSpeed : 0;
+    // Pulling against your direction of travel brakes.
+    const against = -(wish.x * vx + wish.z * vz) / speed;
+    const brake = against > 0.3 ? cfg.brakeDeceleration * against : 0;
+    const keep = Math.max(Math.min(floor, speed - brake * DT), speed - (cfg.groundedFriction + brake) * DT);
+    const steer = (cfg.steerAcceleration * cfg.turnGrip * DT) / speed;
+    [nx, nz] = moveTowards(vx / speed, vz / speed, wish.x, wish.z, steer);
+    const len = Math.hypot(nx, nz) || 1;
+    nx = (nx / len) * keep;
+    nz = (nz / len) * keep;
+  }
+
+  // Gravity along the slope, scaled down so ordinary running isn't dragged around.
+  const n = p.groundNormal;
+  const g = cfg.gravity * cfg.slopeInfluence * n.y;
+  nx += g * n.x * DT;
+  nz += g * n.z * DT;
+
+  const h = Math.hypot(nx, nz);
+  if (h > cfg.maximumSpeed) {
+    nx *= cfg.maximumSpeed / h;
+    nz *= cfg.maximumSpeed / h;
+  }
+  p.vel.x = nx;
+  p.vel.z = nz;
+  // Follow the ground plane: whatever vertical speed keeps velocity along the surface.
+  p.vel.y = -(n.x * nx + n.z * nz) / n.y;
+}
+
+function airControl(p: PlayerState, cfg: MovementConfig): void {
+  p.vel.y = Math.max(-cfg.maximumFallSpeed, p.vel.y - cfg.gravity * DT);
+  if (wish.lengthSq() === 0) return;
+  const before = Math.hypot(p.vel.x, p.vel.z);
+  const accel = cfg.airAcceleration * cfg.airControlFactor * DT;
+  p.vel.x += wish.x * accel;
+  p.vel.z += wish.z * accel;
+  // Steering can turn you, and speed you up to running speed, but never past what you had.
+  const cap = Math.max(before, cfg.groundSpeed);
+  const after = Math.hypot(p.vel.x, p.vel.z);
+  if (after > cap) {
+    p.vel.x *= cap / after;
+    p.vel.z *= cap / after;
+  }
+}
+
+/** Pushes the player out of anything they overlap (after a gadget moves them directly). */
+export function depenetrate(p: PlayerState, boxes: readonly Box[], cfg: MovementConfig = MOVEMENT_CONFIG): void {
+  capsuleHeight = stanceHeight(p.stance);
+  resolve(p, boxes, cfg, true);
+}
+
+/** Moves along the velocity in substeps small enough not to tunnel through thin platforms. */
+function integrate(p: PlayerState, boxes: readonly Box[], cfg: MovementConfig): Vector3 | null {
+  const dist = p.vel.length() * DT;
+  const steps = Math.max(1, Math.ceil(dist / MAX_SUBSTEP_MOVE));
+  const sub = DT / steps;
+  let ground: Vector3 | null = null;
+  for (let i = 0; i < steps; i++) {
+    p.pos.addScaledVector(p.vel, sub);
+    const g = resolve(p, boxes, cfg, true);
+    if (g) ground = savedGround.copy(g);
+  }
+  return ground;
+}
+const savedGround = new Vector3();
+
+/**
+ * Pulls a running player down onto the surface under their feet, so ramps and crests don't
+ * turn into hops. Only for gentle changes of angle: a sharp lip, or nothing below, launches you.
+ */
+function snapToGround(p: PlayerState, boxes: readonly Box[], cfg: MovementConfig): Vector3 | null {
+  const r = PLAYER_SHAPE.radius;
+  rayOrigin.set(p.pos.x, p.pos.y + r, p.pos.z);
+  const hit = raycast(boxes, rayOrigin, DOWN, r + cfg.groundSnapDistance + r);
+  if (!hit) return null;
+  const n = hit.normal;
+  if (n.y < minGroundY(cfg)) return null;
+  if (n.dot(p.groundNormal) < Math.cos((cfg.groundSnapMaxAngle * Math.PI) / 180)) return null;
+  // Rest the bottom sphere on the hit plane, directly below where we are.
+  const y = hit.point.y + r / n.y - r;
+  if (y > p.pos.y + SNAP_MAX_RISE || y < p.pos.y - cfg.groundSnapDistance) return null;
+  // Partway over a ledge the edge holds you up before the ground under your axis does:
+  // settle at the lowest height between here and the target that doesn't overlap anything.
+  probe.set(p.pos.x, y, p.pos.z);
+  if (y < p.pos.y && overlapsAny(probe, boxes)) {
+    let lo = y;
+    let hi = p.pos.y;
+    for (let i = 0; i < 10; i++) {
+      probe.y = (lo + hi) / 2;
+      if (overlapsAny(probe, boxes)) lo = probe.y;
+      else hi = probe.y;
+    }
+    p.pos.y = hi;
+  } else {
+    p.pos.y = y;
+  }
+  return bestGround.copy(n);
+}
+const probe = new Vector3();
+/** Penetration deeper than this counts as overlapping, for snap searches. */
+const OVERLAP_EPS = 1e-3;
+
+function overlapsAny(pos: Vector3, boxes: readonly Box[]): boolean {
+  capsuleEnds(pos);
+  for (const box of boxes) {
+    if (capsuleBoxContact(a, b, PLAYER_SHAPE.radius, box, contact) && contact.depth > OVERLAP_EPS) return true;
+  }
+  return false;
+}
+const DOWN = new Vector3(0, -1, 0);
+const rayOrigin = new Vector3();
+/** Snapping may lift you this much, to settle out of a shallow overlap. */
+const SNAP_MAX_RISE = 0.05;
+
+/** Whether a capsule of `height` fits at `pos`. */
+function fits(pos: Vector3, height: number, boxes: readonly Box[]): boolean {
+  const saved = capsuleHeight;
+  capsuleHeight = height;
+  const ok = !overlapsAny(pos, boxes);
+  capsuleHeight = saved;
+  return ok;
+}
+
+/**
+ * Slide and crouch. On the ground, holding crouch at running speed slides (with a burst of
+ * speed, rate-limited), and below it crouch-walks. Letting go stands up when there's headroom.
+ */
+function updateStance(p: PlayerState, input: PlayerInput, boxes: readonly Box[]): void {
+  const c = ABILITY_CONFIG;
+  p.slideBoostCooldown = Math.max(0, p.slideBoostCooldown - DT);
+  const speed = Math.hypot(p.vel.x, p.vel.z);
+  const wantLow = input.crouch && !p.tethered;
+  let next = p.stance;
+  if (p.grounded && wantLow) {
+    if (speed >= c.slideMinSpeed) next = Stance.Slide;
+    else next = Stance.Crouch;
+  } else if (!wantLow || !p.grounded) {
+    next = Stance.Stand;
+  }
+  // Standing up needs room overhead; otherwise stay low until there is.
+  if (next === Stance.Stand && p.stance !== Stance.Stand && !fits(p.pos, PLAYER_SHAPE.height, boxes)) {
+    next = p.stance === Stance.Slide && speed < c.slideMinSpeed ? Stance.Crouch : p.stance;
+  }
+  if (next === Stance.Slide && p.stance !== Stance.Slide) {
+    p.justSlid = true;
+    if (p.slideBoostCooldown <= 0 && speed > 1e-3) {
+      const boosted = speed + c.slideBoost;
+      p.vel.x *= boosted / speed;
+      p.vel.z *= boosted / speed;
+      p.slideBoostCooldown = c.slideBoostCooldown;
+    }
+  }
+  p.stance = next;
+}
+
+/** Movement numbers for the current stance, on top of whatever the gadget set. */
+function stanceConfig(p: PlayerState, cfg: MovementConfig): MovementConfig {
+  if (p.stance === Stance.Stand) return cfg;
+  const c = ABILITY_CONFIG;
+  Object.assign(lowCfg, cfg);
+  if (p.stance === Stance.Crouch) {
+    lowCfg.groundSpeed = Math.min(cfg.groundSpeed, c.crouchSpeed);
+    return lowCfg;
+  }
+  // Sliding: no pushing, little drag, slopes pull hard, limited steering. Whichever of the
+  // gadget's numbers (rollerblades) or the slide's is slicker wins.
+  lowCfg.groundAcceleration = 0;
+  lowCfg.groundedFriction = Math.min(cfg.groundedFriction, c.slideFriction);
+  lowCfg.groundDeceleration = Math.min(cfg.groundDeceleration, c.slideFriction);
+  lowCfg.slopeInfluence = Math.max(cfg.slopeInfluence, c.slideSlopeInfluence);
+  lowCfg.turnGrip = Math.min(cfg.turnGrip, c.slideTurnGrip);
+  return lowCfg;
+}
+const lowCfg = {} as MovementConfig;
+
+const mantleDir = new Vector3();
+/** Heights above the feet probed for a wall to grab, m. */
+const MANTLE_PROBE_HEIGHTS = [0.45, 1.0, 1.6];
+const chest = new Vector3();
+const above = new Vector3();
+const mantleTo = new Vector3();
+
+/**
+ * Airborne with jump held and heading at a wall whose top is within reach: grab the ledge.
+ * Returns true if a mantle started.
+ */
+function tryMantle(p: PlayerState, input: PlayerInput, boxes: readonly Box[], cfg: MovementConfig): boolean {
+  const c = ABILITY_CONFIG;
+  if (p.grounded || !input.jump || p.mantle || p.stance !== Stance.Stand) return false;
+  // Heading: where the player is steering, else where they're going.
+  if (wish.lengthSq() > 0) mantleDir.copy(wish);
+  else {
+    const speed = Math.hypot(p.vel.x, p.vel.z);
+    if (speed < 1) return false;
+    mantleDir.set(p.vel.x / speed, 0, p.vel.z / speed);
+  }
+  // A wall right in front of the body, at knee, chest or head height…
+  let wall = null;
+  for (const h of MANTLE_PROBE_HEIGHTS) {
+    chest.set(p.pos.x, p.pos.y + h, p.pos.z);
+    const hit = raycast(boxes, chest, mantleDir, PLAYER_SHAPE.radius + c.mantleReach);
+    if (hit && Math.abs(hit.normal.y) <= 0.3) {
+      wall = hit;
+      break;
+    }
+  }
+  if (!wall) return false;
+  // …whose top, just past its face, is walkable and within reach.
+  above.copy(wall.point).addScaledVector(mantleDir, c.mantleInset);
+  above.y = p.pos.y + c.mantleMaxHeight + 0.05;
+  const top = raycast(boxes, above, DOWN, c.mantleMaxHeight - c.mantleMinHeight + 0.05);
+  if (!top || top.normal.y < minGroundY(cfg)) return false;
+  const rise = top.point.y - p.pos.y;
+  if (rise < c.mantleMinHeight || rise > c.mantleMaxHeight) return false;
+  mantleTo.set(top.point.x, top.point.y + 0.01, top.point.z);
+  if (!fits(mantleTo, PLAYER_SHAPE.height, boxes)) return false;
+
+  const along = Math.max(0, p.vel.x * mantleDir.x + p.vel.z * mantleDir.z);
+  p.mantle = {
+    from: p.pos.clone(),
+    to: mantleTo.clone(),
+    t: 0,
+    exitVel: mantleDir.clone().multiplyScalar(Math.max(cfg.groundSpeed, along * c.mantleKeepSpeed)),
+    normal: top.normal.clone(),
+  };
+  p.vel.set(0, 0, 0);
+  p.tethered = false;
+  p.justMantled = true;
+  return true;
+}
+
+/** Moves along the pull-up path: up first, then over the lip. */
+function advanceMantle(p: PlayerState): void {
+  const m = p.mantle!;
+  m.t += DT;
+  const k = Math.min(1, m.t / ABILITY_CONFIG.mantleDuration);
+  const up = Math.min(1, k / 0.6);
+  const over = Math.max(0, (k - 0.35) / 0.65);
+  const ease = (x: number) => x * x * (3 - 2 * x);
+  p.pos.set(
+    m.from.x + (m.to.x - m.from.x) * ease(over),
+    m.from.y + (m.to.y - m.from.y) * ease(up),
+    m.from.z + (m.to.z - m.from.z) * ease(over),
+  );
+  p.vel.set(0, 0, 0);
+  if (k < 1) return;
+  p.pos.copy(m.to);
+  p.vel.copy(m.exitVel);
+  p.grounded = true;
+  p.groundNormal.copy(m.normal);
+  p.airTime = 0;
+  p.mantle = null;
+}
+
+/** Advances a player by one tick. */
+export function stepPlayer(p: PlayerState, input: PlayerInput, boxes: readonly Box[], baseCfg: MovementConfig = MOVEMENT_CONFIG): void {
+  let cfg = baseCfg;
+  p.justJumped = false;
+  p.justLanded = false;
+  p.justSlid = false;
+  p.justMantled = false;
+  if (input.jump && !p.jumpHeld) p.jumpQueued = 0;
+  if (p.mantle) {
+    p.jumpHeld = input.jump;
+    advanceMantle(p);
+    return;
+  }
+  const noFooting = p.tethered || p.airborneLock > 0;
+  p.airborneLock = Math.max(0, p.airborneLock - DT);
+  if (noFooting) p.grounded = false;
+
+  if (!(input.jump && !p.jumpHeld)) p.jumpQueued += DT;
+  p.jumpHeld = input.jump;
+
+  wishDirection(input, wish);
+  updateStance(p, input, boxes);
+  cfg = stanceConfig(p, cfg);
+  capsuleHeight = stanceHeight(p.stance);
+
+  const canJump = p.grounded || p.airTime <= cfg.coyoteTime;
+  // Jumping out of a slide or crouch stands you up first, if there's room.
+  const roomToJump = p.stance === Stance.Stand || fits(p.pos, PLAYER_SHAPE.height, boxes);
+  if (p.jumpQueued <= cfg.jumpBuffer && canJump && roomToJump) {
+    if (p.stance !== Stance.Stand) {
+      p.stance = Stance.Stand;
+      capsuleHeight = PLAYER_SHAPE.height;
+      cfg = baseCfg;
+    }
+    p.vel.y = Math.max(p.vel.y, 0) + cfg.jumpImpulse;
+    p.grounded = false;
+    p.airTime = cfg.coyoteTime + 1;
+    p.jumpQueued = Infinity;
+    p.justJumped = true;
+  }
+
+  if (p.grounded) groundControl(p, cfg);
+  else airControl(p, cfg);
+  if (tryMantle(p, input, boxes, cfg)) return;
+
+  const wasGrounded = p.grounded;
+  const fallSpeed = -p.vel.y;
+  // Speed away from the surface we were on: a ramp lip or a gadget launch, not a dip.
+  const leaving = p.vel.dot(p.groundNormal);
+  let ground = integrate(p, boxes, cfg);
+  if (!ground && wasGrounded && !p.justJumped && leaving <= cfg.snapMaxUpSpeed) {
+    ground = snapToGround(p, boxes, cfg);
+  }
+  if (noFooting) ground = null;
+
+  if (ground) {
+    if (!wasGrounded) {
+      p.justLanded = true;
+      p.landingSpeed = Math.max(0, fallSpeed);
+      const speed = Math.hypot(p.vel.x, p.vel.z);
+      if (speed > cfg.groundSpeed) {
+        const keep = cfg.groundSpeed + (speed - cfg.groundSpeed) * cfg.momentumRetentionFactor;
+        p.vel.x *= keep / speed;
+        p.vel.z *= keep / speed;
+      }
+    }
+    p.grounded = true;
+    p.groundNormal.copy(ground);
+    p.airTime = 0;
+  } else {
+    p.grounded = false;
+    p.groundNormal.copy(UP);
+    p.airTime += DT;
+  }
+}
