@@ -77,3 +77,4 @@ The route-bot tests in `src/course/crossing.test.ts` finish The Crossing without
 
 - **Main mode: gadget loadouts.** A level selector where you pick 1–5 gadgets in a set order before the round starts. Each gadget has a limited usage (for example 5 seconds of rollerblades, 2 grapple shots, 1 launch pad). When it runs out you switch to the next gadget automatically, and the HUD always shows what's next. This replaces the spec's one-gadget-per-run rule as the main way to play.
 - **Training mode:** today's free play, one gadget with unlimited use, for practising and testing each gadget.
+- **Drag-and-drop loadout:** drag gadget icons into numbered slots (e.g. Grapple to slot 1, Rollerblades to slot 3). Retries keep the same gadgets and slots. The order can be changed from the pause menu, which restarts the run.
