@@ -1,7 +1,8 @@
-import { GADGETS } from '../gadgets/registry';
+import { GADGETS, cycleGadget, gadgetDefinition } from '../gadgets/registry';
 import type { GadgetId } from '../gadgets/types';
 import { type Settings, saveSettings } from '../storage/settings';
 import { formatTime } from './hud';
+import { GADGET_ICONS } from './icons';
 
 const el = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
 
@@ -9,7 +10,8 @@ export interface MenuHandlers {
   play: () => void;
   restart: () => void;
   tuning: () => void;
-  selectGadget: (id: GadgetId) => void;
+  /** Put gadget `id` in slot `slot` (swapping). */
+  placeGadget: (id: GadgetId, slot: number) => void;
   settingsChanged: () => void;
 }
 
@@ -23,7 +25,9 @@ export class Menu {
   private readonly overlay = el('overlay');
   private readonly note = el('menu-note');
   private readonly playButton = el<HTMLButtonElement>('play');
-  private readonly gadgetButtons = new Map<GadgetId, HTMLButtonElement>();
+  private readonly slotButtons: HTMLButtonElement[] = [];
+  private loadout: GadgetId[] = [];
+  private loadoutKey = '';
 
   constructor(
     private readonly settings: Settings,
@@ -33,12 +37,16 @@ export class Menu {
     el('restart').addEventListener('click', handlers.restart);
     el('tuning').addEventListener('click', handlers.tuning);
 
+    // One button per slot; clicking swaps the next gadget into it.
     const row = el('menu-gadgets');
-    for (const g of GADGETS) {
+    for (let i = 0; i < GADGETS.length; i++) {
       const b = document.createElement('button');
-      b.textContent = `${g.slot} · ${g.displayName}`;
-      b.addEventListener('click', () => handlers.selectGadget(g.id));
-      this.gadgetButtons.set(g.id, b);
+      b.className = 'slot-button';
+      b.addEventListener('click', () => {
+        const id = this.loadout[i];
+        if (id) handlers.placeGadget(cycleGadget(id, 1), i);
+      });
+      this.slotButtons.push(b);
       row.append(b);
     }
 
@@ -83,16 +91,22 @@ export class Menu {
     el<HTMLInputElement>(`set-${key === 'invertY' ? 'invert' : key}`).checked = this.settings[key];
   }
 
-  setGadget(active: GadgetId, next: GadgetId): void {
-    for (const [id, b] of this.gadgetButtons) {
-      b.classList.toggle('selected', id === next);
-      b.title = id === next && next !== active ? 'Used from your next run' : '';
-    }
+  /** Shows the gadget order; `locked` mid-run, when it can't change. */
+  setLoadout(loadout: readonly GadgetId[], locked: boolean): void {
+    const key = `${loadout.join()}|${locked}`;
+    if (key === this.loadoutKey) return;
+    this.loadoutKey = key;
+    this.loadout = [...loadout];
+    this.slotButtons.forEach((b, i) => {
+      const id = loadout[i];
+      b.innerHTML = `<span class="n">${i + 1}</span>${GADGET_ICONS[id]}<span>${gadgetDefinition(id).displayName}</span>`;
+      b.disabled = locked;
+      b.title = locked ? 'The order is set for this run · Restart to change it' : 'Click to swap in another gadget';
+    });
   }
 
-  setBests(on: number | null, off: number | null): void {
-    const t = (v: number | null) => (v === null ? '—' : formatTime(v));
-    el('pbs').textContent = `Best · checkpoints on ${t(on)} · checkpoints off ${t(off)}`;
+  setBest(seconds: number | null): void {
+    el('pbs').textContent = seconds === null ? 'No personal best yet' : `Personal best ${formatTime(seconds)}`;
   }
 
   /** `started` switches the button between "Play" and "Resume". */

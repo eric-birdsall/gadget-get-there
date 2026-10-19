@@ -179,6 +179,14 @@ export const LAUNCH_PAD_CONFIG = {
   throwCooldown: 0.25,
 };
 
+/** How much of each gadget a run gets before switching to the next slot. */
+export const USAGE_CONFIG = {
+  grappleSwings: 1,
+  padLaunches: 1,
+  /** Seconds of rolling on the ground. */
+  rollerbladeSeconds: 5,
+};
+
 export const GHOST_CONFIG = {
   /** Samples per second of run time. */
   sampleRate: 20,

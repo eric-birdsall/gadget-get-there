@@ -38,16 +38,30 @@
 
       #gadgets { left: 0; right: 0; bottom: 18px; display: flex; flex-direction: column; align-items: center; gap: 6px; }
       #slots { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; padding: 0 16px; }
+      /* Gadget slots: an icon in a ring that counts down, in run order. */
       .slot {
-        display: flex; align-items: center; gap: 8px; padding: 6px 12px 6px 8px; border-radius: 10px;
-        background: rgba(28, 31, 58, 0.35); border: 2px solid transparent; font-size: 14px; opacity: 0.7;
+        position: relative; width: 52px; height: 52px; border-radius: 50%;
+        display: flex; align-items: center; justify-content: center;
+        background: rgba(28, 31, 58, 0.4); opacity: 0.75; transition: transform 0.15s, opacity 0.15s;
+      }
+      .slot .icon { width: 28px; height: 28px; color: #fff; }
+      .slot .icon svg, .slot-button svg, .mini-icon svg { width: 100%; height: 100%; display: block; }
+      .slot .ring { position: absolute; inset: 0; transform: rotate(-90deg); }
+      .slot .ring circle { fill: none; stroke: rgba(255, 255, 255, 0.35); stroke-width: 3; transition: stroke-dashoffset 0.1s linear; }
+      .slot.active { opacity: 1; background: rgba(255, 93, 143, 0.8); transform: scale(1.12); }
+      .slot.active .ring circle { stroke: #fff; }
+      .slot.next { opacity: 0.95; }
+      .slot.used { opacity: 0.3; }
+      .slot.used::after {
+        content: ''; position: absolute; left: 8px; right: 8px; top: 50%; height: 2.5px; margin-top: -1px;
+        background: #fff; transform: rotate(-35deg); border-radius: 2px;
       }
       .slot .key {
-        display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px; border-radius: 5px;
-        background: rgba(255, 255, 255, 0.25); font-size: 12px; font-weight: 700;
+        position: absolute; right: -4px; bottom: -4px; display: none; align-items: center; justify-content: center;
+        width: 18px; height: 18px; border-radius: 5px; background: #fff; color: var(--ink);
+        font-size: 11px; font-weight: 800; text-shadow: none;
       }
-      .slot.active { opacity: 1; background: rgba(255, 93, 143, 0.75); border-color: #fff; }
-      .slot.queued { opacity: 1; border-color: rgba(255, 255, 255, 0.8); border-style: dashed; }
+      .slot.ready .key { display: inline-flex; }
       #gadget-hint { font-size: 13px; opacity: 0.9; padding: 0 16px; text-align: center; }
       #controls-hint { left: 18px; top: 18px; font-size: 12px; opacity: 0.65; }
       #free-cursor { left: 0; right: 0; bottom: 96px; text-align: center; font-size: 13px; line-height: 1.5; opacity: 0.85; }
@@ -102,7 +116,16 @@
       button.primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 700; }
       button.primary:hover { background: #ff7aa3; }
       button.selected { background: #ffe1ea; border-color: var(--accent); font-weight: 700; }
-      #menu-gadgets button { font-size: 14px; padding: 9px 6px; }
+      #menu-gadgets { margin-bottom: 6px; }
+      .slot-button {
+        display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 8px 4px 9px; font-size: 13px;
+      }
+      .slot-button svg { width: 30px; height: 30px; color: var(--ink); }
+      .slot-button .n { font-size: 11px; font-weight: 800; opacity: 0.5; }
+      .slot-button:disabled { cursor: default; opacity: 0.75; }
+      #menu-gadgets-hint { margin: 0 0 10px; font-size: 12px; opacity: 0.6; }
+      .mini-icon { display: inline-block; width: 18px; height: 18px; margin: 0 2px; vertical-align: -4px; }
+      #result-meta span { margin-left: 6px; }
       #pbs { margin: 4px 0 12px; font-size: 13px; opacity: 0.75; line-height: 1.6; }
       #settings { margin-top: 14px; padding-top: 12px; border-top: 1px solid #e3e7f0; }
       #settings h3 { margin: 6px 0 8px; font-size: 12px; letter-spacing: 0.1em; text-transform: uppercase; opacity: 0.5; text-align: left; }
@@ -122,7 +145,7 @@
       <div id="timer" class="tabular">00:00.000</div>
       <div id="pb-line" class="tabular"></div>
     </div>
-    <div id="hint" class="hud">Move to start the clock · 1 2 3 or Q / E to pick a gadget</div>
+    <div id="hint" class="hud">Move to start the clock · 1 2 3 choose your first gadget</div>
     <div id="toast" class="hud"></div>
     <div id="crosshair" class="hud"></div>
     <div id="gadgets" class="hud">
@@ -144,15 +167,16 @@
       <div id="result-rows" class="tabular"></div>
       <div id="result-meta"></div>
       <div class="medal-targets tabular" id="result-targets"></div>
-      <div id="result-retry">R to go again · 1 2 3 to switch gadget</div>
+      <div id="result-retry">R to go again · 1 2 3 choose your first gadget</div>
     </div>
 
     <div id="overlay">
       <div id="card">
         <h1>Gadget Get There</h1>
-        <p class="sub">The Crossing · one gadget per run · beat your best</p>
+        <p class="sub">The Crossing · three gadgets, one use each · beat your best</p>
         <p id="menu-note"></p>
         <div id="menu-gadgets" class="row"></div>
+        <p id="menu-gadgets-hint">Gadget order · each is used once, then the next takes over</p>
         <div id="pbs" class="tabular"></div>
         <div class="row"><button id="play" class="primary">Play</button></div>
         <div class="row">
@@ -161,7 +185,7 @@
         </div>
         <div id="settings">
           <h3>Run</h3>
-          <label class="check">Checkpoints (respawn there, clock keeps running) <input id="set-checkpoints" type="checkbox" /></label>
+          <label class="check">Checkpoints (respawn there, clock keeps running, gadgets stay used) <input id="set-checkpoints" type="checkbox" /></label>
           <label class="check">Show personal-best ghost <input id="set-ghost" type="checkbox" /></label>
           <h3>Controls</h3>
           <label>Sensitivity <input id="set-sensitivity" type="range" min="0.2" max="3" step="0.05" /><output></output></label>
@@ -174,7 +198,8 @@
           <label class="check">Shadows <input id="set-shadows" type="checkbox" /></label>
           <p id="controls">
             WASD move · Mouse look · Space jump (hold to mantle) · Shift slide / crouch · Click gadget<br />
-            1 2 3 or Q / E pick gadget (between runs) · R retry · G ghost · ` debug · Esc pause
+            1 2 3 or Q / E choose first gadget (at the start) · R retry · G ghost · ` debug<br />
+            Esc pause · Esc again to leave fullscreen
           </p>
         </div>
       </div>

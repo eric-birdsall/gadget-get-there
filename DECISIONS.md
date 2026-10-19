@@ -56,3 +56,27 @@ Separate from gadgets: they work whichever gadget is equipped.
 **Course and feedback**
 - The Crossing gets optional slide-under shortcuts and mantle-height ledges as faster lines. The existing routes stay possible without abilities, and the route-bot tests cover the new lines.
 - Slide pose (leaning back, low) and a reach-and-pull-up mantle pose, plus slide hiss and grab-thud sounds. No new HUD elements.
+
+## Fullscreen, gadget icons and 3-slot runs (built)
+
+**Fullscreen**
+- Play enters fullscreen as well as capturing the mouse.
+- **First Esc pauses** (still fullscreen). **Second Esc** on the pause menu leaves fullscreen.
+- Chrome/Edge: the Keyboard Lock API lets single Esc presses reach the game. Holding Esc ~2 s is the browser's own way out and always works.
+- Safari/Firefox can't lock Esc: one press exits fullscreen. The game pauses and offers "Click to go fullscreen".
+- If fullscreen is refused (e.g. embedded panes), play windowed with a small note.
+
+**Gadget icons**
+- Simple white line SVG icons: a hook on a rope, a skate, a pad with an up arrow. They replace gadget names in the HUD; names stay as tooltips and in menus.
+- The current slot is highlighted, used slots are greyed and crossed out, and the rollerblade slot shows a countdown ring.
+
+**3-slot runs on The Crossing** (replaces one gadget per run here; a one-gadget training mode can come back with the main mode)
+- Each run has all three gadgets in a chosen order, each gadget exactly once.
+- **Choosing the order:** at the start line, 1/2/3 puts that gadget in the first slot, swapping places with whatever was there. The pause menu has the same slots for clicking. The order locks when the clock starts.
+- **One use each, then switch automatically** to the next slot:
+  - **Grapple:** one swing, spent on release. Misses are free.
+  - **Launch pad:** one launch. Re-throwing to adjust is free until it launches you.
+  - **Rollerblades:** 5 s of rolling while on the ground. Air time doesn't count.
+- When all three are used, finish on foot (abilities still work).
+- A checkpoint respawn keeps the clock running and gadgets stay spent. R (a full retry) refills all three.
+- **Personal best:** one PB (and one ghost) per level, whatever the checkpoint setting. The order used is saved with it and shown on the finish card. Existing one-gadget PBs are cleared.

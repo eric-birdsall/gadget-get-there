@@ -1,7 +1,7 @@
 import { Vector3 } from 'three';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { GadgetId } from '../gadgets/types';
-import { CheckpointMode, RecordStore } from '../storage/records';
+import { RecordStore } from '../storage/records';
 import { type GhostData, GhostPlayer, GhostRecorder, type GhostPose, isValidGhost } from './ghost';
 import { Medal, medalFor } from './medals';
 
@@ -42,51 +42,60 @@ describe('medals', () => {
 });
 
 describe('personal bests', () => {
+  const ORDER = [GadgetId.Grapple, GadgetId.LaunchPad, GadgetId.Rollerblades];
+  const run = (seconds: number, g: GhostData | null = null, checkpoints = false) => ({
+    seconds,
+    loadout: ORDER,
+    checkpoints,
+    date: 1,
+    ghost: g,
+  });
+
   it('the first finish sets the PB and its ghost', () => {
     const r = new RecordStore();
-    expect(r.submit('c', CheckpointMode.Off, { seconds: 50, gadget: GadgetId.Grapple, date: 1, ghost: ghost(10) })).toBe(true);
-    expect(r.best('c', CheckpointMode.Off)?.seconds).toBe(50);
-    expect(r.best('c', CheckpointMode.Off)?.ghost?.samples.length).toBeGreaterThan(0);
+    expect(r.submit('c', run(50, ghost(10)))).toBe(true);
+    expect(r.best('c')?.seconds).toBe(50);
+    expect(r.best('c')?.ghost?.samples.length).toBeGreaterThan(0);
   });
 
   it('a faster run replaces PB and ghost; a slower one changes neither', () => {
     const r = new RecordStore();
-    r.submit('c', CheckpointMode.Off, { seconds: 50, gadget: GadgetId.Grapple, date: 1, ghost: ghost(10) });
-    expect(r.submit('c', CheckpointMode.Off, { seconds: 55, gadget: GadgetId.LaunchPad, date: 2, ghost: ghost(3) })).toBe(false);
-    expect(r.best('c', CheckpointMode.Off)?.gadget).toBe(GadgetId.Grapple);
-    expect(r.submit('c', CheckpointMode.Off, { seconds: 45, gadget: GadgetId.Rollerblades, date: 3, ghost: ghost(3) })).toBe(true);
-    const best = r.best('c', CheckpointMode.Off)!;
+    r.submit('c', run(50, ghost(10)));
+    expect(r.submit('c', { ...run(55, ghost(3)), loadout: [...ORDER].reverse() })).toBe(false);
+    expect(r.best('c')?.loadout).toEqual(ORDER);
+    expect(r.submit('c', run(45, ghost(3)))).toBe(true);
+    const best = r.best('c')!;
     expect(best.seconds).toBe(45);
-    expect(best.gadget).toBe(GadgetId.Rollerblades);
     expect(best.ghost!.samples.length).toBe(4 * 6);
   });
 
-  it('checkpoint ON and OFF bests are separate', () => {
+  it('one best per level, whatever the checkpoint setting', () => {
     const r = new RecordStore();
-    r.submit('c', CheckpointMode.On, { seconds: 30, gadget: GadgetId.Grapple, date: 1, ghost: null });
-    r.submit('c', CheckpointMode.Off, { seconds: 40, gadget: GadgetId.Grapple, date: 1, ghost: null });
-    expect(r.best('c', CheckpointMode.On)?.seconds).toBe(30);
-    expect(r.best('c', CheckpointMode.Off)?.seconds).toBe(40);
+    r.submit('c', run(40, null, false));
+    expect(r.submit('c', run(30, null, true))).toBe(true);
+    expect(r.best('c')?.checkpoints).toBe(true);
+    expect(r.best('other')).toBeNull();
   });
 
   it('survive a reload', () => {
-    new RecordStore().submit('c', CheckpointMode.On, { seconds: 33, gadget: GadgetId.Grapple, date: 1, ghost: ghost(5) });
-    const again = new RecordStore().best('c', CheckpointMode.On);
+    new RecordStore().submit('c', run(33, ghost(5)));
+    const again = new RecordStore().best('c');
     expect(again?.seconds).toBe(33);
     expect(again?.ghost).not.toBeNull();
   });
 
   it('corrupt or obsolete saves fail gracefully', () => {
     localStorage.setItem('gadget-get-there.records', '{not json');
-    expect(new RecordStore().best('c', CheckpointMode.On)).toBeNull();
-    localStorage.setItem('gadget-get-there.records', JSON.stringify({ version: 999, courses: {} }));
-    expect(new RecordStore().best('c', CheckpointMode.On)).toBeNull();
+    expect(new RecordStore().best('c')).toBeNull();
+    // The old per-checkpoint-mode format is dropped.
+    localStorage.setItem('gadget-get-there.records', JSON.stringify({ version: 1, courses: { c: {} } }));
+    expect(new RecordStore().best('c')).toBeNull();
     // A good time with a broken ghost keeps the time, drops the ghost.
     localStorage.setItem(
       'gadget-get-there.records',
-      JSON.stringify({ version: 1, courses: { c: { [CheckpointMode.On]: { seconds: 31, gadget: 'grapple', date: 1, ghost: { version: 1, samples: [1, 2] } } } } }),
+      JSON.stringify({ version: 2, levels: { c: { seconds: 31, loadout: ORDER, checkpoints: false, date: 1, ghost: { version: 1, samples: [1, 2] } } } }),
     );
-    const b = new RecordStore().best('c', CheckpointMode.On);
+    const b = new RecordStore().best('c');
     expect(b?.seconds).toBe(31);
     expect(b?.ghost).toBeNull();
   });
@@ -103,8 +112,8 @@ describe('personal bests', () => {
       },
     });
     const r = new RecordStore();
-    expect(r.submit('c', CheckpointMode.On, { seconds: 30, gadget: GadgetId.Grapple, date: 1, ghost: null })).toBe(true);
-    expect(r.best('c', CheckpointMode.On)?.seconds).toBe(30);
+    expect(r.submit('c', run(30))).toBe(true);
+    expect(r.best('c')?.seconds).toBe(30);
   });
 });
 

@@ -18,7 +18,9 @@ npm run build      # typecheck + static build into dist/
 
 Pushing to `main` runs the tests, builds, and deploys to GitHub Pages (`.github/workflows/deploy.yml`).
 
-Click **Play** to capture the mouse. Esc releases it and pauses (the run clock freezes too).
+Click **Play** to go fullscreen and capture the mouse. Esc pauses (the run clock freezes too) and a second Esc leaves fullscreen; Resume goes back in. In Chrome/Edge holding Esc also exits; Safari and Firefox exit fullscreen on the first Esc.
+
+Each run uses all three gadgets in the order you choose, once each: one grapple swing, one pad launch, 5 s of rollerblading on the ground. When one is used up the next takes over automatically; after all three you finish on foot.
 
 | Action | Keys |
 |---|---|
@@ -28,11 +30,11 @@ Click **Play** to capture the mouse. Esc releases it and pauses (the run clock f
 | Slide (at speed) / crouch-walk (when slow) | Hold Shift; jump out of a slide keeps its speed |
 | Mantle a ledge | Hold Space in the air while moving into a ledge up to ~1 m above your head |
 | Use gadget | Left click (grapple: hold · rollerblades: hold to tuck · launch pad: click to throw) |
-| Pick gadget | 1 2 3, or Q / E (applies now at the start line, otherwise from the next run) |
+| Choose the first gadget | 1 2 3, or Q / E, at the start line (the menu's slots set the full order) |
 | Retry from start | R (or Enter) |
 | Toggle ghost | G |
 | Debug readout (speed, grounded…) | ` |
-| Pause / settings / tuning | Esc |
+| Pause / settings / tuning | Esc (a second Esc leaves fullscreen) |
 
 If the browser refuses to capture the mouse (embedded panes do), the game plays with a visible cursor instead: mouse look works inside the window, and holding the cursor at or past the left/right edge keeps turning. A normal browser tab gives full mouse look.
 
@@ -65,7 +67,7 @@ src/
 
 ## Status
 
-Phases 0–5 of the spec are in place: movement and camera; The Crossing with checkpoints (ON/OFF setting) and a finish gate; the three gadgets; medals, personal bests per checkpoint mode and the PB ghost; procedural sound and music.
+Runs now use a three-gadget loadout (one use each, automatic switching), with gadget icons in the HUD and one personal best per level. Phases 0–5 of the spec are in place: movement and camera; The Crossing with checkpoints (ON/OFF setting) and a finish gate; the three gadgets; medals, personal bests per checkpoint mode and the PB ghost; procedural sound and music.
 
 Character abilities (slide, crouch-walk, mantle) work with every gadget. The Crossing has two optional ability spots: blocks across the central gap that only a mantle reaches, and a barrier on the final platform with a slide-under slot.
 

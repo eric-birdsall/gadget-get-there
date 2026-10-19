@@ -44,6 +44,10 @@ export interface GadgetContext {
  */
 export interface GadgetRuntime {
   readonly id: GadgetId;
+  /** False in training: the gadget never runs out. */
+  limited: boolean;
+  /** Share of this gadget's use left, 1 … 0. */
+  readonly remaining: number;
   /** The movement config to use this tick (the base, or a modified copy). */
   movement(base: MovementConfig, ctx: GadgetContext): MovementConfig;
   beforeMove(ctx: GadgetContext): void;

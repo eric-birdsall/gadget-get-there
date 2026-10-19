@@ -3,6 +3,7 @@ import { GADGETS, gadgetDefinition } from '../gadgets/registry';
 import type { GadgetId } from '../gadgets/types';
 import { Medal } from '../game/medals';
 import { AttemptState } from '../game/session';
+import { GADGET_ICONS } from './icons';
 
 const el = (id: string) => document.getElementById(id)!;
 
@@ -43,10 +44,18 @@ export interface FinishInfo {
   medal: Medal;
   previousBest: number | null;
   newBest: boolean;
-  gadget: GadgetId;
+  loadout: GadgetId[];
   checkpoints: boolean;
   thresholds: MedalThresholds;
 }
+
+/** Icons for a gadget order, left to right, for the finish card and menus. */
+export function loadoutIcons(loadout: readonly GadgetId[]): string {
+  return loadout.map((id) => `<span class="mini-icon" title="${gadgetDefinition(id).displayName}">${GADGET_ICONS[id]}</span>`).join('');
+}
+
+/** Circumference of the countdown ring (r = 20 in a 48 box). */
+const RING = 2 * Math.PI * 20;
 
 export class Hud {
   private readonly timer = el('timer');
@@ -63,13 +72,16 @@ export class Hud {
   private lastGadgetKey = '';
   private toastTimer = 0;
 
+  private readonly slotEls: HTMLElement[] = [];
+
   constructor() {
-    for (const g of GADGETS) {
+    for (let i = 0; i < GADGETS.length; i++) {
       const slot = document.createElement('div');
       slot.className = 'slot';
-      slot.dataset.gadget = g.id;
-      slot.innerHTML = `<span class="key">${g.slot}</span><span></span>`;
-      slot.lastElementChild!.textContent = g.displayName;
+      slot.innerHTML =
+        `<svg class="ring" viewBox="0 0 48 48"><circle cx="24" cy="24" r="20"/></svg>` +
+        `<span class="icon"></span><span class="key"></span>`;
+      this.slotEls.push(slot);
       this.slots.append(slot);
     }
   }
@@ -83,23 +95,43 @@ export class Hud {
     this.hint.classList.toggle('show', state === AttemptState.Ready);
   }
 
-  /** The best for the current category, under the timer. */
-  setPersonalBest(seconds: number | null, checkpoints: boolean): void {
-    const mode = checkpoints ? 'checkpoints on' : 'checkpoints off';
-    this.pbLine.textContent = seconds === null ? `No best yet · ${mode}` : `PB ${formatTime(seconds)} · ${mode}`;
+  /** The level's best, under the timer. */
+  setPersonalBest(seconds: number | null): void {
+    this.pbLine.textContent = seconds === null ? 'No best yet' : `PB ${formatTime(seconds)}`;
   }
 
-  /** Highlights the gadget in use; a different choice made mid-run shows as queued. */
-  setGadgets(active: GadgetId, next: GadgetId): void {
-    const key = `${active}|${next}`;
+  /**
+   * The gadget slots, in run order: the current one highlighted (with a countdown ring while it
+   * wears down), used ones crossed out. At the start line each shows the key that puts it first.
+   */
+  setGadgets(loadout: readonly GadgetId[], slot: number, remaining: number, ready: boolean): void {
+    const key = `${loadout.join()}|${slot}|${remaining.toFixed(2)}|${ready}`;
     if (key === this.lastGadgetKey) return;
     this.lastGadgetKey = key;
-    for (const slot of this.slots.children as HTMLCollectionOf<HTMLElement>) {
-      slot.classList.toggle('active', slot.dataset.gadget === active);
-      slot.classList.toggle('queued', next !== active && slot.dataset.gadget === next);
-    }
-    this.gadgetHint.textContent =
-      next !== active ? `${gadgetDefinition(next).displayName} next run · R to retry now` : gadgetDefinition(active).actionHint;
+    loadout.forEach((id, i) => {
+      const el = this.slotEls[i];
+      if (el.dataset.gadget !== id) {
+        el.dataset.gadget = id;
+        el.querySelector('.icon')!.innerHTML = GADGET_ICONS[id];
+        el.querySelector('.key')!.textContent = String(gadgetDefinition(id).slot);
+        el.title = gadgetDefinition(id).displayName;
+      }
+      el.classList.toggle('active', i === slot);
+      el.classList.toggle('used', i < slot);
+      el.classList.toggle('next', i === slot + 1);
+      el.classList.toggle('ready', ready);
+      const ring = el.querySelector<SVGCircleElement>('.ring circle')!;
+      const left = i === slot ? remaining : i < slot ? 0 : 1;
+      ring.style.strokeDasharray = `${RING}`;
+      ring.style.strokeDashoffset = `${RING * (1 - left)}`;
+    });
+    const current = loadout[slot];
+    const next = loadout[slot + 1];
+    this.gadgetHint.textContent = !current
+      ? 'Gadgets used up · finish on foot'
+      : ready
+        ? `${gadgetDefinition(current).displayName} first · 1 2 3 to choose which goes first`
+        : `${gadgetDefinition(current).actionHint}${next ? ` · next: ${gadgetDefinition(next).displayName}` : ''}`;
   }
 
   setCrosshairLocked(locked: boolean): void {
@@ -139,7 +171,7 @@ export class Hud {
     } else {
       row('Personal best', formatTime(info.seconds));
     }
-    el('result-meta').textContent = `${gadgetDefinition(info.gadget).displayName} · checkpoints ${info.checkpoints ? 'on' : 'off'}`;
+    el('result-meta').innerHTML = `${loadoutIcons(info.loadout)}<span>checkpoints ${info.checkpoints ? 'on' : 'off'}</span>`;
     const t = info.thresholds;
     el('result-targets').textContent = `Gold ${t.goldSeconds}s · Silver ${t.silverSeconds}s · Bronze ${t.bronzeSeconds}s`;
   }

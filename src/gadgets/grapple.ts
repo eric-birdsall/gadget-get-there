@@ -1,5 +1,5 @@
 import { Vector3 } from 'three';
-import { DT, GRAPPLE_CONFIG } from '../config';
+import { DT, GRAPPLE_CONFIG, USAGE_CONFIG } from '../config';
 import { type Box, raycast } from '../sim/collision';
 import { type MovementConfig, type PlayerState, depenetrate } from '../sim/player';
 import { type GadgetContext, GadgetEvent, GadgetId, type GadgetRuntime } from './types';
@@ -56,9 +56,16 @@ export function findGrappleTarget(
  */
 export class GrappleGadget implements GadgetRuntime {
   readonly id = GadgetId.Grapple;
+  limited = true;
   /** Index into the course anchors while attached, else -1. */
   anchorIndex = -1;
   private length = 0;
+  private swings = 0;
+
+  /** Misses are free: only finished swings count. */
+  get remaining(): number {
+    return this.limited ? Math.max(0, 1 - this.swings / USAGE_CONFIG.grappleSwings) : 1;
+  }
 
   get attached(): boolean {
     return this.anchorIndex >= 0;
@@ -71,7 +78,7 @@ export class GrappleGadget implements GadgetRuntime {
   beforeMove(ctx: GadgetContext): void {
     const { player: p, input } = ctx;
     if (!this.attached) {
-      if (!input.pressed) return;
+      if (!input.pressed || this.remaining <= 0) return;
       const target = findGrappleTarget(ctx.anchors, ctx.boxes, input.aimOrigin, input.aimDir, p);
       if (target < 0) {
         ctx.emit(GadgetEvent.GrappleMissed);
@@ -123,6 +130,7 @@ export class GrappleGadget implements GadgetRuntime {
 
   private release(p: PlayerState, boost = true): void {
     this.anchorIndex = -1;
+    this.swings++;
     p.tethered = false;
     if (!boost) return;
     const speed = p.vel.length();
@@ -133,6 +141,8 @@ export class GrappleGadget implements GadgetRuntime {
   }
 
   resetTransientState(p: PlayerState): void {
+    // Losing the rope mid-swing (a respawn, a mantle) still used the swing.
+    if (this.attached) this.swings++;
     this.anchorIndex = -1;
     this.length = 0;
     p.tethered = false;

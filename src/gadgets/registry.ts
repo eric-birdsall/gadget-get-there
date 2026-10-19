@@ -28,6 +28,7 @@ export const GADGETS: readonly GadgetDefinition[] = [
 ];
 
 export const DEFAULT_GADGET = GadgetId.Grapple;
+export const DEFAULT_LOADOUT: readonly GadgetId[] = [GadgetId.Grapple, GadgetId.LaunchPad, GadgetId.Rollerblades];
 
 export function gadgetDefinition(id: GadgetId): GadgetDefinition {
   return GADGETS.find((g) => g.id === id) ?? GADGETS[0];

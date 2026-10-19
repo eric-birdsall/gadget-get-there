@@ -70,11 +70,8 @@ export class InputManager {
   constructor(private readonly target: HTMLElement) {
     document.addEventListener('keydown', (e) => {
       if (!this.locked) return;
-      // With a real lock the browser handles Esc; with a free cursor it's ours.
-      if (e.code === 'Escape' && this.freeCursor) {
-        this.unlock();
-        return;
-      }
+      // Esc belongs to the pause/fullscreen handling in main.
+      if (e.code === 'Escape') return;
       if (e.code === 'Space' || e.code.startsWith('Arrow')) e.preventDefault();
       if (!e.repeat) this.pressed.add(e.code);
       this.held.add(e.code);

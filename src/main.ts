@@ -4,7 +4,7 @@ import { ABILITY_CONFIG, CAMERA_CONFIG, DT, MAX_FRAME_SECONDS } from './config';
 import { crossing } from './course/crossing';
 import { GrappleGadget, findGrappleTarget } from './gadgets/grapple';
 import { LaunchPadGadget, padPlacement } from './gadgets/launchPad';
-import { DEFAULT_GADGET, GADGETS, cycleGadget, isGadgetId } from './gadgets/registry';
+import { DEFAULT_LOADOUT, GADGETS, cycleGadget, isGadgetId } from './gadgets/registry';
 import { RollerbladeGadget } from './gadgets/rollerblades';
 import { GadgetEvent, type GadgetId } from './gadgets/types';
 import { type GhostPose, GhostPlayer } from './game/ghost';
@@ -13,18 +13,26 @@ import { type AnyEvent, AttemptState, RunSession, type SessionInput, SessionEven
 import { Action, InputManager } from './input/input';
 import { Renderer } from './render/renderer';
 import { Stance } from './sim/player';
-import { RecordStore, checkpointMode } from './storage/records';
+import { RecordStore } from './storage/records';
 import { loadSettings, saveSettings } from './storage/settings';
 import { Hud } from './ui/hud';
 import { Menu } from './ui/menu';
+import { Fullscreen } from './ui/fullscreen';
 import { TuningPanel, loadTuning } from './ui/tuning';
 
 loadTuning();
 const course = crossing;
 const settings = loadSettings();
 const records = new RecordStore();
+/** The saved gadget order, if it's still a valid order of every gadget. */
+function savedLoadout(): GadgetId[] {
+  const ids = settings.loadout.split(',');
+  const valid = ids.length === GADGETS.length && ids.every(isGadgetId) && new Set(ids).size === ids.length;
+  return valid ? (ids as GadgetId[]) : [...DEFAULT_LOADOUT];
+}
+
 const session = new RunSession(course, {
-  gadget: isGadgetId(settings.gadget) ? settings.gadget : DEFAULT_GADGET,
+  loadout: savedLoadout(),
   checkpointsEnabled: settings.checkpoints,
 });
 const renderer = new Renderer(session.boxes, course, session.anchors);
@@ -32,6 +40,9 @@ const input = new InputManager(renderer.canvas);
 const hud = new Hud();
 const tuning = new TuningPanel();
 const audio = new GameAudio();
+const fullscreen = new Fullscreen();
+/** When the game last paused, so one Esc press can't both pause and leave fullscreen. */
+let pausedAt = 0;
 
 let started = false;
 let paused = true;
@@ -57,23 +68,25 @@ function applySettings(): void {
   refreshCategory();
 }
 
-/** PB line, menu bests and ghost for the category this attempt counts in. */
+/** PB line, menu best and ghost for this level. */
 function refreshCategory(): void {
-  const best = records.best(course.id, checkpointMode(session.checkpointsEnabled));
-  hud.setPersonalBest(best?.seconds ?? null, session.checkpointsEnabled);
-  menu.setBests(records.best(course.id, checkpointMode(true))?.seconds ?? null, records.best(course.id, checkpointMode(false))?.seconds ?? null);
+  const best = records.best(course.id);
+  hud.setPersonalBest(best?.seconds ?? null);
+  menu.setBest(best?.seconds ?? null);
   ghost = best?.ghost ? new GhostPlayer(best.ghost) : null;
 }
 
 function refreshGadget(): void {
-  hud.setGadgets(session.gadget.id, session.nextGadget);
-  menu.setGadget(session.gadget.id, session.nextGadget);
+  const ready = session.state === AttemptState.Ready;
+  hud.setGadgets(session.loadout, session.slot, session.gadget?.remaining ?? 0, ready);
+  menu.setLoadout(session.loadout, !ready);
 }
 
-function selectGadget(id: GadgetId): void {
-  if (id === session.nextGadget) return;
-  session.selectGadget(id);
-  settings.gadget = id;
+/** At the start line: put `id` in `slot` (first by default), swapping places. */
+function placeGadget(id: GadgetId, slot = 0): void {
+  if (session.state !== AttemptState.Ready || session.loadout[slot] === id) return;
+  session.placeGadget(id, slot);
+  settings.loadout = session.loadout.join(',');
   saveSettings(settings);
   refreshGadget();
   audio.play(Sfx.Select);
@@ -93,15 +106,20 @@ function restart(): void {
 
 function finish(): void {
   const r = session.result!;
-  const mode = checkpointMode(r.checkpointsEnabled);
-  const previous = records.best(course.id, mode);
-  const newBest = records.submit(course.id, mode, { seconds: r.seconds, gadget: r.gadget, date: Date.now(), ghost: r.ghost });
+  const previous = records.best(course.id);
+  const newBest = records.submit(course.id, {
+    seconds: r.seconds,
+    loadout: r.loadout,
+    checkpoints: r.checkpointsEnabled,
+    date: Date.now(),
+    ghost: r.ghost,
+  });
   hud.showResult({
     seconds: r.seconds,
     medal: medalFor(r.seconds, course.medalThresholds),
     previousBest: previous?.seconds ?? null,
     newBest,
-    gadget: r.gadget,
+    loadout: r.loadout,
     checkpoints: r.checkpointsEnabled,
     thresholds: course.medalThresholds,
   });
@@ -139,6 +157,9 @@ function handle(events: AnyEvent[]): void {
       case SessionEvent.Mantled:
         audio.play(Sfx.Mantle);
         break;
+      case SessionEvent.GadgetSwitched:
+        audio.play(Sfx.Select);
+        break;
       case SessionEvent.Fell:
         audio.play(Sfx.Respawn);
         break;
@@ -173,27 +194,61 @@ function handle(events: AnyEvent[]): void {
   }
 }
 
+/** From a click: go fullscreen and capture the mouse. Plays in the window if fullscreen is refused. */
+function enterPlay(): void {
+  audio.start();
+  if (!fullscreen.active) {
+    void fullscreen.enter();
+    // Some embedded browsers neither grant nor refuse: check a moment later instead.
+    window.setTimeout(() => {
+      if (!fullscreen.active && !paused) hud.showToast("Fullscreen isn't available here · playing in the window", 2.5);
+    }, 1200);
+  }
+  input.lock();
+}
+
 const menu = new Menu(settings, {
-  play: () => {
-    audio.start();
-    input.lock();
-  },
+  play: enterPlay,
   restart: () => {
     restart();
-    audio.start();
-    input.lock();
+    enterPlay();
   },
   tuning: () => tuning.toggle(),
-  selectGadget,
+  placeGadget,
   settingsChanged: applySettings,
 });
+
+// First Esc pauses (still fullscreen); a second Esc, on the pause menu, leaves fullscreen.
+document.addEventListener(
+  'keydown',
+  (e) => {
+    if (e.code !== 'Escape') return;
+    if (!paused) {
+      e.preventDefault();
+      input.unlock();
+    } else if (performance.now() - pausedAt > 250) {
+      fullscreen.exit();
+    }
+  },
+  true,
+);
+// Browsers without Esc lock leave fullscreen on one press: pause too.
+document.addEventListener('fullscreenchange', () => {
+  if (!fullscreen.active && !paused) input.unlock();
+  if (paused) menu.show(started, pauseNote());
+});
+
+function pauseNote(): string {
+  return started && !fullscreen.active && fullscreen.supported ? 'Resume to go back to fullscreen.' : '';
+}
 
 // The game runs only while the mouse is captured; losing it (Esc, alt-tab) is a true pause.
 document.addEventListener('pointerlockchange', () => {
   paused = !input.locked;
+  if (paused) pausedAt = performance.now();
   audio.setPaused(paused);
   document.body.classList.toggle('hide-cursor', !paused && input.usingFreeCursor);
-  if (paused) menu.show(started);
+  if (paused) menu.show(started, pauseNote());
   else {
     started = true;
     menu.hide();
@@ -233,12 +288,13 @@ function handleKeys(): void {
     menu.syncCheckbox('ghost');
     hud.showToast(settings.ghost ? 'Ghost on' : 'Ghost off', 0.8);
   }
+  // At the start line: 1 2 3 put that gadget first; Q / E rotate the first slot.
   const slots = [Action.Slot1, Action.Slot2, Action.Slot3];
   slots.forEach((a, i) => {
-    if (input.consumePress(a) && GADGETS[i]) selectGadget(GADGETS[i].id);
+    if (input.consumePress(a) && GADGETS[i]) placeGadget(GADGETS[i].id);
   });
-  if (input.consumePress(Action.NextGadget)) selectGadget(cycleGadget(session.nextGadget, 1));
-  if (input.consumePress(Action.PrevGadget)) selectGadget(cycleGadget(session.nextGadget, -1));
+  if (input.consumePress(Action.NextGadget)) placeGadget(cycleGadget(session.loadout[0], 1));
+  if (input.consumePress(Action.PrevGadget)) placeGadget(cycleGadget(session.loadout[0], -1));
   if (input.consumePress(Action.Retry)) restart();
 }
 

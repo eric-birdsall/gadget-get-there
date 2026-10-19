@@ -2,7 +2,7 @@ import { Vector3 } from 'three';
 import { CAMERA_CONFIG, DT, MOVEMENT_CONFIG, PLAYER_SHAPE, WORLD_CONFIG } from '../config';
 import type { CourseDefinition, TriggerVolume } from '../course/types';
 import { GrappleGadget } from '../gadgets/grapple';
-import { DEFAULT_GADGET, gadgetDefinition } from '../gadgets/registry';
+import { DEFAULT_LOADOUT, gadgetDefinition } from '../gadgets/registry';
 import { type GadgetContext, GadgetEvent, type GadgetId, type GadgetRuntime } from '../gadgets/types';
 import { type Box, makeBox, raycast } from '../sim/collision';
 import { type MovementConfig, type PlayerInput, type PlayerState, createPlayer, resetPlayer, stepPlayer } from '../sim/player';
@@ -26,6 +26,8 @@ export enum SessionEvent {
   Finished = 'finished',
   /** The player was placed at a spawn point; views should snap rather than glide there. */
   Spawned = 'spawned',
+  /** The current gadget ran out and the next slot (or none) took over. */
+  GadgetSwitched = 'gadget-switched',
 }
 
 export type AnyEvent = SessionEvent | GadgetEvent;
@@ -41,7 +43,8 @@ export interface SessionInput extends PlayerInput {
 
 export interface RunResult {
   seconds: number;
-  gadget: GadgetId;
+  /** Gadget order used. */
+  loadout: GadgetId[];
   checkpointsEnabled: boolean;
   ghost: GhostData;
 }
@@ -91,7 +94,12 @@ export function inVolume(p: PlayerState, v: TriggerVolume): boolean {
 }
 
 export interface SessionOptions {
+  /** Gadget order: each gadget once. */
+  loadout?: GadgetId[];
+  /** Shortcut: this gadget first, the rest in default order. */
   gadget?: GadgetId;
+  /** Training: one gadget that never runs out (no switching). */
+  unlimited?: boolean;
   checkpointsEnabled?: boolean;
   movement?: MovementConfig;
 }
@@ -111,9 +119,13 @@ export class RunSession {
   attempt = 0;
   /** Index of the furthest checkpoint reached this attempt, or -1. */
   checkpoint = -1;
-  /** The gadget for this attempt; a different choice mid-run waits in `queuedGadget`. */
-  gadget: GadgetRuntime;
-  queuedGadget: GadgetId | null = null;
+  /** Gadget order for the run. Locked once the clock starts. */
+  readonly loadout: GadgetId[];
+  /** Index into `loadout` of the gadget in use; `loadout.length` once all are used up. */
+  slot = 0;
+  /** The gadget in use, or null on foot after all are spent. */
+  gadget: GadgetRuntime | null;
+  private readonly unlimited: boolean;
   /** Checkpoint rule for this attempt; a change mid-run waits in `queuedCheckpoints`. */
   checkpointsEnabled: boolean;
   queuedCheckpoints: boolean | null = null;
@@ -141,27 +153,45 @@ export class RunSession {
     this.killY = killPlaneY(this.boxes);
     this.startPos = new Vector3(...course.start.pos);
     this.player = createPlayer(this.startPos);
-    this.gadget = gadgetDefinition(options.gadget ?? DEFAULT_GADGET).create();
+    this.unlimited = options.unlimited ?? false;
+    const order = options.loadout ?? DEFAULT_LOADOUT;
+    this.loadout = options.gadget ? [options.gadget, ...order.filter((g) => g !== options.gadget)] : [...order];
+    this.gadget = this.createGadget(0);
     this.checkpointsEnabled = options.checkpointsEnabled ?? true;
     this.restart();
   }
 
-  /** The gadget the next attempt will use. */
-  get nextGadget(): GadgetId {
-    return this.queuedGadget ?? this.gadget.id;
+  private createGadget(slot: number): GadgetRuntime | null {
+    const id = this.loadout[slot];
+    if (!id) return null;
+    const g = gadgetDefinition(id).create();
+    g.limited = !this.unlimited;
+    return g;
   }
 
-  /** Switches now while at the start line; otherwise queues it for the next attempt. */
-  selectGadget(id: GadgetId): void {
-    if (this.state === AttemptState.Ready) {
-      if (id !== this.gadget.id) {
-        this.gadget.resetTransientState(this.player);
-        this.gadget = gadgetDefinition(id).create();
-      }
-      this.queuedGadget = null;
-    } else {
-      this.queuedGadget = id === this.gadget.id ? null : id;
-    }
+  /** The gadget after the current one, or null. */
+  get nextGadget(): GadgetId | null {
+    return this.loadout[this.slot + 1] ?? null;
+  }
+
+  /** At the start line: put `id` in slot `slot` (first by default), swapping places. */
+  placeGadget(id: GadgetId, slot = 0): void {
+    if (this.state !== AttemptState.Ready) return;
+    const from = this.loadout.indexOf(id);
+    if (from < 0 || from === slot || slot >= this.loadout.length) return;
+    [this.loadout[from], this.loadout[slot]] = [this.loadout[slot], this.loadout[from]];
+    this.gadget?.resetTransientState(this.player);
+    this.slot = 0;
+    this.gadget = this.createGadget(0);
+  }
+
+  /** Spent gadget: on to the next slot. */
+  private switchIfSpent(): void {
+    if (!this.gadget || this.gadget.remaining > 0) return;
+    this.gadget.resetTransientState(this.player);
+    this.slot++;
+    this.gadget = this.createGadget(this.slot);
+    this.events.push(SessionEvent.GadgetSwitched);
   }
 
   /** Applies now at the start line; otherwise from the next attempt, so rules never change mid-run. */
@@ -176,10 +206,11 @@ export class RunSession {
 
   /** A fresh attempt from the start line: clock zeroed, checkpoints cleared, queued choices applied. */
   restart(): AnyEvent[] {
-    this.gadget.resetTransientState(this.player);
-    if (this.queuedGadget) this.gadget = gadgetDefinition(this.queuedGadget).create();
+    this.gadget?.resetTransientState(this.player);
+    // A full retry refills every gadget.
+    this.slot = 0;
+    this.gadget = this.createGadget(0);
     if (this.queuedCheckpoints !== null) this.checkpointsEnabled = this.queuedCheckpoints;
-    this.queuedGadget = null;
     this.queuedCheckpoints = null;
     resetPlayer(this.player, this.startPos);
     this.lastGroundY = this.startPos.y;
@@ -195,7 +226,8 @@ export class RunSession {
 
   /** Back to the latest checkpoint (or the start) with the clock still running. */
   private respawn(): void {
-    this.gadget.resetTransientState(this.player);
+    // Gadgets stay as they were: spent ones stay spent.
+    this.gadget?.resetTransientState(this.player);
     const cp = this.checkpoint >= 0 ? this.course.checkpoints[this.checkpoint].respawn : null;
     const pos = cp ? new Vector3(...cp.pos) : this.startPos;
     resetPlayer(this.player, pos);
@@ -236,15 +268,17 @@ export class RunSession {
       emit: this.emit,
     };
     const moveInput = live ? input : { ...input, forward: 0, right: 0, jump: false };
-    const cfg = this.gadget.movement(this.movement, ctx);
-    this.gadget.beforeMove(ctx);
+    const g = this.gadget;
+    const cfg = g ? g.movement(this.movement, ctx) : this.movement;
+    g?.beforeMove(ctx);
     stepPlayer(this.player, moveInput, this.boxes, cfg);
-    if (this.player.justMantled && this.gadget instanceof GrappleGadget && this.gadget.attached) {
+    if (this.player.justMantled && g instanceof GrappleGadget && g.attached) {
       // Pulling up onto a ledge ends the swing.
-      this.gadget.resetTransientState(this.player);
+      g.resetTransientState(this.player);
       this.events.push(GadgetEvent.GrappleReleased);
     }
-    this.gadget.afterMove(ctx);
+    g?.afterMove(ctx);
+    if (live) this.switchIfSpent();
 
     const p = this.player;
     if (Math.hypot(p.vel.x, p.vel.z) > 0.5) this.facing = Math.atan2(-p.vel.x, -p.vel.z);
@@ -287,10 +321,10 @@ export class RunSession {
     if (inVolume(p, this.course.finish)) {
       this.state = AttemptState.Finished;
       this.recorder.sample(this.elapsed, p.pos, this.facing, this.grappleAnchor(), true);
-      this.gadget.resetTransientState(p);
+      this.gadget?.resetTransientState(p);
       this.result = {
         seconds: this.elapsed,
-        gadget: this.gadget.id,
+        loadout: [...this.loadout],
         checkpointsEnabled: this.checkpointsEnabled,
         ghost: this.recorder.finish(),
       };

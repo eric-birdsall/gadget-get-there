@@ -1,5 +1,5 @@
 import { Vector3 } from 'three';
-import { DT, LAUNCH_PAD_CONFIG } from '../config';
+import { DT, LAUNCH_PAD_CONFIG, USAGE_CONFIG } from '../config';
 import { type Box, raycast } from '../sim/collision';
 import { type MovementConfig, type PlayerState, launchPlayer } from '../sim/player';
 import { handPosition } from './grapple';
@@ -34,8 +34,15 @@ export function padPlacement(boxes: readonly Box[], aimOrigin: Vector3, aimDir: 
  */
 export class LaunchPadGadget implements GadgetRuntime {
   readonly id = GadgetId.LaunchPad;
+  limited = true;
   pad: Pad | null = null;
   private cooldown = 0;
+  private launches = 0;
+
+  /** Re-throwing is free: only launches count. */
+  get remaining(): number {
+    return this.limited ? Math.max(0, 1 - this.launches / USAGE_CONFIG.padLaunches) : 1;
+  }
 
   movement(base: MovementConfig): MovementConfig {
     return base;
@@ -45,7 +52,7 @@ export class LaunchPadGadget implements GadgetRuntime {
     this.cooldown = Math.max(0, this.cooldown - DT);
     if (this.pad) this.pad.rearm = Math.max(0, this.pad.rearm - DT);
     const { input } = ctx;
-    if (!input.pressed || this.cooldown > 0) return;
+    if (!input.pressed || this.cooldown > 0 || this.remaining <= 0) return;
     this.cooldown = LAUNCH_PAD_CONFIG.throwCooldown;
     const spot = padPlacement(ctx.boxes, input.aimOrigin, input.aimDir, ctx.player);
     if (!spot) {
@@ -77,6 +84,7 @@ export class LaunchPadGadget implements GadgetRuntime {
     launch.y = c.launchVertical;
     launchPlayer(p, launch);
     pad.rearm = c.rearmSeconds;
+    this.launches++;
     ctx.emit(GadgetEvent.PadLaunched);
   }
 

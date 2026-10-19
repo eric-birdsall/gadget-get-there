@@ -15,8 +15,8 @@ export interface Settings {
   checkpoints: boolean;
   ghost: boolean;
   shadows: boolean;
-  /** Last gadget picked, restored next visit. */
-  gadget: string;
+  /** Last gadget order, comma-separated, restored next visit. */
+  loadout: string;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -29,7 +29,7 @@ export const DEFAULT_SETTINGS: Settings = {
   checkpoints: true,
   ghost: true,
   shadows: true,
-  gadget: 'grapple',
+  loadout: 'grapple,launch-pad,rollerblades',
 };
 
 export function readJson(key: string): unknown {

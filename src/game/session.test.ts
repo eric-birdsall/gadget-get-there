@@ -127,7 +127,7 @@ describe('finish', () => {
     s.step(go());
     expect(s.elapsed).toBe(time);
     expect(s.result?.seconds).toBe(time);
-    expect(s.result?.gadget).toBe(GadgetId.Rollerblades);
+    expect(s.result?.loadout[0]).toBe(GadgetId.Rollerblades);
     expect(s.result?.checkpointsEnabled).toBe(false);
     expect(s.result?.ghost.samples.length).toBeGreaterThan(0);
     // Coasting off the end afterwards keeps the result.
@@ -146,21 +146,34 @@ describe('finish', () => {
   });
 });
 
-describe('gadget selection', () => {
-  it('switches immediately while Ready', () => {
-    const s = new RunSession(tiny, { gadget: GadgetId.Grapple });
-    s.selectGadget(GadgetId.LaunchPad);
-    expect(s.gadget.id).toBe(GadgetId.LaunchPad);
+describe('gadget order', () => {
+  it('holds each gadget exactly once; placing one first swaps it in while Ready', () => {
+    const s = new RunSession(tiny, { loadout: [GadgetId.Grapple, GadgetId.LaunchPad, GadgetId.Rollerblades] });
+    s.placeGadget(GadgetId.Rollerblades);
+    expect(s.loadout).toEqual([GadgetId.Rollerblades, GadgetId.LaunchPad, GadgetId.Grapple]);
+    expect(s.gadget?.id).toBe(GadgetId.Rollerblades);
+    s.placeGadget(GadgetId.Grapple, 1);
+    expect(s.loadout).toEqual([GadgetId.Rollerblades, GadgetId.Grapple, GadgetId.LaunchPad]);
+    expect(s.nextGadget).toBe(GadgetId.Grapple);
   });
 
-  it('never swaps mid-run: the choice waits for the next attempt', () => {
-    const s = new RunSession(tiny, { gadget: GadgetId.Grapple });
+  it('locks once the clock starts', () => {
+    const s = new RunSession(tiny, { loadout: [GadgetId.Grapple, GadgetId.LaunchPad, GadgetId.Rollerblades] });
     s.step(go());
-    s.selectGadget(GadgetId.Rollerblades);
-    expect(s.gadget.id).toBe(GadgetId.Grapple);
-    expect(s.nextGadget).toBe(GadgetId.Rollerblades);
-    s.restart();
-    expect(s.gadget.id).toBe(GadgetId.Rollerblades);
+    s.placeGadget(GadgetId.Rollerblades);
+    expect(s.loadout[0]).toBe(GadgetId.Grapple);
+    expect(s.gadget?.id).toBe(GadgetId.Grapple);
+  });
+
+  it('a checkpoint respawn keeps spent gadgets spent', () => {
+    const s = new RunSession(tiny, { checkpointsEnabled: true });
+    s.player.pos.set(0, 0, -10);
+    s.step(go());
+    s.slot = 1;
+    s.gadget = null;
+    expect(stepUntil(s, go({ right: 1, forward: 0 }), SessionEvent.Fell)).toBe(true);
+    expect(s.slot).toBe(1);
+    expect(s.state).toBe(AttemptState.Running);
   });
 });
 

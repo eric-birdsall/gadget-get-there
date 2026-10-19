@@ -115,7 +115,8 @@ export const PAD_LINE: Waypoint[] = [
 ];
 
 function run(gadget: GadgetId, route: Waypoint[]) {
-  const session = new RunSession(crossing, { gadget, checkpointsEnabled: false });
+  // Training-style: one gadget, never runs out. This checks each gadget's lines on their own.
+  const session = new RunSession(crossing, { gadget, checkpointsEnabled: false, unlimited: true });
   return runRoute(session, route);
 }
 
@@ -137,6 +138,32 @@ describe('The Crossing', () => {
     expect(r.finished, `stuck near (${r.last.toArray().map((n) => n.toFixed(1))}) heading for waypoint ${r.waypoint}`).toBe(true);
     expect(r.seconds).toBeGreaterThan(20);
     expect(r.seconds).toBeLessThan(70);
+  });
+
+  it('a three-slot run (one swing, one pad, 5 s of blades) finishes and beats plain running', () => {
+    const session = new RunSession(crossing, {
+      loadout: [GadgetId.Grapple, GadgetId.LaunchPad, GadgetId.Rollerblades],
+      checkpointsEnabled: false,
+    });
+    const route: Waypoint[] = [
+      ...START,
+      ...HOPS,
+      { x: 0, z: -80, grapple: { anchor: 0, releaseZ: -91 }, noJump: true },
+      { x: 0, z: -107 },
+      ...TO_HUB_A.slice(1),
+      { x: 0, z: -152, pad: [0, 30, -158] },
+      { x: 0, z: -158, noJump: true },
+      { x: 0, z: -192, maxSpeed: 14 },
+      ...BYPASS,
+      ...FINAL,
+    ];
+    const r = runRoute(session, route);
+    expect(r.falls, `fell near (${r.last.toArray().map((n) => n.toFixed(1))}) heading for waypoint ${r.waypoint}`).toBe(0);
+    expect(r.finished, `stuck near (${r.last.toArray().map((n) => n.toFixed(1))})`).toBe(true);
+    expect(r.events.filter((e) => e === 'gadget-switched').length).toBe(3);
+    expect(session.gadget).toBeNull();
+    results.set('three-slot run', r.seconds);
+    expect(r.seconds).toBeLessThan(results.get('running line, grapple equipped')!);
   });
 
   it("each gadget's own line beats plain running", () => {
