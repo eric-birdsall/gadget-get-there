@@ -15,6 +15,7 @@ import { type AnyEvent, AttemptState, MAX_SLOTS, RunSession, type SessionInput, 
 import { PadButton } from './input/gamepad';
 import { Action, InputManager, USE_ACTIONS, device } from './input/input';
 import { PadNav } from './ui/padNav';
+import { CrouchToggle } from './input/crouchToggle';
 import { Renderer } from './render/renderer';
 import { Stance, burstAvailable } from './sim/player';
 import { RecordStore } from './storage/records';
@@ -136,6 +137,7 @@ function toggleGadget(id: GadgetId): void {
 
 /** Camera behind the player after any spawn. */
 function onSpawned(): void {
+  crouch.release();
   input.yaw = session.spawnYaw;
   input.pitch = CAMERA_CONFIG.defaultPitch;
   prevFeet.copy(session.player.pos);
@@ -392,6 +394,9 @@ input.onLockError = (switchedToFreeCursor) => {
   if (!switchedToFreeCursor) menu.show(started, "The browser didn't capture the mouse. Click again in a moment.");
 };
 
+/** Crouch as a toggle (or held, by the setting). */
+const crouch = new CrouchToggle();
+
 /** A sprint press waiting for the next sim tick (frames can be shorter than a tick). */
 let sprintPending = false;
 
@@ -402,7 +407,7 @@ function readInput(jumpPressed: boolean, usePressed: boolean[]): SessionInput {
     yaw: input.yaw,
     jump: input.isHeld(Action.Jump) || jumpPressed,
     sprint: sprintPending,
-    crouch: input.isHeld(Action.Crouch),
+    crouch: crouch.held(settings.crouchMode === 'hold' ? 'hold' : 'toggle', input.isHeld(Action.Crouch)),
     use: USE_ACTIONS.map((a, i) => input.isHeld(a) || usePressed[i]),
     usePressed,
     aimOrigin,
@@ -465,10 +470,12 @@ function frame(now: number): void {
     let usePressed = USE_ACTIONS.map((a) => input.consumePress(a));
     // A toggle: one press is one switch, so it waits for a tick rather than being dropped.
     if (input.consumePress(Action.Sprint)) sprintPending = true;
+    if (input.consumePress(Action.Crouch)) crouch.press(session.player.grounded);
     accumulator += dt;
     while (accumulator >= DT) {
       prevFeet.copy(session.player.pos);
       handle(session.step(readInput(jumpPressed, usePressed)));
+      crouch.afterTick(session.player);
       sprintPending = false;
       jumpPressed = false;
       usePressed = USE_ACTIONS.map(() => false);

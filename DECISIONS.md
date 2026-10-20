@@ -272,3 +272,8 @@ Replaces the gadget in hand, switching (scroll, F, 1–5 mid-run) and auto-switc
 - Chaining slides could add ~3 m/s every second, without limit. Now a burst lifts you to at most 17.5 m/s (sprint speed + the burst), so chains level off.
 - Each burst costs 25% of sprint stamina and needs that much in the bar; refilling pauses briefly after it. Already at the ceiling or short of stamina: no burst, nothing spent.
 - The ready ring only glows, and the chime only plays, when a burst is actually available.
+
+## Crouch is a toggle (built)
+- Press crouch/slide once to crouch or slide, again to stand, so a finger is free for jump mid-slide. A jump lets go (you come out of a slide standing; the burst still fires), as does landing after a tuck switched on in the air, and a respawn. Sliding off an edge keeps it on, so you land still sliding.
+- Settings → Controls → Crouch / slide: Toggle (default) or Hold (the old way). Both devices.
+- The toggle lives in the input layer (`src/input/crouchToggle.ts`); the sim still takes crouch as held, so tests and route bots are unchanged.

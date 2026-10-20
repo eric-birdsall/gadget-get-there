@@ -25,6 +25,8 @@ export interface Settings {
   level: string;
   /** What to play with: 'keys' (mouse and keyboard) or 'pad' (controller). The other is ignored. */
   inputMode: string;
+  /** Crouch / slide: 'toggle' (press on, press off) or 'hold'. */
+  crouchMode: string;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -42,6 +44,7 @@ export const DEFAULT_SETTINGS: Settings = {
   loadout: 'grapple,jetpack,dash',
   level: 'the-crossing',
   inputMode: 'keys',
+  crouchMode: 'toggle',
 };
 
 export function readJson(key: string): unknown {
