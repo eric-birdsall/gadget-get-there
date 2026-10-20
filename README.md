@@ -27,8 +27,8 @@ Pick up to three of the five gadgets before a run. Each has a fixed budget on ev
 | Move | W A S D (or arrows) |
 | Look | Mouse, or I J K L (a tap nudges, holding turns faster; after looking up/down with keys the view eases back to level, which Settings can turn off) |
 | Jump | Space |
-| Sprint | Shift toggles it (controller: click the left stick): 13 m/s instead of 10. A stamina bar above the gadgets drains while you sprint-run (4 s full) and refills after you stop; sprint ends when it's empty, when you stop moving, or when you crouch or slide |
-| Slide (at speed) / crouch-walk (when slow) | Hold C, on flat or downhill ground (heading uphill it's a crouch-walk). A slide keeps most of its speed on the flat and gains a little downhill; jump out of a slide keeps its speed. Sliding 1 s stores a burst (the crosshair ring glows) that only a jump out of the slide uses; stop sliding and it's gone |
+| Sprint | Shift toggles it (controller: click the left stick): 13 m/s instead of 10, with a wider view, a deeper lean and cyan streaks at the screen edges. A stamina bar (a » marker lights while sprinting) above the gadgets drains while you sprint-run (4 s full) and refills after you stop; sprint ends when it's empty, when you stop moving, or when you crouch or slide |
+| Slide (at speed) / crouch-walk (when slow) | Hold C. A slide keeps most of its speed on the flat, gains a little downhill, and uphill slows steadily to a stop (then you're crouching); jump out of a slide keeps its speed. Sliding 1 s stores a burst (the crosshair ring glows) that only a jump out of the slide uses; stop sliding and it's gone |
 | Tuck | Hold C in the air: legs up, head where it was, so you clear 0.5 m more than a plain jump; land still holding it and you're crouched |
 | Wall run | Jump at a wall beside you while moving fast along it; you run along it for up to 1.4 s |
 | Wall jump | Space while wall running (or touching a wall at your side in the air): kick off away and up |

@@ -252,3 +252,7 @@ Replaces the gadget in hand, switching (scroll, F, 1–5 mid-run) and auto-switc
 - Flat: friction 1.2 m/s² (was 2.5), so a slide keeps most of its speed (10 m/s is still ~8.8 after a second).
 - Downhill: a slide gets 0.35 of gravity along the slope (was 0.9): a slight gain, about +0.6 m/s² on 12°.
 - Gauntlet's plunge is now crossed by sprinting in, sliding the kicker and slide-jumping (the route bot learned to sprint); a running jump, even sprinting, still falls short.
+
+## Uphill slides; sprint you can see (built)
+- Slides work uphill again: the slope pulls 0.9 of gravity against you (plus friction), so the slide slows steadily and keeps going right down to 1 m/s, then you're crouching (it never slides back down). Flat and downhill stay as before (1.2 m/s² friction; 0.35 of gravity downhill).
+- Sprinting shows: the view widens 7°, the astronaut leans further forward and pumps its arms, faint cyan streaks flicker at the screen edges, and a » marker by the stamina bar lights up. All ease in and out; the effects rest while paused.

@@ -438,8 +438,11 @@ function updateStance(p: PlayerState, input: PlayerInput, boxes: readonly Box[])
   const speed = Math.hypot(p.vel.x, p.vel.z);
   const wantLow = input.crouch && !p.tethered;
   let next: Stance;
-  // A slide needs flat or downhill ground: heading uphill, crouch held is a crouch-walk.
-  if (p.grounded && wantLow) next = speed >= c.slideMinSpeed && !headingUphill(p, speed) ? Stance.Slide : Stance.Crouch;
+  // Uphill, a slide carries on (slowing hard) right down to a stop; elsewhere it drops to a
+  // crouch below slide speed.
+  slideUphill = headingUphill(p, speed);
+  const keepSliding = p.stance === Stance.Slide && slideUphill && speed > c.slideStopSpeed;
+  if (p.grounded && wantLow) next = speed >= c.slideMinSpeed || keepSliding ? Stance.Slide : Stance.Crouch;
   else if (!p.grounded && wantLow) next = Stance.Tuck;
   else next = Stance.Stand;
 
@@ -501,7 +504,7 @@ function sprintConfig(cfg: MovementConfig): MovementConfig {
   return sprintCfg;
 }
 
-/** On the ground and travelling up a slope steeper than a slide copes with. */
+/** On the ground and travelling up a slope (steeper than slideMaxRise along the travel). */
 function headingUphill(p: PlayerState, speed: number): boolean {
   if (!p.grounded || speed < 1e-3) return false;
   const n = p.groundNormal;
@@ -524,11 +527,13 @@ function stanceConfig(p: PlayerState, cfg: MovementConfig): MovementConfig {
   lowCfg.groundAcceleration = 0;
   lowCfg.groundedFriction = Math.min(cfg.groundedFriction, c.slideFriction);
   lowCfg.groundDeceleration = Math.min(cfg.groundDeceleration, c.slideFriction);
-  lowCfg.slopeInfluence = Math.max(cfg.slopeInfluence, c.slideSlopeInfluence);
+  lowCfg.slopeInfluence = Math.max(cfg.slopeInfluence, slideUphill ? c.slideUphillInfluence : c.slideSlopeInfluence);
   lowCfg.turnGrip = Math.min(cfg.turnGrip, c.slideTurnGrip);
   return lowCfg;
 }
 const lowCfg = {} as MovementConfig;
+/** This tick's slide is going uphill (set by updateStance, read by stanceConfig). */
+let slideUphill = false;
 
 const mantleDir = new Vector3();
 /** Heights above the feet probed for a wall to grab, m. */

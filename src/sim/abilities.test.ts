@@ -55,21 +55,32 @@ describe('slide', () => {
     expect(horizontalSpeed(flat)).toBeGreaterThan(M.groundSpeed - 2 * A.slideFriction - 0.3);
   });
 
-  it('will not slide uphill: crouch held there is a crouch-walk, and a slide that hits a climb ends', () => {
-    // Up a slope from the start.
+  it('slides uphill too, slowing steadily all the way to a stop, then crouches', () => {
+    // A flat run-up, then a slope up.
     const climb = [makeBox(slab(0, 0, 10, 40, 20)), makeBox(ramp([0, 0, 0], [0, 15, -100], 10))];
     const p = running(climb, new Vector3(0, 0, 8));
-    run(p, { forward: 1 }, 1, climb);
-    expect(p.pos.y).toBeGreaterThan(0.5);
-    stepPlayer(p, { ...NO_INPUT, forward: 1, crouch: true }, climb);
+    run(p, { forward: 1, crouch: true }, 0.6, climb);
+    expect(p.stance).toBe(Stance.Slide);
+    expect(p.pos.y).toBeGreaterThan(0.2);
+    // On the climb: slower every moment, and still a slide below normal slide speed.
+    let last = horizontalSpeed(p);
+    let slower = true;
+    let slidSlow = false;
+    for (let t = 0; t < 3; t += DT) {
+      stepPlayer(p, { ...NO_INPUT, forward: 1, crouch: true }, climb);
+      if (p.stance !== Stance.Slide) break;
+      const v = horizontalSpeed(p);
+      if (v > last + 1e-6) slower = false;
+      if (v < A.slideMinSpeed - 3) slidSlow = true;
+      last = v;
+    }
+    expect(slower).toBe(true);
+    expect(slidSlow).toBe(true);
+    // Stopped: crouching, not sliding back down the slope.
     expect(p.stance).toBe(Stance.Crouch);
-    // Sliding on the flat into the foot of the slope: the slide ends there.
-    const q = running(climb, new Vector3(0, 0, 15));
-    run(q, { forward: 1, crouch: true }, 0.3, climb);
-    expect(q.stance).toBe(Stance.Slide);
-    run(q, { forward: 1, crouch: true }, 1.5, climb);
-    expect(q.pos.y).toBeGreaterThan(0.5);
-    expect(q.stance).toBe(Stance.Crouch);
+    run(p, { crouch: true }, 0.5, climb);
+    expect(p.stance).toBe(Stance.Crouch);
+    expect(Math.abs(p.vel.z)).toBeLessThan(0.5);
   });
 
   it('jumping out keeps the slide speed and stands up', () => {

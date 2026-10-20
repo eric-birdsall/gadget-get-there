@@ -78,6 +78,7 @@ export class Hud {
   private lastSlideKey = -2;
   private readonly stamina = el('stamina');
   private readonly staminaFill = document.querySelector<HTMLElement>('#stamina .fill')!;
+  private readonly speedLines = el('speed-lines');
   private lastStaminaKey = -1;
   private readonly slots = el('slots');
   private readonly gadgetHint = el('gadget-hint');
@@ -176,6 +177,7 @@ export class Hud {
     this.stamina.classList.toggle('show', sprinting || stamina < 0.999);
     this.stamina.classList.toggle('sprinting', sprinting);
     this.stamina.classList.toggle('low', stamina < ABILITY_CONFIG.sprintMinToStart);
+    this.speedLines.classList.toggle('show', sprinting);
     this.staminaFill.style.transform = `scaleX(${stamina})`;
   }
 

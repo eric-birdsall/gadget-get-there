@@ -96,6 +96,8 @@ export class PlayerModel {
   private air = 0;
   /** 0 … 1: knees pulled up (a tuck). */
   private tuck = 0;
+  /** 0 … 1: sprinting (more lean, harder arm pumping). */
+  private sprint = 0;
 
   /** `ghost` makes a translucent, shadowless copy for the personal-best ghost. */
   constructor(ghost = false) {
@@ -260,6 +262,11 @@ export class PlayerModel {
     this.onWall = normal !== null;
   }
 
+  /** Sprint: a deeper forward lean and a harder arm pump, eased in and out. */
+  setSprint(on: boolean, dt: number): void {
+    this.sprint += ((on ? 1 : 0) - this.sprint) * follow(8, dt);
+  }
+
   /** Wingsuit glide: wings out, body belly-down. */
   setGlide(on: boolean, dt: number): void {
     this.glide += ((on ? 1 : 0) - this.glide) * follow(8, dt);
@@ -291,7 +298,7 @@ export class PlayerModel {
 
     // Lean forward with forward acceleration and with speed.
     const accel = dt > 0 ? (Math.hypot(pose.vel.x, pose.vel.z) - Math.hypot(this.prevVel.x, this.prevVel.z)) / dt : 0;
-    const leanWanted = pose.grounded ? MathUtils.clamp(hSpeed * 0.018 + accel * 0.004, -0.15, 0.35) : 0.05;
+    const leanWanted = pose.grounded ? MathUtils.clamp(hSpeed * 0.018 + accel * 0.004, -0.15, 0.35) + 0.2 * this.sprint : 0.05;
     this.lean += (leanWanted - this.lean) * follow(10, dt);
     this.prevVel.copy(pose.vel);
 
@@ -345,7 +352,8 @@ export class PlayerModel {
     });
     this.arms.forEach((shoulder, i) => {
       const side = i === 0 ? 1 : -1;
-      const run = -side * Math.sin(this.stride) * amp * RUN.armSwing * this.gait;
+      // Sprinting pumps the arms harder, bent up in front.
+      const run = -side * Math.sin(this.stride) * amp * RUN.armSwing * (1 + 0.5 * this.sprint) * this.gait - 0.3 * this.sprint * this.gait;
       shoulder.rotation.x = run - 0.25 * this.air;
       shoulder.rotation.z = (i === 0 ? -1 : 1) * (0.18 + 0.5 * this.air);
     });

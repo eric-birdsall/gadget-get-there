@@ -500,6 +500,7 @@ function frame(now: number): void {
     sliding: p.stance === Stance.Slide,
     crouching: p.stance === Stance.Crouch,
     tucking: p.stance === Stance.Tuck,
+    sprinting: p.sprinting,
     mantle: p.mantle ? p.mantle.t / ABILITY_CONFIG.mantleDuration : -1,
     wallRunNormal: p.wallRun?.normal ?? null,
     grappleTarget,
@@ -513,7 +514,8 @@ function frame(now: number): void {
   hud.setCrosshairLocked(grappleTarget !== null);
   // Slide charge: fills over the slide time that earns the jump burst.
   hud.setSlideCharge(p.stance === Stance.Slide ? Math.min(1, p.slideTime / ABILITY_CONFIG.slideJumpMinSeconds) : -1);
-  hud.setStamina(p.stamina, p.sprinting);
+  // Paused, the sprint effects rest (the stamina bar still shows).
+  hud.setStamina(p.stamina, p.sprinting && !paused);
   hud.update(session.state, session.elapsed);
   refreshGadget();
   hud.updateDebug({

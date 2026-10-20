@@ -13,6 +13,8 @@ export class ThirdPersonCamera {
   baseFov: number = CAMERA_CONFIG.fieldOfView;
   /** Lowers the orbit pivot, e.g. while sliding, m. */
   pivotDrop = 0;
+  /** Extra field of view, degrees (sprinting widens the view); eased by the caller. */
+  fovBoost = 0;
   private readonly pivot = new Vector3();
   private distance: number = CAMERA_CONFIG.distance;
   private fov: number = CAMERA_CONFIG.fieldOfView;
@@ -38,7 +40,7 @@ export class ThirdPersonCamera {
     const [s0, s1] = c.speedForFovTransition;
     const t = smoothstep(MathUtils.clamp((speed - s0) / (s1 - s0), 0, 1));
     const wanted = c.distance + c.highSpeedExtraDistance * t;
-    const fovWanted = this.baseFov + (c.highSpeedFieldOfView - c.fieldOfView) * t;
+    const fovWanted = this.baseFov + (c.highSpeedFieldOfView - c.fieldOfView) * t + this.fovBoost;
     this.fov += (fovWanted - this.fov) * follow(4, dt);
 
     this.back.set(Math.sin(yaw) * Math.cos(pitch), Math.sin(pitch), Math.cos(yaw) * Math.cos(pitch));

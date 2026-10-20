@@ -17,7 +17,7 @@ import {
   Vector3,
   WebGLRenderer,
 } from 'three';
-import { ABILITY_CONFIG, GRAPPLE_CONFIG } from '../config';
+import { ABILITY_CONFIG, CAMERA_CONFIG, GRAPPLE_CONFIG } from '../config';
 import type { CourseDefinition } from '../course/types';
 import type { Pad } from '../gadgets/launchPad';
 import type { GhostPose } from '../game/ghost';
@@ -44,6 +44,8 @@ export interface RenderFrame {
   crouching: boolean;
   /** Legs tucked up in the air (crouch held while jumping). */
   tucking: boolean;
+  /** Sprint switched on. */
+  sprinting: boolean;
   /** Mantle progress 0 … 1, or -1. */
   mantle: number;
   /** The wall being run on (its outward normal), or null. */
@@ -195,6 +197,9 @@ export class Renderer {
     // where it was by dropping the same amount.
     const drop = f.sliding || f.crouching ? 0.6 : f.tucking ? ABILITY_CONFIG.tuckLift : 0;
     this.view.pivotDrop += (drop - this.view.pivotDrop) * Math.min(1, dt * 10);
+    // Sprinting widens the view a few degrees.
+    this.view.fovBoost += ((f.sprinting ? CAMERA_CONFIG.sprintFovBoost : 0) - this.view.fovBoost) * Math.min(1, dt * 6);
+    this.player.setSprint(f.sprinting, dt);
     this.view.update(dt, pose.feet, speed, f.yaw, f.pitch, this.boxes);
     this.player.setStance(f.sliding, f.crouching, f.mantle, dt, f.tucking);
     this.player.setWallRun(f.wallRunNormal, dt);

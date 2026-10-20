@@ -81,8 +81,12 @@ export const ABILITY_CONFIG = {
   slideFriction: 1.2,
   /** Share of gravity that pulls a slide down a slope: downhill adds a little speed. */
   slideSlopeInfluence: 0.35,
-  /** Steepest rise along your travel a slide copes with (tangent, ≈2°): any steeper uphill and you crouch instead. */
+  /** Sliding uphill, the slope pulls this share of gravity against you: you slow steadily to a stop. */
+  slideUphillInfluence: 0.9,
+  /** A rise along your travel steeper than this (tangent, ≈2°) counts as uphill. */
   slideMaxRise: 0.035,
+  /** Sliding uphill, the slide lasts down to this speed (then you're crouching), m/s. */
+  slideStopSpeed: 1,
   slideTurnGrip: 0.35,
   crouchSpeed: 4,
   /** Jumping out of a slide at least this long… s */
@@ -150,6 +154,8 @@ export const CAMERA_CONFIG = {
   smoothing: 18,
   /** Vertical follow is softer so jumps don't bob the camera. */
   verticalSmoothing: 9,
+  /** Sprinting widens the view by this much, degrees. */
+  sprintFovBoost: 7,
   /** Without mouse capture: how close to the left/right edge (fraction of width) starts turning. */
   freeCursorEdgeZone: 0.12,
   /** Without mouse capture: turn rate with the cursor at or past the edge, radians/s. */
