@@ -45,6 +45,8 @@ export interface SessionInput extends PlayerInput {
   usePressed: boolean[];
   aimOrigin: Vector3;
   aimDir: Vector3;
+  /** The grapple's own aim, when aim assist moved it (the controller); other gadgets use the crosshair. */
+  grappleAim?: { origin: Vector3; dir: Vector3 };
 }
 
 export interface RunResult {
@@ -285,8 +287,8 @@ export class RunSession {
           held: live && !!input.use[i],
           pressed: live && !!input.usePressed[i],
           yaw: input.yaw,
-          aimOrigin: input.aimOrigin,
-          aimDir: input.aimDir,
+          aimOrigin: g instanceof GrappleGadget && input.grappleAim ? input.grappleAim.origin : input.aimOrigin,
+          aimDir: g instanceof GrappleGadget && input.grappleAim ? input.grappleAim.dir : input.aimDir,
         },
         emit: this.emit,
       });

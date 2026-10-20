@@ -289,3 +289,8 @@ Replaces the gadget in hand, switching (scroll, F, 1–5 mid-run) and auto-switc
 ## Level fly-throughs (built)
 - Hovering a level card (or the controller's highlight on it) plays a live fly-through over its still picture: the camera flies 7 m above a smooth path from the start through each checkpoint to the finish, eased, in 9 s, on a loop, looking a little ahead. Leaving the card shows the still again.
 - One small renderer (480×270) holds every course while the picker is open and is freed when it closes, so play isn't slowed.
+
+## Grapple aim assist with the controller (built)
+- Playing with the controller: with nothing to hook under the crosshair, the grapple takes the hook point nearest to it within 7°; with a wall or floor under it, a grapple beam within 4° still wins (beams are almost always what you meant). Searched in rings of directions round the crosshair; the innermost ring with a hit wins, beams counting as a little nearer.
+- The hook marker shows the assisted point, so you see exactly where it will catch.
+- Only the grapple is assisted (its own aim in the session input); the launch pad throws where you point. Mouse and keyboard are unchanged.

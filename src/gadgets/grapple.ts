@@ -1,6 +1,6 @@
 import { Vector3 } from 'three';
 import { DT, GRAPPLE_CONFIG, USAGE_CONFIG } from '../config';
-import { type Box, raycast } from '../sim/collision';
+import { type Box, SurfaceKind, raycast } from '../sim/collision';
 import { type MovementConfig, type PlayerState, depenetrate } from '../sim/player';
 import { type GadgetContext, GadgetEvent, GadgetId, type GadgetRuntime } from './types';
 
@@ -27,6 +27,7 @@ function clearLine(boxes: readonly Box[], from: Vector3, point: Vector3): boolea
 export interface GrappleTarget {
   point: Vector3;
   normal: Vector3;
+  kind: SurfaceKind;
 }
 
 /**
@@ -40,7 +41,51 @@ export function findGrappleTarget(boxes: readonly Box[], aimOrigin: Vector3, aim
   if (!hit || hit.point.distanceTo(hand) > GRAPPLE_CONFIG.range) return null;
   const point = hit.point.clone().addScaledVector(hit.normal, 0.05);
   if (!clearLine(boxes, hand, point)) return null;
-  return { point, normal: hit.normal };
+  return { point, normal: hit.normal, kind: hit.box.kind };
+}
+
+const assistDir = new Vector3();
+const assistSide = new Vector3();
+const assistUp = new Vector3();
+/** Rings of directions searched around the crosshair, as fractions of the assist angle, and how many on each. */
+const ASSIST_RINGS = [0.3, 0.55, 0.8, 1];
+const ASSIST_SPOKES = 16;
+
+/**
+ * Controller aim assist for the grapple: the hook point under the crosshair if there is one,
+ * unless a grapple beam is a hair away (beams are almost always what you meant); with nothing
+ * under the crosshair, the hook point nearest to it within the assist angle. Null if none.
+ */
+export function assistedGrappleTarget(boxes: readonly Box[], aimOrigin: Vector3, aimDir: Vector3, player: PlayerState): GrappleTarget | null {
+  const direct = findGrappleTarget(boxes, aimOrigin, aimDir, player);
+  if (direct?.kind === SurfaceKind.Overhead) return direct;
+  const maxDeg = direct ? GRAPPLE_CONFIG.aimAssistBeamDegrees : GRAPPLE_CONFIG.aimAssistDegrees;
+  // Two directions across the aim, to tilt it round in a ring.
+  assistSide.set(0, 1, 0).cross(aimDir);
+  if (assistSide.lengthSq() < 1e-6) assistSide.set(1, 0, 0);
+  assistSide.normalize();
+  assistUp.crossVectors(aimDir, assistSide).normalize();
+  let best: GrappleTarget | null = null;
+  let bestScore = Infinity;
+  for (const ring of ASSIST_RINGS) {
+    const tilt = Math.tan((ring * maxDeg * Math.PI) / 180);
+    for (let i = 0; i < ASSIST_SPOKES; i++) {
+      const a = (i / ASSIST_SPOKES) * Math.PI * 2;
+      assistDir.copy(aimDir).addScaledVector(assistSide, Math.cos(a) * tilt).addScaledVector(assistUp, Math.sin(a) * tilt).normalize();
+      const t = findGrappleTarget(boxes, aimOrigin, assistDir, player);
+      // With a hook point already under the crosshair, only a beam is worth leaving it for.
+      if (!t || (direct && t.kind !== SurfaceKind.Overhead)) continue;
+      // Nearest to the crosshair wins; beams count as a little nearer.
+      const score = ring - (t.kind === SurfaceKind.Overhead ? 0.15 : 0);
+      if (score < bestScore) {
+        bestScore = score;
+        best = t;
+      }
+    }
+    // The innermost ring with anything in it is close enough: stop there.
+    if (best && !direct) break;
+  }
+  return best ?? direct;
 }
 
 /**

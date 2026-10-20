@@ -1,11 +1,11 @@
 import { Vector3 } from 'three';
 import { describe, expect, it } from 'vitest';
 import { DASH_CONFIG, DT, GRAPPLE_CONFIG, JETPACK_CONFIG, LAUNCH_PAD_CONFIG, USAGE_CONFIG, WINGSUIT_CONFIG } from '../config';
-import { slab } from '../course/build';
+import { overhead, slab } from '../course/build';
 import type { CourseDefinition } from '../course/types';
 import { crossing } from '../course/crossing';
 import { AttemptState, RunSession, type SessionInput, idleInput } from '../game/session';
-import { GrappleGadget, handPosition } from './grapple';
+import { GrappleGadget, assistedGrappleTarget, handPosition } from './grapple';
 import { LaunchPadGadget } from './launchPad';
 import { JetpackGadget } from './jetpack';
 import { WingsuitGadget } from './wingsuit';
@@ -416,4 +416,59 @@ it('rapid retries do not pile up gadget state', () => {
   }
   expect((s.gadgets[0] as LaunchPadGadget).pad).toBeNull();
   expect(s.attempt).toBe(201);
+});
+
+describe('grapple aim assist (controller)', () => {
+  const floor = slab(0, 0, 0, 200, 200);
+  // A beam 14 m up, 20 m ahead.
+  const beam = overhead(0, 14, -20, 6, 1, 1.5);
+  const beamPoint = new Vector3(0, 13.5, -20);
+
+  /** The hand, and a direction from it tilted `degrees` up from straight at `target`. */
+  function aimNear(s: RunSession, target: Vector3, degrees: number): { origin: Vector3; dir: Vector3 } {
+    const origin = handPosition(s.player, new Vector3());
+    const dir = target.clone().sub(origin).normalize();
+    const up = new Vector3(0, 1, 0).sub(dir.clone().multiplyScalar(dir.y)).normalize();
+    dir.addScaledVector(up, Math.tan((degrees * Math.PI) / 180)).normalize();
+    return { origin, dir };
+  }
+
+  function standing(pieces: CourseDefinition['pieces']): RunSession {
+    const s = new RunSession(course(pieces), { gadget: GadgetId.Grapple, unlimited: true });
+    run(s, idleInput(), 0.1);
+    return s;
+  }
+
+  it('aim just off a beam into empty sky: snaps to the beam', () => {
+    const s = standing([floor, beam]);
+    const { origin, dir } = aimNear(s, beamPoint, 5);
+    const t = assistedGrappleTarget(s.boxes, origin, dir, s.player);
+    expect(t).not.toBeNull();
+    // On the beam (its near face or underside).
+    expect(Math.abs(t!.point.z + 20)).toBeLessThan(1);
+    expect(t!.point.y).toBeGreaterThan(12);
+  });
+
+  it('a beam a hair away wins over the floor under the crosshair', () => {
+    const s = standing([floor, beam]);
+    // Aiming at the floor just under the beam, a few degrees below it.
+    const { origin, dir } = aimNear(s, beamPoint, -3);
+    const t = assistedGrappleTarget(s.boxes, origin, dir, s.player);
+    expect(t!.point.y).toBeGreaterThan(12);
+  });
+
+  it('nothing near the crosshair: no target', () => {
+    const s = standing([floor, beam]);
+    const { origin, dir } = aimNear(s, beamPoint, 25);
+    expect(assistedGrappleTarget(s.boxes, origin, dir, s.player)).toBeNull();
+  });
+
+  it('the grapple hooks along its own assisted aim, while other gadgets keep the crosshair', () => {
+    const s = standing([floor, beam]);
+    const sky = aimNear(s, beamPoint, 20);
+    const assisted = aimNear(s, beamPoint, 0);
+    const ev = s.step({ ...idleInput(), ...press(), aimOrigin: sky.origin, aimDir: sky.dir, grappleAim: assisted });
+    expect(ev).toContain(GadgetEvent.GrappleAttached);
+    expect(Math.abs((s.gadgets[0] as GrappleGadget).point!.z + 20)).toBeLessThan(1);
+  });
 });

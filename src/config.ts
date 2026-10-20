@@ -194,6 +194,10 @@ export const WORLD_CONFIG = {
 };
 
 export const GRAPPLE_CONFIG = {
+  /** Controller aim assist: with nothing to hook under the crosshair, take the nearest hook point within this angle, degrees… */
+  aimAssistDegrees: 7,
+  /** …and prefer a grapple beam within this angle even over a wall or floor right under it, degrees. */
+  aimAssistBeamDegrees: 4,
   /** Farthest surface the hook can reach, measured from the player, m. */
   range: 42,
   /** Rope shortens at this rate while held, m/s. */
