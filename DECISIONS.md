@@ -293,7 +293,7 @@ Replaces the gadget in hand, switching (scroll, F, 1–5 mid-run) and auto-switc
 ## City at night reskin (trying out, on the city-reskin branch)
 - Settings → Graphics → World: City at night (default on this branch) or Space. Same courses and physics; only the look changes.
 - **Sky:** near black overhead, violet, a magenta-orange dusk glow at the horizon, faint stars. Purple haze.
-- **Skyline:** ~500 towers around and below the course (kept 24 m clear of it), lit windows (a third lit, warm or cool), a third with neon crowns; glowing orange streets in a 46 m grid 160 m down.
+- **Skyline:** ~500 towers around and below the course (kept 24 m clear of it), muted so it sits back: about 1 in 7 windows lit, dim and desaturated, dark windows close to the wall colour, and fewer, dimmer neon crowns. Glowing orange streets in a 46 m grid 160 m down. The buildings under the course keep the livelier windows.
 - **Buildings under the course:** every flat platform and stepping stone gets a window-lit building down to the street. For looks only: no collision, so every tested route plays the same (you can't wall-run on them yet).
 - **Course pieces:** dark concrete roofs with glowing cyan grid lines, teal glass ramps, dark glass walls edged in magenta, warm stones, crane-yellow beams; cool moonlight.
 - Not yet: the level picker's previews and fly-throughs still draw space; the astronaut is unchanged.

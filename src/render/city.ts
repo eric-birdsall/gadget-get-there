@@ -59,12 +59,29 @@ void main() {
   return dome;
 }
 
+/** How a facade looks: share of windows lit, how bright they glow, how much colour they keep, how dark the unlit ones are. */
+interface FacadeLook {
+  wall: string;
+  litShare: number;
+  glow: number;
+  saturation: number;
+  darkGlass: number;
+}
+
+/** The buildings under the course: lively. */
+const NEAR_FACADE: FacadeLook = { wall: '#171a2c', litShare: 0.34, glow: 0.9, saturation: 1, darkGlass: 1 };
+/** The skyline beyond: muted, so it sits back and doesn't fizz. */
+const FAR_FACADE: FacadeLook = { wall: '#12142a', litShare: 0.14, glow: 0.32, saturation: 0.45, darkGlass: 0.35 };
+
 /**
- * Building walls with windows: a grid of floors and bays in world space, about a third of the
- * windows lit (warm or cool), the rest dark glass. Works for single meshes and instanced towers.
+ * Building walls with windows: a grid of floors and bays in world space, some windows lit (warm
+ * or cool), the rest dark glass. Works for single meshes and instanced towers.
  */
-export function facadeMaterial(): MeshStandardMaterial {
-  const mat = new MeshStandardMaterial({ color: '#171a2c', roughness: 0.7, metalness: 0.2 });
+export function facadeMaterial(look: FacadeLook = NEAR_FACADE): MeshStandardMaterial {
+  const mat = new MeshStandardMaterial({ color: look.wall, roughness: 0.7, metalness: 0.2 });
+  // Distinct shader per look (the numbers are baked in).
+  mat.customProgramCacheKey = () => `facade-${look.litShare}-${look.glow}-${look.saturation}-${look.darkGlass}`;
+  const f = (v: number) => v.toFixed(3);
   mat.onBeforeCompile = (shader) => {
     shader.vertexShader = shader.vertexShader
       .replace('#include <common>', '#include <common>\nvarying vec3 vFacadePos;\nvarying vec3 vFacadeNormal;')
@@ -97,12 +114,13 @@ if (fn.y < 0.5) {
   vec2 f = fract(cell);
   float window = step(0.18, f.x) * step(f.x, 0.82) * step(0.25, f.y) * step(f.y, 0.8);
   float h = facadeHash(vec3(floor(cell), floor(along / 41.0) + (fn.x > fn.z ? 7.0 : 3.0)));
-  float lit = step(0.66, h);
+  float lit = step(1.0 - ${f(look.litShare)}, h);
   vec3 warm = vec3(1.0, 0.72, 0.38);
   vec3 cool = vec3(0.45, 0.85, 1.0);
-  vec3 glow = mix(warm, cool, step(0.88, h)) * (0.55 + 0.6 * fract(h * 13.0));
-  totalEmissiveRadiance += window * lit * glow * 0.9;
-  diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.05, 0.07, 0.12), window * (1.0 - lit));
+  vec3 glow = mix(warm, cool, step(0.94, h)) * (0.55 + 0.6 * fract(h * 13.0));
+  glow = mix(vec3(dot(glow, vec3(0.333))), glow, ${f(look.saturation)});
+  totalEmissiveRadiance += window * lit * glow * ${f(look.glow)};
+  diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.05, 0.07, 0.12), window * (1.0 - lit) * ${f(look.darkGlass)});
 }`,
       );
   };
@@ -119,10 +137,12 @@ class Skyline {
   private readonly towers: InstancedMesh;
   private readonly crowns: InstancedMesh;
 
-  constructor(boxes: readonly Box[], facade: MeshStandardMaterial, random: () => number) {
+  private readonly facade = facadeMaterial(FAR_FACADE);
+
+  constructor(boxes: readonly Box[], random: () => number) {
     const unit = new BoxGeometry(1, 1, 1);
     const count = 520;
-    this.towers = new InstancedMesh(unit, facade, count);
+    this.towers = new InstancedMesh(unit, this.facade, count);
     this.crowns = new InstancedMesh(unit, new MeshBasicMaterial({ color: '#ffffff', fog: true }), count);
     const m = new Matrix4();
     const q = new Quaternion();
@@ -155,13 +175,13 @@ class Skyline {
       pos.set(x, (top + GROUND_Y) / 2, z);
       m.compose(pos, q, size);
       this.towers.setMatrixAt(n++, m);
-      if (random() < 0.35) {
+      if (random() < 0.18) {
         // A neon band round the top.
         near.set(w + 0.6, 1.2, d + 0.6);
         pos.set(x, top - 1.5, z);
         m.compose(pos, q, near);
         this.crowns.setMatrixAt(crowns, m);
-        this.crowns.setColorAt(crowns++, new Color(NEON[Math.floor(random() * NEON.length)]));
+        this.crowns.setColorAt(crowns++, new Color(NEON[Math.floor(random() * NEON.length)]).multiplyScalar(0.45));
       }
     }
     this.towers.count = n;
@@ -174,6 +194,7 @@ class Skyline {
 
   dispose(): void {
     this.towers.geometry.dispose();
+    this.facade.dispose();
     (this.crowns.material as MeshBasicMaterial).dispose();
   }
 }
@@ -244,7 +265,7 @@ export class CityBackdrop {
   ) {
     this.sky.add(nightSky());
     this.ground = streets();
-    this.skyline = new Skyline(boxes, this.facade, rng(0xc17e));
+    this.skyline = new Skyline(boxes, rng(0xc17e));
     scene.add(this.sky, this.ground, this.skyline.group);
   }
 
@@ -252,7 +273,7 @@ export class CityBackdrop {
     const visible = this.visible;
     this.scene.remove(this.skyline.group);
     this.skyline.dispose();
-    this.skyline = new Skyline(boxes, this.facade, rng(0xc17e));
+    this.skyline = new Skyline(boxes, rng(0xc17e));
     this.skyline.group.visible = visible;
     this.scene.add(this.skyline.group);
   }
