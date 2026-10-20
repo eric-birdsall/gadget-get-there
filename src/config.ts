@@ -75,7 +75,9 @@ export const ABILITY_CONFIG = {
   sprintMinToStart: 0.2,
   /** Crouch held in the air tucks the legs up this far (the head stays put), so you clear this much more, m. */
   tuckLift: 0.5,
-  /** Slower than this, crouch held is a crouch-walk instead of a slide, m/s. */
+  /** A slide only starts at sprint speed or faster (a little under, so a sprint always counts), m/s… */
+  slideStartSpeed: 12.5,
+  /** …and once going, lasts until it drops below this (then it's a crouch-walk), m/s. */
   slideMinSpeed: 6,
   /** Drag while sliding on the flat: low, so a slide keeps most of its speed, m/s². */
   slideFriction: 1.2,
@@ -91,8 +93,10 @@ export const ABILITY_CONFIG = {
   crouchSpeed: 4,
   /** Jumping out of a slide at least this long… s */
   slideJumpMinSeconds: 1.0,
-  /** …adds this much speed, m/s. */
-  slideJumpBoost: 2.5,
+  /** …adds this much speed, the way you're steering, m/s. */
+  slideJumpBoost: 4.5,
+  /** Letting go of slide just before jumping still counts, within this long, s. */
+  slideJumpGrace: 0.15,
   /** Ledge tops this far above the feet can be mantled, m. */
   mantleMinHeight: 0.5,
   mantleMaxHeight: 2.8,

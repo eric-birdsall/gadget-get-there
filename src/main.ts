@@ -207,6 +207,8 @@ function handle(events: AnyEvent[]): void {
         break;
       case SessionEvent.SlideJumped:
         audio.play(Sfx.SlideJump);
+        // Feel the burst: the view punches wide and eases back.
+        renderer.view.kick(8);
         break;
       case SessionEvent.Mantled:
         audio.play(Sfx.Mantle);

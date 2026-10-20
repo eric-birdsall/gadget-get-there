@@ -68,6 +68,8 @@ export interface PlayerState {
   stance: Stance;
   /** Seconds into the current slide (0 when not sliding). */
   slideTime: number;
+  /** Seconds left in which a jump still gets the burst of a full slide that just stood up. */
+  slideBurstGrace: number;
   mantle: Mantle | null;
   /** Running along a wall: its outward normal and how long so far. */
   wallRun: { normal: Vector3; time: number; speed: number } | null;
@@ -106,6 +108,7 @@ export function createPlayer(pos: Vector3): PlayerState {
     airborneLock: 0,
     stance: Stance.Stand,
     slideTime: 0,
+    slideBurstGrace: 0,
     mantle: null,
     justSlid: false,
     justSlideJumped: false,
@@ -138,6 +141,7 @@ export function resetPlayer(p: PlayerState, pos: Vector3): void {
   p.airborneLock = 0;
   p.stance = Stance.Stand;
   p.slideTime = 0;
+  p.slideBurstGrace = 0;
   p.mantle = null;
   p.justSlid = false;
   p.justSlideJumped = false;
@@ -179,6 +183,7 @@ const contact: Contact = { normal: new Vector3(), depth: 0, onFace: true, point:
 const bestGround = new Vector3();
 const wish = new Vector3();
 const tuckPos = new Vector3();
+const boostDir = new Vector3();
 
 /** Largest distance the capsule moves per collision substep; well under the radius, so it can't tunnel. */
 const MAX_SUBSTEP_MOVE = PLAYER_SHAPE.radius * 0.5;
@@ -441,8 +446,10 @@ function updateStance(p: PlayerState, input: PlayerInput, boxes: readonly Box[])
   // Uphill, a slide carries on (slowing hard) right down to a stop; elsewhere it drops to a
   // crouch below slide speed.
   slideUphill = headingUphill(p, speed);
-  const keepSliding = p.stance === Stance.Slide && slideUphill && speed > c.slideStopSpeed;
-  if (p.grounded && wantLow) next = speed >= c.slideMinSpeed || keepSliding ? Stance.Slide : Stance.Crouch;
+  // Starting takes sprint speed; once going, a slide lasts down to slide speed (uphill, to a stop).
+  const sliding = p.stance === Stance.Slide;
+  const slideOn = sliding ? speed >= c.slideMinSpeed || (slideUphill && speed > c.slideStopSpeed) : speed >= c.slideStartSpeed;
+  if (p.grounded && wantLow) next = slideOn ? Stance.Slide : Stance.Crouch;
   else if (!p.grounded && wantLow) next = Stance.Tuck;
   else next = Stance.Stand;
 
@@ -467,25 +474,31 @@ function updateStance(p: PlayerState, input: PlayerInput, boxes: readonly Box[])
   }
   if (next === Stance.Slide && p.stance !== Stance.Slide) p.justSlid = true;
   const before = p.slideTime;
-  p.slideTime = next === Stance.Slide && p.stance === Stance.Slide ? p.slideTime + DT : 0;
   const ready = ABILITY_CONFIG.slideJumpMinSeconds;
+  // A full slide that stands up keeps its burst for a moment: letting go of slide a split second
+  // before jumping still counts. Any other end (a crouch, the air) loses it.
+  p.slideBurstGrace = Math.max(0, p.slideBurstGrace - DT);
+  if (p.stance === Stance.Slide && next === Stance.Stand && p.slideTime >= ready) p.slideBurstGrace = c.slideJumpGrace;
+  else if (next !== Stance.Stand) p.slideBurstGrace = 0;
+  p.slideTime = next === Stance.Slide && p.stance === Stance.Slide ? p.slideTime + DT : 0;
   if (before < ready && p.slideTime >= ready) p.justSlideReady = true;
   p.stance = next;
 }
 
 /**
  * Sprint: a press toggles it (on only with enough stamina). It drains stamina while running on
- * the ground and switches off when stamina runs out, you stop moving, or you crouch or slide.
+ * the ground and switches off when stamina runs out, you stop moving, or you crouch. A slide holds
+ * it: still on, nothing spent or refilled, so you come out of the slide sprinting.
  * Off, stamina refills after a short wait.
  */
 function updateSprint(p: PlayerState, input: PlayerInput): void {
   const c = ABILITY_CONFIG;
   if (input.sprint) p.sprinting = !p.sprinting && p.stamina >= c.sprintMinToStart;
   const moving = wish.lengthSq() > 0;
-  const low = p.stance === Stance.Slide || p.stance === Stance.Crouch;
-  if (p.sprinting && (low || (p.grounded && !moving) || p.stamina <= 0)) p.sprinting = false;
+  const sliding = p.stance === Stance.Slide;
+  if (p.sprinting && (p.stance === Stance.Crouch || (p.grounded && !moving && !sliding) || p.stamina <= 0)) p.sprinting = false;
   if (p.sprinting) {
-    if (p.grounded && moving) p.stamina = Math.max(0, p.stamina - DT / c.sprintStaminaSeconds);
+    if (p.grounded && moving && !sliding) p.stamina = Math.max(0, p.stamina - DT / c.sprintStaminaSeconds);
     p.staminaDelay = c.sprintRegenDelay;
     if (p.stamina <= 0) p.sprinting = false;
   } else if (p.staminaDelay > 0) {
@@ -762,13 +775,16 @@ export function stepPlayer(p: PlayerState, input: PlayerInput, boxes: readonly B
   // Jumping out of a slide or crouch stands you up first, if there's room.
   const roomToJump = p.stance === Stance.Stand || fits(p.pos, PLAYER_SHAPE.height, boxes);
   if (p.jumpQueued <= cfg.jumpBuffer && canJump && roomToJump) {
-    // Jumping out of a slide held long enough gives a small burst of speed.
-    if (p.stance === Stance.Slide && p.slideTime >= ABILITY_CONFIG.slideJumpMinSeconds) {
+    // Jumping out of a slide held long enough bursts you forward: the way you're steering, or
+    // straight on with no steer.
+    const fullSlide = p.stance === Stance.Slide && p.slideTime >= ABILITY_CONFIG.slideJumpMinSeconds;
+    if (fullSlide || (p.grounded && p.slideBurstGrace > 0)) {
+      p.slideBurstGrace = 0;
       const speed = Math.hypot(p.vel.x, p.vel.z);
-      if (speed > 1e-3) {
-        const boosted = speed + ABILITY_CONFIG.slideJumpBoost;
-        p.vel.x *= boosted / speed;
-        p.vel.z *= boosted / speed;
+      const along = wish.lengthSq() > 0 ? wish : speed > 1e-3 ? boostDir.set(p.vel.x / speed, 0, p.vel.z / speed) : null;
+      if (along) {
+        p.vel.x += along.x * ABILITY_CONFIG.slideJumpBoost;
+        p.vel.z += along.z * ABILITY_CONFIG.slideJumpBoost;
         p.justSlideJumped = true;
       }
     }

@@ -63,7 +63,8 @@ const ABILITY_LINE: Waypoint[] = [
   { x: 0, z: -178 },
   { x: 0, z: -192 },
   ...BYPASS,
-  { x: 0, z: -305 },
+  // Sprint down the last ramp: a slide takes sprint speed.
+  { x: 0, z: -305, sprint: true },
   { x: 0, z: -340, crouch: true },
   { x: 0, z: -355, crouch: true },
   { x: 2, z: -366, maxSpeed: 12 },

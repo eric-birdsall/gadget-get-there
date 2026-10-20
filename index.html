@@ -115,9 +115,9 @@
       /* Sprinting: faint speed streaks at the screen edges, flickering. */
       #speed-lines {
         position: fixed; inset: 0; pointer-events: none; opacity: 0; transition: opacity 0.35s;
-        background: repeating-conic-gradient(from 0deg at 50% 50%, transparent 0deg 3deg, rgba(127, 246, 255, 0.42) 3deg 3.5deg, transparent 3.5deg 7deg);
-        -webkit-mask-image: radial-gradient(ellipse at center, transparent 42%, #000 95%);
-        mask-image: radial-gradient(ellipse at center, transparent 42%, #000 95%);
+        background: repeating-conic-gradient(from 0deg at 50% 50%, transparent 0deg 3deg, rgba(127, 246, 255, 0.2) 3deg 3.4deg, transparent 3.4deg 7deg);
+        -webkit-mask-image: radial-gradient(ellipse at center, transparent 55%, #000 100%);
+        mask-image: radial-gradient(ellipse at center, transparent 55%, #000 100%);
       }
       #speed-lines.show { opacity: 1; animation: streak 0.18s steps(2) infinite; }
       @keyframes streak { 50% { transform: rotate(1.4deg) scale(1.03); } }

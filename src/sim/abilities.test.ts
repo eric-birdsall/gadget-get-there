@@ -20,9 +20,17 @@ function running(boxes: Box[] = [FLOOR], at = new Vector3()): PlayerState {
   return p;
 }
 
+/** Running, then sprinting at full sprint speed: fast enough to slide. */
+function sprinting(boxes: Box[] = [FLOOR], at = new Vector3()): PlayerState {
+  const p = running(boxes, at);
+  stepPlayer(p, { ...NO_INPUT, forward: 1, sprint: true }, boxes);
+  run(p, { forward: 1 }, 0.4, boxes);
+  return p;
+}
+
 describe('slide', () => {
-  it('starts at running speed with no burst of its own (the burst is saved for the jump)', () => {
-    const p = running();
+  it('starts at sprint speed with no burst of its own (the burst is saved for the jump)', () => {
+    const p = sprinting();
     const before = horizontalSpeed(p);
     stepPlayer(p, { ...NO_INPUT, forward: 1, crouch: true }, [FLOOR]);
     expect(p.stance).toBe(Stance.Slide);
@@ -31,34 +39,34 @@ describe('slide', () => {
   });
 
   it('glides with low drag, then drops to a crouch when slow', () => {
-    const p = running();
+    const p = sprinting();
     run(p, { forward: 1, crouch: true }, 1);
     expect(p.stance).toBe(Stance.Slide);
     // Low drag: still most of its speed after a second.
-    expect(horizontalSpeed(p)).toBeGreaterThan(M.groundSpeed - A.slideFriction - 0.5);
-    run(p, { forward: 1, crouch: true }, 5);
+    expect(horizontalSpeed(p)).toBeGreaterThan(A.sprintSpeed - A.slideFriction - 0.5);
+    run(p, { forward: 1, crouch: true }, 8);
     expect(p.stance).toBe(Stance.Crouch);
     expect(horizontalSpeed(p)).toBeCloseTo(A.crouchSpeed, 1);
   });
 
   it('gains a little speed down a slope, and keeps most of it on the flat', () => {
     const hill = [makeBox(ramp([0, 30, 0], [0, 0, -150], 10))];
-    const p = running(hill, new Vector3(0, 29.9, -1));
+    const p = sprinting(hill, new Vector3(0, 29.9, -1));
     const start = horizontalSpeed(p);
     run(p, { forward: 1, crouch: true }, 3, hill);
     expect(p.stance).toBe(Stance.Slide);
     // About 11° down: a slight gain, not a rush.
     expect(horizontalSpeed(p)).toBeGreaterThan(start + 1);
     expect(horizontalSpeed(p)).toBeLessThan(start + 4);
-    const flat = running();
+    const flat = sprinting();
     run(flat, { forward: 1, crouch: true }, 2);
-    expect(horizontalSpeed(flat)).toBeGreaterThan(M.groundSpeed - 2 * A.slideFriction - 0.3);
+    expect(horizontalSpeed(flat)).toBeGreaterThan(A.sprintSpeed - 2 * A.slideFriction - 0.3);
   });
 
   it('slides uphill too, slowing steadily all the way to a stop, then crouches', () => {
     // A flat run-up, then a slope up.
     const climb = [makeBox(slab(0, 0, 10, 40, 20)), makeBox(ramp([0, 0, 0], [0, 15, -100], 10))];
-    const p = running(climb, new Vector3(0, 0, 8));
+    const p = sprinting(climb, new Vector3(0, 0, 8));
     run(p, { forward: 1, crouch: true }, 0.6, climb);
     expect(p.stance).toBe(Stance.Slide);
     expect(p.pos.y).toBeGreaterThan(0.2);
@@ -84,7 +92,7 @@ describe('slide', () => {
   });
 
   it('jumping out keeps the slide speed and stands up', () => {
-    const p = running();
+    const p = sprinting();
     run(p, { forward: 1, crouch: true }, 0.2);
     const speed = horizontalSpeed(p);
     stepPlayer(p, { ...NO_INPUT, forward: 1, crouch: true, jump: true }, [FLOOR]);
@@ -93,9 +101,9 @@ describe('slide', () => {
     expect(horizontalSpeed(p)).toBeGreaterThan(speed - 0.2);
   });
 
-  it('jumping out of a slide longer than 1 s adds a small burst; a short slide does not', () => {
+  it('jumping out of a slide longer than 1 s bursts you forward; a short slide does not', () => {
     const jumpAfter = (seconds: number) => {
-      const p = running();
+      const p = sprinting();
       run(p, { forward: 1, crouch: true }, seconds);
       const before = horizontalSpeed(p);
       stepPlayer(p, { ...NO_INPUT, forward: 1, crouch: true, jump: true }, [FLOOR]);
@@ -106,7 +114,7 @@ describe('slide', () => {
     expect(short.gain).toBeLessThan(0.5);
     const long = jumpAfter(A.slideJumpMinSeconds + 0.1);
     // The moment it becomes available is flagged once, for the HUD ring and chime.
-    const p = running();
+    const p = sprinting();
     let readyTicks = 0;
     for (let t = 0; t < A.slideJumpMinSeconds + 0.3; t += DT) {
       stepPlayer(p, { ...NO_INPUT, forward: 1, crouch: true }, [FLOOR]);
@@ -117,25 +125,29 @@ describe('slide', () => {
     expect(long.gain).toBeGreaterThan(A.slideJumpBoost - 0.5);
   });
 
-  it('the stored burst goes if the slide stops before the jump', () => {
-    const p = running();
-    run(p, { forward: 1, crouch: true }, A.slideJumpMinSeconds + 0.1);
-    // Let go for a moment (standing up), then jump.
-    run(p, { forward: 1 }, 0.05);
-    stepPlayer(p, { ...NO_INPUT, forward: 1, jump: true }, [FLOOR]);
-    expect(p.justJumped).toBe(true);
-    expect(p.justSlideJumped).toBe(false);
+  it('the stored burst survives letting go just before the jump, but goes if you stand any longer', () => {
+    const jumpAfterStanding = (standFor: number) => {
+      const p = sprinting();
+      run(p, { forward: 1, crouch: true }, A.slideJumpMinSeconds + 0.1);
+      run(p, { forward: 1 }, standFor);
+      stepPlayer(p, { ...NO_INPUT, forward: 1, jump: true }, [FLOOR]);
+      expect(p.justJumped).toBe(true);
+      return p.justSlideJumped;
+    };
+    expect(jumpAfterStanding(0)).toBe(true);
+    expect(jumpAfterStanding(A.slideJumpGrace / 2)).toBe(true);
+    expect(jumpAfterStanding(A.slideJumpGrace + 0.15)).toBe(false);
   });
 
   it('fits under a low bar that stops a standing player, and stays low until clear', () => {
     // A bar from 1.1 m up, 6 m long.
     const bar = makeBox({ center: [0, 2.6, -8], size: [10, 3, 6] });
     const boxes = [FLOOR, bar];
-    const stand = running(boxes, new Vector3(0, 0, 0));
+    const stand = sprinting(boxes, new Vector3(0, 0, 0));
     run(stand, { forward: 1 }, 1, boxes);
     expect(stand.pos.z).toBeGreaterThan(-5);
 
-    const slide = running(boxes, new Vector3(0, 0, 0));
+    const slide = sprinting(boxes, new Vector3(0, 0, 10));
     // Let go of crouch while under the bar: still low until past it.
     let lowUnder = true;
     for (let t = 0; t < 1.5; t += DT) {
@@ -145,6 +157,12 @@ describe('slide', () => {
     expect(slide.pos.z).toBeLessThan(-12);
     expect(lowUnder).toBe(true);
     expect(slide.stance).toBe(Stance.Stand);
+  });
+
+  it('below sprint speed, crouch is a crouch-walk, not a slide', () => {
+    const p = running();
+    stepPlayer(p, { ...NO_INPUT, forward: 1, crouch: true }, [FLOOR]);
+    expect(p.stance).toBe(Stance.Crouch);
   });
 
   it('crouch from a standstill walks slowly under a bar', () => {
@@ -157,7 +175,7 @@ describe('slide', () => {
   });
 
   it('does not slide while on a grapple line', () => {
-    const p = running();
+    const p = sprinting();
     p.tethered = true;
     stepPlayer(p, { ...NO_INPUT, crouch: true }, [FLOOR]);
     expect(p.stance).toBe(Stance.Stand);
@@ -195,14 +213,31 @@ describe('sprint', () => {
     expect(p.stamina).toBe(1);
   });
 
-  it('stops when you stop moving or slide; no drain in the air', () => {
+  it('a slide holds sprint: still on, no stamina spent or refilled; you come out sprinting', () => {
+    const p = running();
+    toggle(p);
+    run(p, { forward: 1 }, 0.5);
+    const before = p.stamina;
+    run(p, { forward: 1, crouch: true }, 1.2);
+    expect(p.stance).toBe(Stance.Slide);
+    expect(p.sprinting).toBe(true);
+    expect(p.stamina).toBe(before);
+    stepPlayer(p, { ...NO_INPUT, forward: 1, jump: true }, [FLOOR]);
+    expect(p.justSlideJumped).toBe(true);
+    expect(p.sprinting).toBe(true);
+  });
+
+  it('stops when you stop moving or crouch-walk; no drain in the air', () => {
     const p = running();
     toggle(p);
     run(p, {}, 0.1);
     expect(p.sprinting).toBe(false);
-    const q = running();
-    toggle(q);
+    // Too slow to slide: a crouch-walk, which ends sprint.
+    const q = createPlayer(new Vector3());
+    run(q, {}, 0.1);
+    stepPlayer(q, { ...NO_INPUT, forward: 1, sprint: true }, [FLOOR]);
     run(q, { forward: 1, crouch: true }, 0.1);
+    expect(q.stance).toBe(Stance.Crouch);
     expect(q.sprinting).toBe(false);
     const r = running();
     toggle(r);

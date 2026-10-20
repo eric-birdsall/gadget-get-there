@@ -15,6 +15,11 @@ export class ThirdPersonCamera {
   pivotDrop = 0;
   /** Extra field of view, degrees (sprinting widens the view); eased by the caller. */
   fovBoost = 0;
+
+  /** A quick widening that eases back (a burst of speed), degrees. */
+  kick(degrees: number): void {
+    this.fov += degrees;
+  }
   private readonly pivot = new Vector3();
   private distance: number = CAMERA_CONFIG.distance;
   private fov: number = CAMERA_CONFIG.fieldOfView;

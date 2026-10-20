@@ -256,3 +256,10 @@ Replaces the gadget in hand, switching (scroll, F, 1–5 mid-run) and auto-switc
 ## Uphill slides; sprint you can see (built)
 - Slides work uphill again: the slope pulls 0.9 of gravity against you (plus friction), so the slide slows steadily and keeps going right down to 1 m/s, then you're crouching (it never slides back down). Flat and downhill stay as before (1.2 m/s² friction; 0.35 of gravity downhill).
 - Sprinting shows: the view widens 7°, the astronaut leans further forward and pumps its arms, faint cyan streaks flicker at the screen edges, and a » marker by the stamina bar lights up. All ease in and out; the effects rest while paused.
+
+## Slides start from a sprint; a bigger, forward slide-jump (built)
+- A slide only starts at sprint speed (12.5 m/s or more); slower, crouch is a crouch-walk. Once going it lasts down to 6 m/s (uphill, down to a stop).
+- Sprint stays on through a slide: no stamina spent or refilled, so you come out of a slide still sprinting. Crouch-walking still ends sprint.
+- Slide-jump burst: +4.5 m/s (was 2.5), added the way you're steering (straight on with no steer). Letting go of slide up to 0.15 s before the jump still gets it. The view punches 8° wider for the burst.
+- Speed streaks toned down (fainter, nearer the edges).
+- The Crossing's slide line sprints down the last ramp first.
