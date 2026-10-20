@@ -21,6 +21,8 @@ export enum Stance {
   Stand = 'stand',
   Slide = 'slide',
   Crouch = 'crouch',
+  /** Crouch held in the air: legs tucked up, head where it was. */
+  Tuck = 'tuck',
 }
 
 /** A ledge pull-up in progress: the player moves along a fixed path, without collisions. */
@@ -57,8 +59,6 @@ export interface PlayerState {
   /** Seconds during which ground contact doesn't count, so a launch isn't glued back down. */
   airborneLock: number;
   stance: Stance;
-  /** Seconds until the next slide can give its burst of speed. */
-  slideBoostCooldown: number;
   /** Seconds into the current slide (0 when not sliding). */
   slideTime: number;
   mantle: Mantle | null;
@@ -95,7 +95,6 @@ export function createPlayer(pos: Vector3): PlayerState {
     jetting: false,
     airborneLock: 0,
     stance: Stance.Stand,
-    slideBoostCooldown: 0,
     slideTime: 0,
     mantle: null,
     justSlid: false,
@@ -125,7 +124,6 @@ export function resetPlayer(p: PlayerState, pos: Vector3): void {
   p.jetting = false;
   p.airborneLock = 0;
   p.stance = Stance.Stand;
-  p.slideBoostCooldown = 0;
   p.slideTime = 0;
   p.mantle = null;
   p.justSlid = false;
@@ -139,9 +137,11 @@ export function resetPlayer(p: PlayerState, pos: Vector3): void {
   p.justWallJumped = false;
 }
 
-/** Capsule height for a stance: sliding and crouching are low. */
+/** Capsule height for a stance: sliding and crouching are low, a tuck a little shorter than standing. */
 export function stanceHeight(stance: Stance): number {
-  return stance === Stance.Stand ? PLAYER_SHAPE.height : ABILITY_CONFIG.lowHeight;
+  if (stance === Stance.Stand) return PLAYER_SHAPE.height;
+  if (stance === Stance.Tuck) return PLAYER_SHAPE.height - ABILITY_CONFIG.tuckLift;
+  return ABILITY_CONFIG.lowHeight;
 }
 
 /** Throws the player into the air with a new velocity (launch pads), unglued from the ground. */
@@ -165,6 +165,7 @@ const b = new Vector3();
 const contact: Contact = { normal: new Vector3(), depth: 0, onFace: true, point: new Vector3() };
 const bestGround = new Vector3();
 const wish = new Vector3();
+const tuckPos = new Vector3();
 
 /** Largest distance the capsule moves per collision substep; well under the radius, so it can't tunnel. */
 const MAX_SUBSTEP_MOVE = PLAYER_SHAPE.radius * 0.5;
@@ -415,34 +416,39 @@ function fits(pos: Vector3, height: number, boxes: readonly Box[]): boolean {
 }
 
 /**
- * Slide and crouch. On the ground, holding crouch at running speed slides (with a burst of
- * speed, rate-limited), and below it crouch-walks. Letting go stands up when there's headroom.
+ * Slide, crouch and tuck. On the ground, holding crouch at running speed slides and below it
+ * crouch-walks; in the air it tucks the legs up (the head stays put), so you clear a little more.
+ * Letting go stands up when there's room.
  */
 function updateStance(p: PlayerState, input: PlayerInput, boxes: readonly Box[]): void {
   const c = ABILITY_CONFIG;
-  p.slideBoostCooldown = Math.max(0, p.slideBoostCooldown - DT);
   const speed = Math.hypot(p.vel.x, p.vel.z);
   const wantLow = input.crouch && !p.tethered;
-  let next = p.stance;
-  if (p.grounded && wantLow) {
-    if (speed >= c.slideMinSpeed) next = Stance.Slide;
-    else next = Stance.Crouch;
-  } else if (!wantLow || !p.grounded) {
-    next = Stance.Stand;
+  let next: Stance;
+  if (p.grounded && wantLow) next = speed >= c.slideMinSpeed ? Stance.Slide : Stance.Crouch;
+  else if (!p.grounded && wantLow) next = Stance.Tuck;
+  else next = Stance.Stand;
+
+  if (next === Stance.Tuck && p.stance !== Stance.Tuck) {
+    if (p.stance === Stance.Stand) {
+      // Legs up: the feet rise and the head stays where it was, so there's always room.
+      p.pos.y += c.tuckLift;
+    } else if (!fits(p.pos, stanceHeight(Stance.Tuck), boxes)) {
+      // Low off a ledge with no room to straighten into a tuck: stay low.
+      next = p.stance;
+    }
+  } else if (p.stance === Stance.Tuck && next === Stance.Stand) {
+    // Legs back down: the feet drop to where they were if there's room; else stand from here
+    // (about to land); else stay tucked.
+    tuckPos.copy(p.pos).y -= c.tuckLift;
+    if (!p.grounded && fits(tuckPos, PLAYER_SHAPE.height, boxes)) p.pos.copy(tuckPos);
+    else if (!fits(p.pos, PLAYER_SHAPE.height, boxes)) next = p.grounded ? Stance.Crouch : Stance.Tuck;
   }
   // Standing up needs room overhead; otherwise stay low until there is.
-  if (next === Stance.Stand && p.stance !== Stance.Stand && !fits(p.pos, PLAYER_SHAPE.height, boxes)) {
+  if (next === Stance.Stand && p.stance !== Stance.Stand && p.stance !== Stance.Tuck && !fits(p.pos, PLAYER_SHAPE.height, boxes)) {
     next = p.stance === Stance.Slide && speed < c.slideMinSpeed ? Stance.Crouch : p.stance;
   }
-  if (next === Stance.Slide && p.stance !== Stance.Slide) {
-    p.justSlid = true;
-    if (p.slideBoostCooldown <= 0 && speed > 1e-3) {
-      const boosted = speed + c.slideBoost;
-      p.vel.x *= boosted / speed;
-      p.vel.z *= boosted / speed;
-      p.slideBoostCooldown = c.slideBoostCooldown;
-    }
-  }
+  if (next === Stance.Slide && p.stance !== Stance.Slide) p.justSlid = true;
   const before = p.slideTime;
   p.slideTime = next === Stance.Slide && p.stance === Stance.Slide ? p.slideTime + DT : 0;
   const ready = ABILITY_CONFIG.slideJumpMinSeconds;
@@ -452,7 +458,7 @@ function updateStance(p: PlayerState, input: PlayerInput, boxes: readonly Box[])
 
 /** Movement numbers for the current stance, on top of whatever the gadget set. */
 function stanceConfig(p: PlayerState, cfg: MovementConfig): MovementConfig {
-  if (p.stance === Stance.Stand) return cfg;
+  if (p.stance === Stance.Stand || p.stance === Stance.Tuck) return cfg;
   const c = ABILITY_CONFIG;
   Object.assign(lowCfg, cfg);
   if (p.stance === Stance.Crouch) {

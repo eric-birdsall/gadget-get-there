@@ -22,6 +22,9 @@ import { PLAYER_SHAPE } from '../config';
 
 const follow = (rate: number, dt: number) => 1 - Math.exp(-rate * dt);
 
+/** How far a tuck squashes the model, as a share of the slide/crouch squash. */
+const TUCK_LOW = 0.6;
+
 /** Heights of the leg and arm pivots above the feet. */
 const HIP_HEIGHT = 0.72;
 const SHOULDER_HEIGHT = 1.28;
@@ -91,6 +94,8 @@ export class PlayerModel {
   private gait = 0;
   /** 0 … 1: how much of the mid-air pose shows. */
   private air = 0;
+  /** 0 … 1: knees pulled up (a tuck). */
+  private tuck = 0;
 
   /** `ghost` makes a translucent, shadowless copy for the personal-best ghost. */
   constructor(ghost = false) {
@@ -231,10 +236,12 @@ export class PlayerModel {
     }
   }
 
-  /** Slide (low, leaning back), crouch (low) or standing, plus the mantle pull-up. */
-  setStance(sliding: boolean, crouching: boolean, mantle: number, dt: number): void {
+  /** Slide (low, leaning back), crouch (low), tuck (a little low, knees up) or standing, plus the mantle pull-up. */
+  setStance(sliding: boolean, crouching: boolean, mantle: number, dt: number, tucking = false): void {
     const k = follow(16, dt);
-    this.low += ((sliding || crouching ? 1 : 0) - this.low) * k;
+    // A tuck is shorter by tuckLift of the 1.8 m: about 0.6 of the way to the full low squash.
+    this.low += ((sliding || crouching ? 1 : tucking ? TUCK_LOW : 0) - this.low) * k;
+    this.tuck += ((tucking ? 1 : 0) - this.tuck) * k;
     this.slideLean += ((sliding ? 1 : 0) - this.slideLean) * k;
     this.reach = mantle;
   }
@@ -332,8 +339,9 @@ export class PlayerModel {
       const side = i === 0 ? 1 : -1;
       // Positive X rotation swings the foot back (the model faces −Z).
       const run = side * Math.sin(this.stride) * amp * this.gait;
-      const airPose = (i === 0 ? -0.7 : 0.35) * this.air;
-      hip.rotation.x = run + airPose;
+      // In the air one knee comes up; tucked, both come right up.
+      const airPose = (i === 0 ? -0.7 : 0.35) * this.air * (1 - this.tuck);
+      hip.rotation.x = run + airPose - 1.1 * this.tuck;
     });
     this.arms.forEach((shoulder, i) => {
       const side = i === 0 ? 1 : -1;

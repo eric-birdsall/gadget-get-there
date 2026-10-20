@@ -34,7 +34,10 @@ export const USE_ACTIONS = [Action.UseSlot1, Action.UseSlot2, Action.UseSlot3] a
 
 export type InputDevice = 'keys' | 'pad';
 
-/** What the player last used (on-screen labels show that device's buttons), and the controller's bindings. */
+/**
+ * What the player chose to play with (the other device is ignored, and on-screen labels show
+ * this one's buttons), and the controller's bindings.
+ */
 export const device: { current: InputDevice; pad: PadBindings } = { current: 'keys', pad: { ...DEFAULT_PAD_BINDINGS } };
 
 /** The action's main key as shown on screen, e.g. "E" (or "RT" when playing with the controller). */
@@ -88,8 +91,8 @@ export class InputManager {
   private edges = new Set<PadButton>();
   /** Buttons held when play resumed (A on Resume): ignored until let go, so they don't jump. */
   private padSuppressed = new Set<PadButton>();
-  /** Called when the player switches between keyboard/mouse and the controller. */
-  onDeviceChange: (device: InputDevice) => void = () => {};
+  /** A controller button was pressed while playing with keyboard and mouse (for a hint). */
+  padIgnored = false;
   /** Once a lock has worked, a later refusal is just the browser's re-lock cooldown after Esc. */
   private everLocked = false;
   /** Cursor x as a fraction of the window width, or null when unknown. */
@@ -97,10 +100,11 @@ export class InputManager {
 
   constructor(private readonly target: HTMLElement) {
     document.addEventListener('keydown', (e) => {
-      this.setDevice('keys');
       if (!this.locked) return;
       // Esc belongs to the pause/fullscreen handling in main.
       if (e.code === 'Escape') return;
+      // Playing with the controller: keys don't play.
+      if (device.current === 'pad') return;
       // Bound keys belong to the game, not the browser (Tab, ', / and Space all do things there).
       if (this.bound.has(e.code) || e.code === 'Space' || e.code.startsWith('Arrow')) e.preventDefault();
       if (!e.repeat) this.pressed.add(e.code);
@@ -108,18 +112,15 @@ export class InputManager {
     });
     document.addEventListener('keyup', (e) => this.held.delete(e.code));
     document.addEventListener('mousedown', (e) => {
-      this.setDevice('keys');
-      if (!this.locked) return;
+      if (!this.locked || device.current === 'pad') return;
       this.pressed.add(`Mouse${e.button}`);
       this.held.add(`Mouse${e.button}`);
     });
     document.addEventListener('mouseup', (e) => this.held.delete(`Mouse${e.button}`));
     document.addEventListener('mousemove', (e) => {
       this.cursorX = e.clientX / window.innerWidth;
-      // A real move, not a nudge of the desk.
-      if (Math.abs(e.movementX) + Math.abs(e.movementY) > 4) this.setDevice('keys');
-      // Resumed from the controller, the cursor is free: it doesn't look around.
-      if (!this.locked || this.padLocked) return;
+      // Playing with the controller, the cursor is free: it doesn't look around.
+      if (!this.locked || this.padLocked || device.current === 'pad') return;
       this.yaw -= e.movementX * CAMERA_CONFIG.horizontalSensitivity * this.sensitivity;
       const dy = e.movementY * CAMERA_CONFIG.verticalSensitivity * this.sensitivity * (this.invertY ? -1 : 1);
       // The mouse set the tilt: leave it where it is.
@@ -186,10 +187,19 @@ export class InputManager {
     document.dispatchEvent(new Event('pointerlockchange'));
   }
 
-  /** Reads the controller; call once per frame, paused or not. */
+  /** Reads the controller; call once per frame, paused or not. Ignored unless playing with it. */
   pollPad(): void {
     const gp = firstPad();
-    this.pad = gp ? readPad(gp) : null;
+    const read = gp ? readPad(gp) : null;
+    if (device.current !== 'pad') {
+      if (read && read.down.size > 0) this.padIgnored = true;
+      this.pad = null;
+      this.edges = new Set();
+      this.padPrev = new Set();
+      this.padDown = new Set();
+      return;
+    }
+    this.pad = read;
     const down = this.pad?.down ?? new Set<PadButton>();
     this.edges = new Set([...down].filter((b) => !this.padPrev.has(b)));
     this.padPrev = down;
@@ -198,10 +208,6 @@ export class InputManager {
       for (const b of this.edges) if (!this.padSuppressed.has(b)) this.padPressed.add(b);
       this.padDown = new Set([...down].filter((b) => !this.padSuppressed.has(b)));
     } else this.padDown = new Set();
-    const p = this.pad;
-    if (this.edges.size > 0 || (p && Math.max(Math.abs(p.forward), Math.abs(p.right), Math.abs(p.turn), Math.abs(p.tilt)) > 0.3)) {
-      this.setDevice('pad');
-    }
   }
 
   /** The controller this frame (sticks and buttons), or null with none connected. */
@@ -218,10 +224,12 @@ export class InputManager {
     return device.current;
   }
 
-  private setDevice(d: InputDevice): void {
+  /** Switches what the player plays with; everything held on the other device is let go. */
+  setDevice(d: InputDevice): void {
     if (device.current === d) return;
     device.current = d;
-    this.onDeviceChange(d);
+    this.releaseAll();
+    this.padIgnored = false;
   }
 
   /** Movement from keys and the left stick: +1 forward, +1 right. */
@@ -247,7 +255,7 @@ export class InputManager {
     );
     this.yaw = view.yaw;
     this.pitch = view.pitch;
-    if (!this.freeCursor || !this.fakeLocked || this.cursorX === null) return;
+    if (!this.freeCursor || !this.fakeLocked || this.cursorX === null || device.current === 'pad') return;
     const zone = CAMERA_CONFIG.freeCursorEdgeZone;
     const push = this.cursorX < zone ? (this.cursorX - zone) / zone : this.cursorX > 1 - zone ? (this.cursorX - (1 - zone)) / zone : 0;
     this.yaw -= Math.max(-1, Math.min(1, push)) * CAMERA_CONFIG.freeCursorTurnSpeed * this.sensitivity * dt;

@@ -17,7 +17,7 @@ import {
   Vector3,
   WebGLRenderer,
 } from 'three';
-import { GRAPPLE_CONFIG } from '../config';
+import { ABILITY_CONFIG, GRAPPLE_CONFIG } from '../config';
 import type { CourseDefinition } from '../course/types';
 import type { Pad } from '../gadgets/launchPad';
 import type { GhostPose } from '../game/ghost';
@@ -42,6 +42,8 @@ export interface RenderFrame {
   gliding: boolean;
   sliding: boolean;
   crouching: boolean;
+  /** Legs tucked up in the air (crouch held while jumping). */
+  tucking: boolean;
   /** Mantle progress 0 … 1, or -1. */
   mantle: number;
   /** The wall being run on (its outward normal), or null. */
@@ -189,9 +191,12 @@ export class Renderer {
   render(dt: number, f: RenderFrame): void {
     const pose = f.pose;
     const speed = pose.vel.length();
-    this.view.pivotDrop += ((f.sliding || f.crouching ? 0.6 : 0) - this.view.pivotDrop) * Math.min(1, dt * 10);
+    // Low stances drop the camera; a tuck raises the feet with the head still, so the camera holds
+    // where it was by dropping the same amount.
+    const drop = f.sliding || f.crouching ? 0.6 : f.tucking ? ABILITY_CONFIG.tuckLift : 0;
+    this.view.pivotDrop += (drop - this.view.pivotDrop) * Math.min(1, dt * 10);
     this.view.update(dt, pose.feet, speed, f.yaw, f.pitch, this.boxes);
-    this.player.setStance(f.sliding, f.crouching, f.mantle, dt);
+    this.player.setStance(f.sliding, f.crouching, f.mantle, dt, f.tucking);
     this.player.setWallRun(f.wallRunNormal, dt);
     this.player.setThrusters(f.thrust, f.dashFlash, dt);
     this.player.setGlide(f.gliding, dt);

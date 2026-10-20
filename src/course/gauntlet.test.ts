@@ -48,8 +48,8 @@ const SLIDE_LINE: Waypoint[] = [
   { x: 0, z: -72 },
   { x: 0, z: -86, crouch: true },
   ...STONES,
-  { x: 0, z: -124 },
-  // Still sliding at the edge, so the jump is a slide-jump.
+  { x: 0, z: -128 },
+  // Slide down the kicker, still sliding at the edge, so the jump is a slide-jump.
   { x: 0, z: -150, crouch: true },
   { x: 0, z: -170 },
   ...LOWER_TRACK,
@@ -170,7 +170,9 @@ describe('Gauntlet', () => {
   });
 
   it('a plain running jump does not clear the plunge (it takes a slide-jump or a gadget)', () => {
-    const route: Waypoint[] = [...SLIDE_LINE.slice(0, SLIDE_LINE.findIndex((w) => w.z === -124) + 1), { x: 0, z: -170 }];
+    const upToKicker = SLIDE_LINE.findIndex((w) => w.z === -128);
+    expect(upToKicker).toBeGreaterThan(0);
+    const route: Waypoint[] = [...SLIDE_LINE.slice(0, upToKicker + 1), { x: 0, z: -170 }];
     const r = runRoute(new RunSession(gauntlet, { loadout: [], checkpointsEnabled: true }), route, 20);
     expect(r.falls).toBeGreaterThan(0);
   });

@@ -21,24 +21,21 @@ function running(boxes: Box[] = [FLOOR], at = new Vector3()): PlayerState {
 }
 
 describe('slide', () => {
-  it('starts at running speed with a burst, and the burst is rate-limited', () => {
+  it('starts at running speed with no burst of its own (the burst is saved for the jump)', () => {
     const p = running();
+    const before = horizontalSpeed(p);
     stepPlayer(p, { ...NO_INPUT, forward: 1, crouch: true }, [FLOOR]);
     expect(p.stance).toBe(Stance.Slide);
     expect(p.justSlid).toBe(true);
-    expect(horizontalSpeed(p)).toBeGreaterThan(M.groundSpeed + A.slideBoost - 0.5);
-    // Stand and slide again at once: no second burst.
-    run(p, { forward: 1 }, 0.1);
-    const before = horizontalSpeed(p);
-    stepPlayer(p, { ...NO_INPUT, forward: 1, crouch: true }, [FLOOR]);
-    expect(horizontalSpeed(p)).toBeLessThan(before + 0.5);
+    expect(horizontalSpeed(p)).toBeLessThanOrEqual(before + 1e-6);
   });
 
   it('glides with low drag, then drops to a crouch when slow', () => {
     const p = running();
     run(p, { forward: 1, crouch: true }, 1);
     expect(p.stance).toBe(Stance.Slide);
-    expect(horizontalSpeed(p)).toBeGreaterThan(M.groundSpeed);
+    // Low drag: still most of its speed after a second.
+    expect(horizontalSpeed(p)).toBeGreaterThan(M.groundSpeed - A.slideFriction - 0.5);
     run(p, { forward: 1, crouch: true }, 5);
     expect(p.stance).toBe(Stance.Crouch);
     expect(horizontalSpeed(p)).toBeCloseTo(A.crouchSpeed, 1);
@@ -48,7 +45,7 @@ describe('slide', () => {
     const hill = [makeBox(ramp([0, 30, 0], [0, 0, -150], 10))];
     const p = running(hill, new Vector3(0, 29.9, -1));
     run(p, { forward: 1, crouch: true }, 3, hill);
-    expect(horizontalSpeed(p)).toBeGreaterThan(M.groundSpeed + A.slideBoost + 3);
+    expect(horizontalSpeed(p)).toBeGreaterThan(M.groundSpeed + 3);
   });
 
   it('jumping out keeps the slide speed and stands up', () => {
@@ -85,6 +82,16 @@ describe('slide', () => {
     expect(long.gain).toBeGreaterThan(A.slideJumpBoost - 0.5);
   });
 
+  it('the stored burst goes if the slide stops before the jump', () => {
+    const p = running();
+    run(p, { forward: 1, crouch: true }, A.slideJumpMinSeconds + 0.1);
+    // Let go for a moment (standing up), then jump.
+    run(p, { forward: 1 }, 0.05);
+    stepPlayer(p, { ...NO_INPUT, forward: 1, jump: true }, [FLOOR]);
+    expect(p.justJumped).toBe(true);
+    expect(p.justSlideJumped).toBe(false);
+  });
+
   it('fits under a low bar that stops a standing player, and stays low until clear', () => {
     // A bar from 1.1 m up, 6 m long.
     const bar = makeBox({ center: [0, 2.6, -8], size: [10, 3, 6] });
@@ -119,6 +126,46 @@ describe('slide', () => {
     p.tethered = true;
     stepPlayer(p, { ...NO_INPUT, crouch: true }, [FLOOR]);
     expect(p.stance).toBe(Stance.Stand);
+  });
+});
+
+describe('tuck', () => {
+  /** Jumps from a standstill, crouch held in the air or not; returns the highest the feet and head reach. */
+  function jump(tuck: boolean): { feet: number; head: number; p: PlayerState } {
+    const p = createPlayer(new Vector3());
+    run(p, {}, 0.1);
+    stepPlayer(p, { ...NO_INPUT, jump: true }, [FLOOR]);
+    let feet = 0;
+    let head = 0;
+    for (let t = 0; t < 0.6; t += DT) {
+      stepPlayer(p, { ...NO_INPUT, jump: true, crouch: tuck }, [FLOOR]);
+      feet = Math.max(feet, p.pos.y);
+      head = Math.max(head, p.pos.y + (p.stance === Stance.Tuck ? 1.8 - A.tuckLift : 1.8));
+    }
+    return { feet, head, p };
+  }
+
+  it('crouch in the air pulls the feet up, head where it was: clears a little more than a jump', () => {
+    const plain = jump(false);
+    const tucked = jump(true);
+    expect(tucked.p.stance).toBe(Stance.Tuck);
+    expect(tucked.feet).toBeCloseTo(plain.feet + A.tuckLift, 1);
+    expect(tucked.head).toBeCloseTo(plain.head, 1);
+  });
+
+  it('letting go drops the legs back down, and you land standing', () => {
+    const { p } = jump(true);
+    run(p, {}, 1.5);
+    expect(p.stance).toBe(Stance.Stand);
+    expect(p.grounded).toBe(true);
+    expect(p.pos.y).toBeCloseTo(0, 1);
+  });
+
+  it('landing with crouch still held goes straight into a crouch', () => {
+    const { p } = jump(true);
+    run(p, { crouch: true }, 1.5);
+    expect(p.grounded).toBe(true);
+    expect(p.stance).toBe(Stance.Crouch);
   });
 });
 

@@ -23,6 +23,8 @@ export interface Settings {
   loadout: string;
   /** Last level played, by id. */
   level: string;
+  /** What to play with: 'keys' (mouse and keyboard) or 'pad' (controller). The other is ignored. */
+  inputMode: string;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -39,6 +41,7 @@ export const DEFAULT_SETTINGS: Settings = {
   shadows: true,
   loadout: 'grapple,jetpack,dash',
   level: 'the-crossing',
+  inputMode: 'keys',
 };
 
 export function readJson(key: string): unknown {

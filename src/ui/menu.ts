@@ -137,6 +137,12 @@ export class Menu {
     this.checkbox('set-checkpoints', 'checkpoints');
     this.checkbox('set-ghost', 'ghost');
     this.checkbox('set-shadows', 'shadows');
+    const inputMode = el<HTMLSelectElement>('set-input');
+    inputMode.value = settings.inputMode;
+    inputMode.addEventListener('change', () => {
+      this.settings.inputMode = inputMode.value;
+      this.changed();
+    });
   }
 
   private changed(): void {
@@ -547,6 +553,11 @@ export class Menu {
       b.textContent = button === undefined ? '—' : PAD_BUTTON_NAMES[button];
       b.title = 'Press, then press a controller button';
     }
+  }
+
+  /** A line under the title (e.g. a hint), until the menu next opens. */
+  showNote(text: string): void {
+    this.note.textContent = text;
   }
 
   /** `started` switches the button between "Play" and "Resume". */

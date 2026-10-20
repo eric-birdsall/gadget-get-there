@@ -70,6 +70,7 @@ const ghostPose: GhostPose = { pos: new Vector3(), yaw: 0, rope: null };
 function applySettings(): void {
   input.sensitivity = settings.sensitivity;
   input.invertY = settings.invertY;
+  setInputMode(settings.inputMode === 'pad' ? 'pad' : 'keys');
   input.keyLookSpeed = settings.keyLookSpeed;
   input.autoLevel = settings.autoLevel;
   renderer.view.baseFov = settings.fov;
@@ -261,6 +262,12 @@ function enterPlay(): void {
     input.lockFromPad();
     return;
   }
+  // Clicked Play to play with the controller: fullscreen, but the mouse isn't captured.
+  if (input.device === 'pad') {
+    if (!fullscreen.active) void fullscreen.enter();
+    input.lockFromPad();
+    return;
+  }
   if (!fullscreen.active) {
     void fullscreen.enter();
     // Some embedded browsers neither grant nor refuse: check a moment later instead.
@@ -340,14 +347,16 @@ const padNav = new PadNav({
   back: () => void menuBack(),
 });
 
-// Labels follow whichever the player last touched: keys, or controller buttons.
-input.onDeviceChange = (d) => {
+/** Plays with the controller or with mouse and keyboard; the other is ignored. Labels follow. */
+function setInputMode(d: 'keys' | 'pad'): void {
+  if (input.device === d) return;
+  input.setDevice(d);
   document.body.classList.toggle('pad-nav', d === 'pad');
   hud.refreshKeys();
   menu.refreshKeys();
   refreshGadget();
   if (d === 'pad' && paused) padNav.focus(document.getElementById('play')!);
-};
+}
 // Browsers without Esc lock leave fullscreen on one press: pause too.
 document.addEventListener('fullscreenchange', () => {
   if (!fullscreen.active && !paused) input.unlock();
@@ -370,7 +379,8 @@ document.addEventListener('pointerlockchange', () => {
   } else {
     started = true;
     menu.hide();
-    hud.setFreeCursorNotice(input.usingFreeCursor);
+    // Only about mouse look: nothing to say when playing with the controller.
+    hud.setFreeCursorNotice(input.usingFreeCursor && input.device === 'keys');
   }
 });
 document.addEventListener('visibilitychange', () => {
@@ -436,6 +446,11 @@ function frame(now: number): void {
       input.lockFromPad();
     }
   } else if (paused) padNav.update(dt, input.padState, input.padEdges);
+  // A controller pressed while set to mouse and keyboard: say where to switch.
+  if (paused && input.padIgnored) {
+    input.padIgnored = false;
+    menu.showNote('Controller detected · to play with it, choose Controller in Settings → Play with');
+  }
   if (!paused) {
     handleKeys();
     input.update(dt);
@@ -477,6 +492,7 @@ function frame(now: number): void {
     gliding: !!session.find(WingsuitGadget)?.gliding,
     sliding: p.stance === Stance.Slide,
     crouching: p.stance === Stance.Crouch,
+    tucking: p.stance === Stance.Tuck,
     mantle: p.mantle ? p.mantle.t / ABILITY_CONFIG.mantleDuration : -1,
     wallRunNormal: p.wallRun?.normal ?? null,
     grappleTarget,

@@ -19,7 +19,7 @@ function barrier(z: number, top: number) {
  * 1. Start straight with two barriers: slide under the middle, or run round the ends.
  * 2. A 14 m gap down to a lower island: stepping stones round the right; or dash, glide,
  *    launch, swing or wall-run straight across.
- * 3. The plunge: a short kicker, then a 6 m drop over a 14 m gap. A ramp down the left; or
+ * 3. The plunge: a steep downhill kicker, then a 4 m drop over a 14 m gap. A ramp down the left; or
  *    slide down the kicker and slide-jump (the burst carries you), dash, glide, launch or swing.
  * 4. The corridor: a 24 m gap between two tall walls. A narrow bridge on the right; or wall-run
  *    and kick across, or swing.
@@ -47,9 +47,9 @@ export const gauntlet: CourseDefinition = {
 
     // 3. The plunge: a short kicker down to the edge (a slide gains speed on it), the ramp down
     // the left, and the lower track.
-    ramp([0, 28, -134], [0, 26, -144], 12),
+    ramp([0, 28, -134], [0, 24, -146], 12),
     ramp([-14, 28, -134], [-14, 20, -168], 6),
-    slab(0, 20, -194, 32, 72),
+    slab(0, 20, -195, 32, 70),
 
     // 4. The corridor: walls either side of the gap, the bridge on the right, the finish.
     // The walls run on past the far edge, so a wall run ends over the finish platform.
@@ -68,7 +68,7 @@ export const gauntlet: CourseDefinition = {
 
   checkpoints: [
     { center: [0, 29.5, -124], size: [32, 4, 20], respawn: { pos: [0, 28, -118], yaw: 0 } },
-    { center: [0, 21.5, -194], size: [32, 4, 72], respawn: { pos: [0, 20, -163], yaw: 0 } },
+    { center: [0, 21.5, -195], size: [32, 4, 70], respawn: { pos: [0, 20, -165], yaw: 0 } },
   ],
 
   finish: { center: [0, 22.5, -272], size: [12, 5, 2] },

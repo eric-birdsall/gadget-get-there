@@ -63,12 +63,10 @@ export const MOVEMENT_CONFIG = {
 export const ABILITY_CONFIG = {
   /** Capsule height while sliding or crouching, m. */
   lowHeight: 0.9,
+  /** Crouch held in the air tucks the legs up this far (the head stays put), so you clear this much more, m. */
+  tuckLift: 0.5,
   /** Slower than this, crouch held is a crouch-walk instead of a slide, m/s. */
   slideMinSpeed: 6,
-  /** Speed added when a slide starts, m/s. */
-  slideBoost: 3,
-  /** The burst can't come again sooner than this, s. */
-  slideBoostCooldown: 1,
   /** Drag while sliding, m/s². */
   slideFriction: 2.5,
   slideSlopeInfluence: 0.9,

@@ -273,6 +273,10 @@
         margin-bottom: 11px; text-align: left; font-size: 15px;
       }
       #settings label.check { grid-template-columns: 1fr auto; }
+      #settings select {
+        padding: 6px 10px; border-radius: 8px; border: 1px solid rgba(127, 246, 255, 0.3);
+        background: #12152e; color: #e8ecf8; font-size: 14px;
+      }
       #settings output { text-align: right; font-variant-numeric: tabular-nums; color: var(--muted); }
       input[type='range'] { width: 100%; accent-color: var(--accent); }
       input[type='checkbox'] { accent-color: var(--accent); width: 18px; height: 18px; }
@@ -346,6 +350,12 @@
           <label class="check">Checkpoints (respawn there with your gadgets as they were; clock keeps running) <input id="set-checkpoints" type="checkbox" /></label>
           <label class="check">Show personal-best ghost <input id="set-ghost" type="checkbox" /></label>
           <h3>Controls</h3>
+          <label class="check">Play with
+            <select id="set-input">
+              <option value="keys">Mouse &amp; keyboard</option>
+              <option value="pad">Controller</option>
+            </select>
+          </label>
           <label>Mouse sensitivity <input id="set-sensitivity" type="range" min="0.2" max="3" step="0.05" /><output></output></label>
           <label>Keyboard look speed <input id="set-key-look" type="range" min="0.4" max="2" step="0.05" /><output></output></label>
           <label class="check">Level the view after looking up/down with keys <input id="set-auto-level" type="checkbox" /></label>
