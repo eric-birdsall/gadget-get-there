@@ -34,6 +34,18 @@
         background: rgba(255, 255, 255, 0.85); box-shadow: 0 0 0 1.5px rgba(28, 31, 58, 0.45);
         transition: transform 0.1s;
       }
+      /* Slide charge ring: fills while sliding; glows when a jump would give the speed burst. */
+      #slide-ring {
+        left: 50%; top: 50%; width: 40px; height: 40px; margin: -20px 0 0 -20px; transform: rotate(-90deg) scale(0.8);
+        opacity: 0; transition: opacity 0.12s, transform 0.15s;
+      }
+      #slide-ring.show { opacity: 1; transform: rotate(-90deg) scale(1); }
+      #slide-ring circle { fill: none; stroke-width: 2.5; }
+      #slide-ring .track { stroke: rgba(255, 255, 255, 0.22); }
+      #slide-ring .arc { stroke: rgba(127, 246, 255, 0.75); stroke-dasharray: 100; stroke-dashoffset: 100; stroke-linecap: round; }
+      #slide-ring.ready { transform: rotate(-90deg) scale(1.15); }
+      #slide-ring.ready .arc { stroke: #7ff6ff; stroke-width: 3.5; filter: drop-shadow(0 0 4px #7ff6ff) drop-shadow(0 0 10px rgba(127, 246, 255, 0.7)); }
+      #slide-ring.ready .track { stroke: transparent; }
       #crosshair.locked { transform: scale(2.2); background: #fff; box-shadow: 0 0 0 1.5px #ffd54a, 0 0 8px #ffd54a; }
 
       #gadgets { left: 0; right: 0; bottom: 18px; display: flex; flex-direction: column; align-items: center; gap: 6px; }
@@ -108,75 +120,90 @@
       #result-retry { margin-top: 12px; font-size: 14px; font-weight: 700; }
       .medal-targets { font-size: 12px; opacity: 0.6; margin-top: 4px; }
 
+      /* Main menu: a large dark panel; two columns on wide screens (play on the left, settings right). */
       #overlay {
         position: fixed; inset: 0; z-index: 10; display: flex; align-items: center; justify-content: center;
-        background: rgba(28, 31, 58, 0.45); backdrop-filter: blur(3px);
+        background: rgba(6, 8, 20, 0.72); backdrop-filter: blur(5px);
       }
       #card {
-        width: min(440px, calc(100vw - 32px)); max-height: calc(100vh - 32px); overflow-y: auto; box-sizing: border-box;
-        padding: 24px 24px 18px; border-radius: 16px; text-align: center; color: var(--ink);
-        background: rgba(255, 255, 255, 0.95); box-shadow: 0 12px 40px rgba(28, 31, 58, 0.3);
+        --panel: #12152e; --panel-2: #1b1f40; --line: rgba(127, 246, 255, 0.18); --text: #e8ecf8; --muted: #9aa3c4;
+        width: min(1100px, calc(100vw - 48px)); max-height: calc(100vh - 48px); overflow-y: auto; box-sizing: border-box;
+        display: grid; grid-template-columns: 1fr; gap: 8px 40px; padding: 32px 36px 26px;
+        border-radius: 18px; text-align: center; color: var(--text);
+        background: linear-gradient(160deg, rgba(27, 31, 64, 0.97), rgba(12, 14, 32, 0.97));
+        box-shadow: 0 0 0 1px var(--line), 0 24px 60px rgba(0, 0, 0, 0.55);
       }
-      #card h1 { margin: 0 0 4px; font-size: 32px; letter-spacing: 0.01em; }
-      #card .sub { margin: 0 0 16px; opacity: 0.65; font-size: 14px; }
-      #menu-note { margin: 0 0 12px; font-size: 13px; color: #c0306a; }
+      @media (min-width: 820px) {
+        #card { grid-template-columns: 1.1fr 1fr; align-items: start; min-height: min(620px, calc(100vh - 48px)); }
+        #card-main { position: sticky; top: 0; }
+        #settings { margin-top: 0 !important; padding-top: 0 !important; border-top: none !important;
+          padding-left: 36px !important; border-left: 1px solid var(--line); }
+      }
+      #card h1 { margin: 0 0 6px; font-size: 40px; letter-spacing: 0.01em; }
+      #card .sub { margin: 0 0 22px; color: var(--muted); font-size: 15px; }
+      #menu-note { margin: 0 0 12px; font-size: 13px; color: #ff8fb0; }
       #menu-note:empty { display: none; }
-      .row { display: flex; gap: 8px; margin-bottom: 10px; }
+      .row { display: flex; gap: 10px; margin-bottom: 12px; }
       button {
-        flex: 1; padding: 11px 14px; font: inherit; font-size: 16px; color: var(--ink); cursor: pointer;
-        background: #eef1f7; border: 1px solid #d3d9e8; border-radius: 10px;
+        flex: 1; padding: 13px 16px; font: inherit; font-size: 17px; color: var(--text, #e8ecf8); cursor: pointer;
+        background: var(--panel-2, #1b1f40); border: 1px solid var(--line, rgba(127, 246, 255, 0.18)); border-radius: 10px;
       }
-      button:hover { background: #e2e7f2; }
+      button:hover { background: #262b55; }
       button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-      button.primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 700; }
+      button.primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 700; font-size: 19px; }
       button.primary:hover { background: #ff7aa3; }
-      button.selected { background: #ffe1ea; border-color: var(--accent); font-weight: 700; }
       /* Loadout picker: click gadgets to fill the numbered slots in order. */
-      #menu-palette { display: flex; flex-wrap: wrap; justify-content: center; gap: 18px; margin-bottom: 10px; }
+      #menu-palette { display: flex; flex-wrap: wrap; justify-content: center; gap: 26px; margin-bottom: 16px; }
       .gadget-tile {
-        flex: 0 0 auto; display: flex; flex-direction: column; align-items: center; gap: 4px;
-        padding: 0; border: none; background: none; font-size: 12px; white-space: nowrap;
+        flex: 0 0 auto; display: flex; flex-direction: column; align-items: center; gap: 6px;
+        padding: 0; border: none; background: none; font-size: 13px; white-space: nowrap;
       }
       .gadget-tile:hover { background: none; }
       .gadget-tile:hover .icon-square { transform: translateY(-2px); }
-      .gadget-tile .icon-square { width: 54px; height: 54px; transition: transform 0.1s; }
-      .gadget-tile.chosen .icon-square { box-shadow: inset 0 0 0 2px var(--accent), inset 0 0 16px rgba(255, 93, 143, 0.35); }
-      .gadget-tile.chosen .name { font-weight: 700; color: var(--accent); }
+      .gadget-tile .icon-square { width: 68px; height: 68px; transition: transform 0.1s; }
+      .gadget-tile.chosen .icon-square { box-shadow: inset 0 0 0 2px var(--accent), inset 0 0 18px rgba(255, 93, 143, 0.4); }
+      .gadget-tile.chosen .name { font-weight: 700; color: #ff8fb0; }
       .gadget-tile .badge:empty { display: none; }
       /* Budget on the square's bottom edge: "5s", "x2". */
       .icon-square .budget {
-        position: absolute; right: 3px; bottom: 2px; font-size: 10px; font-weight: 800; color: #fff;
+        position: absolute; right: 4px; bottom: 3px; font-size: 11px; font-weight: 800; color: #fff;
         letter-spacing: 0.02em; text-shadow: 0 0 4px rgba(127, 246, 255, 0.9);
       }
       .gadget-tile .badge {
-        position: absolute; right: 3px; top: 3px; display: inline-flex; align-items: center; justify-content: center;
-        width: 15px; height: 15px; border-radius: 3px; background: var(--accent); color: #fff; font-size: 10px; font-weight: 800;
+        position: absolute; right: 4px; top: 4px; display: inline-flex; align-items: center; justify-content: center;
+        width: 16px; height: 16px; border-radius: 3px; background: var(--accent); color: #fff; font-size: 10px; font-weight: 800;
       }
-      #menu-gadgets { margin-bottom: 6px; }
+      #menu-gadgets { margin-bottom: 8px; }
       .loadout-slot {
-        display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
-        padding: 8px 4px 9px; font-size: 12px; border-radius: 12px; border: 1px solid #d3d9e8;
+        display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
+        padding: 12px 6px; font-size: 13px; border-radius: 12px; background: rgba(255, 255, 255, 0.03);
       }
-      .loadout-slot .icon-square { width: 46px; height: 46px; }
-      .loadout-slot .n { font-size: 11px; font-weight: 800; opacity: 0.5; }
-      .loadout-slot.empty { border-style: dashed; background: #f7f9fc; color: #8a93ab; cursor: default; }
-      #menu-gadgets-hint { margin: 0 0 8px; font-size: 12px; opacity: 0.6; }
-      button.small { flex: 0 0 auto; margin: 0 auto; padding: 6px 14px; font-size: 13px; }
-      button:disabled { opacity: 0.45; cursor: default; }
+      .loadout-slot .icon-square { width: 56px; height: 56px; }
+      .loadout-slot .n { font-size: 11px; font-weight: 800; color: var(--muted); }
+      .loadout-slot.empty { border-style: dashed; color: var(--muted); cursor: default; }
+      .loadout-slot.empty:hover { background: rgba(255, 255, 255, 0.03); }
+      #card .icon-square.empty {
+        background: repeating-linear-gradient(135deg, #1a1e3d 0 6px, #161a35 6px 12px);
+        box-shadow: inset 0 0 0 1.5px rgba(127, 246, 255, 0.2);
+      }
+      #menu-gadgets-hint { margin: 0 0 10px; font-size: 13px; color: var(--muted); }
+      button.small { flex: 0 0 auto; margin: 0 auto; padding: 7px 16px; font-size: 13px; }
+      button:disabled { opacity: 0.4; cursor: default; }
       .mini-icon { display: inline-block; width: 18px; height: 18px; margin: 0 2px; vertical-align: -4px; }
       #result-meta span { margin-left: 6px; }
-      #pbs { margin: 4px 0 12px; font-size: 13px; opacity: 0.75; line-height: 1.6; }
-      #settings { margin-top: 14px; padding-top: 12px; border-top: 1px solid #e3e7f0; }
-      #settings h3 { margin: 6px 0 8px; font-size: 12px; letter-spacing: 0.1em; text-transform: uppercase; opacity: 0.5; text-align: left; }
+      #pbs { margin: 6px 0 16px; font-size: 15px; color: var(--muted); line-height: 1.6; }
+      #settings { margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--line); }
+      #settings h3 { margin: 10px 0 10px; font-size: 12px; letter-spacing: 0.12em; text-transform: uppercase; color: #7ff6ff; opacity: 0.8; text-align: left; }
+      #settings h3:first-child { margin-top: 0; }
       #settings label {
-        display: grid; grid-template-columns: 110px 1fr 46px; align-items: center; gap: 10px;
-        margin-bottom: 9px; text-align: left; font-size: 14px;
+        display: grid; grid-template-columns: 120px 1fr 50px; align-items: center; gap: 12px;
+        margin-bottom: 11px; text-align: left; font-size: 15px;
       }
       #settings label.check { grid-template-columns: 1fr auto; }
-      #settings output { text-align: right; font-variant-numeric: tabular-nums; opacity: 0.7; }
+      #settings output { text-align: right; font-variant-numeric: tabular-nums; color: var(--muted); }
       input[type='range'] { width: 100%; accent-color: var(--accent); }
       input[type='checkbox'] { accent-color: var(--accent); width: 18px; height: 18px; }
-      #controls { margin: 12px 0 0; font-size: 12.5px; line-height: 1.6; opacity: 0.6; }
+      #controls { margin: 16px 0 0; font-size: 13px; line-height: 1.7; color: var(--muted); text-align: left; }
     </style>
   </head>
   <body>
@@ -187,6 +214,10 @@
     <div id="hint" class="hud">Move to start the clock · 1 2 3 add or remove gadgets · scroll switches</div>
     <div id="toast" class="hud"></div>
     <div id="crosshair" class="hud"></div>
+    <svg id="slide-ring" class="hud" viewBox="0 0 40 40" aria-hidden="true">
+      <circle class="track" cx="20" cy="20" r="16" />
+      <circle class="arc" cx="20" cy="20" r="16" pathLength="100" />
+    </svg>
     <div id="gadgets" class="hud">
       <div id="slots"></div>
       <div id="gadget-hint"></div>
@@ -211,6 +242,7 @@
 
     <div id="overlay">
       <div id="card">
+        <div id="card-main">
         <h1>Gadget Get There</h1>
         <p class="sub">The Crossing · pick up to three gadgets · switch between them · beat your best</p>
         <p id="menu-note"></p>
@@ -223,6 +255,7 @@
         <div class="row">
           <button id="restart" class="hidden">Restart run</button>
           <button id="tuning">Tuning</button>
+        </div>
         </div>
         <div id="settings">
           <h3>Run</h3>

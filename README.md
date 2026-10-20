@@ -27,7 +27,7 @@ Pick up to three gadgets before a run. Each has a fixed budget on every level: G
 | Move | W A S D (or arrows) |
 | Look | Mouse |
 | Jump | Space |
-| Slide (at speed) / crouch-walk (when slow) | Hold Shift; jump out of a slide keeps its speed |
+| Slide (at speed) / crouch-walk (when slow) | Hold Shift; jump out of a slide keeps its speed, and after 1 s of sliding (the crosshair ring glows) the jump adds a burst |
 | Mantle a ledge | Hold Space in the air while moving into a ledge up to ~1 m above your head |
 | Use gadget | E (grapple: hold · rollerblades: press to put on, then hold to tuck · launch pad: press to throw) |
 | Choose gadgets | In the menu, click a gadget to put it in the next free slot; click it again (or its slot) to take it out. At the start line, 1 2 3 do the same. Changing gadgets from the menu mid-run restarts. Retries keep them. |

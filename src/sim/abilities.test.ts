@@ -61,6 +61,30 @@ describe('slide', () => {
     expect(horizontalSpeed(p)).toBeGreaterThan(speed - 0.2);
   });
 
+  it('jumping out of a slide longer than 1 s adds a small burst; a short slide does not', () => {
+    const jumpAfter = (seconds: number) => {
+      const p = running();
+      run(p, { forward: 1, crouch: true }, seconds);
+      const before = horizontalSpeed(p);
+      stepPlayer(p, { ...NO_INPUT, forward: 1, crouch: true, jump: true }, [FLOOR]);
+      return { gain: horizontalSpeed(p) - before, burst: p.justSlideJumped };
+    };
+    const short = jumpAfter(A.slideJumpMinSeconds - 0.3);
+    expect(short.burst).toBe(false);
+    expect(short.gain).toBeLessThan(0.5);
+    const long = jumpAfter(A.slideJumpMinSeconds + 0.1);
+    // The moment it becomes available is flagged once, for the HUD ring and chime.
+    const p = running();
+    let readyTicks = 0;
+    for (let t = 0; t < A.slideJumpMinSeconds + 0.3; t += DT) {
+      stepPlayer(p, { ...NO_INPUT, forward: 1, crouch: true }, [FLOOR]);
+      if (p.justSlideReady) readyTicks++;
+    }
+    expect(readyTicks).toBe(1);
+    expect(long.burst).toBe(true);
+    expect(long.gain).toBeGreaterThan(A.slideJumpBoost - 0.5);
+  });
+
   it('fits under a low bar that stops a standing player, and stays low until clear', () => {
     // A bar from 1.1 m up, 6 m long.
     const bar = makeBox({ center: [0, 2.6, -8], size: [10, 3, 6] });

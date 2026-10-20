@@ -21,6 +21,10 @@ export enum SessionEvent {
   Landed = 'landed',
   Fell = 'fell',
   SlideStarted = 'slide-started',
+  /** A slide has gone on long enough that jumping now gives the speed burst. */
+  SlideReady = 'slide-ready',
+  /** A jump out of a long slide gave its speed burst. */
+  SlideJumped = 'slide-jumped',
   Mantled = 'mantled',
   CheckpointReached = 'checkpoint-reached',
   Finished = 'finished',
@@ -323,6 +327,8 @@ export class RunSession {
     if (p.justJumped) this.events.push(SessionEvent.Jumped);
     if (p.justLanded) this.events.push(SessionEvent.Landed);
     if (p.justSlid) this.events.push(SessionEvent.SlideStarted);
+    if (p.justSlideReady) this.events.push(SessionEvent.SlideReady);
+    if (p.justSlideJumped) this.events.push(SessionEvent.SlideJumped);
     if (p.justMantled) this.events.push(SessionEvent.Mantled);
     if (p.grounded) this.lastGroundY = p.pos.y;
 

@@ -163,6 +163,12 @@ function handle(events: AnyEvent[]): void {
       case SessionEvent.SlideStarted:
         audio.play(Sfx.Slide);
         break;
+      case SessionEvent.SlideReady:
+        audio.play(Sfx.SlideReady);
+        break;
+      case SessionEvent.SlideJumped:
+        audio.play(Sfx.SlideJump);
+        break;
       case SessionEvent.Mantled:
         audio.play(Sfx.Mantle);
         break;
@@ -383,6 +389,8 @@ function frame(now: number): void {
     ghost: showGhost ? ghost!.poseAt(session.elapsed, ghostPose) : null,
   });
   hud.setCrosshairLocked(grappleTarget >= 0);
+  // Slide charge: fills over the slide time that earns the jump burst.
+  hud.setSlideCharge(p.stance === Stance.Slide ? Math.min(1, p.slideTime / ABILITY_CONFIG.slideJumpMinSeconds) : -1);
   hud.update(session.state, session.elapsed);
   refreshGadget();
   hud.updateDebug({

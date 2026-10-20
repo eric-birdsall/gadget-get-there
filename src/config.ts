@@ -74,6 +74,10 @@ export const ABILITY_CONFIG = {
   slideSlopeInfluence: 0.9,
   slideTurnGrip: 0.35,
   crouchSpeed: 4,
+  /** Jumping out of a slide at least this long… s */
+  slideJumpMinSeconds: 1.0,
+  /** …adds this much speed, m/s. */
+  slideJumpBoost: 2.5,
   /** Ledge tops this far above the feet can be mantled, m. */
   mantleMinHeight: 0.5,
   mantleMaxHeight: 2.8,

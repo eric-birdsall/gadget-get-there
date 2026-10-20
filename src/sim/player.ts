@@ -57,9 +57,15 @@ export interface PlayerState {
   stance: Stance;
   /** Seconds until the next slide can give its burst of speed. */
   slideBoostCooldown: number;
+  /** Seconds into the current slide (0 when not sliding). */
+  slideTime: number;
   mantle: Mantle | null;
   /** Set for the one tick a slide starts or a mantle grabs, for animation and sound. */
   justSlid: boolean;
+  /** Set for the one tick a long slide's jump gives its burst of speed. */
+  justSlideJumped: boolean;
+  /** Set for the one tick a slide reaches the length that earns the jump burst. */
+  justSlideReady: boolean;
   justMantled: boolean;
 }
 
@@ -79,8 +85,11 @@ export function createPlayer(pos: Vector3): PlayerState {
     airborneLock: 0,
     stance: Stance.Stand,
     slideBoostCooldown: 0,
+    slideTime: 0,
     mantle: null,
     justSlid: false,
+    justSlideJumped: false,
+    justSlideReady: false,
     justMantled: false,
   };
 }
@@ -100,8 +109,11 @@ export function resetPlayer(p: PlayerState, pos: Vector3): void {
   p.airborneLock = 0;
   p.stance = Stance.Stand;
   p.slideBoostCooldown = 0;
+  p.slideTime = 0;
   p.mantle = null;
   p.justSlid = false;
+  p.justSlideJumped = false;
+  p.justSlideReady = false;
   p.justMantled = false;
 }
 
@@ -409,6 +421,10 @@ function updateStance(p: PlayerState, input: PlayerInput, boxes: readonly Box[])
       p.slideBoostCooldown = c.slideBoostCooldown;
     }
   }
+  const before = p.slideTime;
+  p.slideTime = next === Stance.Slide && p.stance === Stance.Slide ? p.slideTime + DT : 0;
+  const ready = ABILITY_CONFIG.slideJumpMinSeconds;
+  if (before < ready && p.slideTime >= ready) p.justSlideReady = true;
   p.stance = next;
 }
 
@@ -517,6 +533,8 @@ export function stepPlayer(p: PlayerState, input: PlayerInput, boxes: readonly B
   p.justJumped = false;
   p.justLanded = false;
   p.justSlid = false;
+  p.justSlideJumped = false;
+  p.justSlideReady = false;
   p.justMantled = false;
   if (input.jump && !p.jumpHeld) p.jumpQueued = 0;
   if (p.mantle) {
@@ -540,8 +558,19 @@ export function stepPlayer(p: PlayerState, input: PlayerInput, boxes: readonly B
   // Jumping out of a slide or crouch stands you up first, if there's room.
   const roomToJump = p.stance === Stance.Stand || fits(p.pos, PLAYER_SHAPE.height, boxes);
   if (p.jumpQueued <= cfg.jumpBuffer && canJump && roomToJump) {
+    // Jumping out of a slide held long enough gives a small burst of speed.
+    if (p.stance === Stance.Slide && p.slideTime >= ABILITY_CONFIG.slideJumpMinSeconds) {
+      const speed = Math.hypot(p.vel.x, p.vel.z);
+      if (speed > 1e-3) {
+        const boosted = speed + ABILITY_CONFIG.slideJumpBoost;
+        p.vel.x *= boosted / speed;
+        p.vel.z *= boosted / speed;
+        p.justSlideJumped = true;
+      }
+    }
     if (p.stance !== Stance.Stand) {
       p.stance = Stance.Stand;
+      p.slideTime = 0;
       capsuleHeight = PLAYER_SHAPE.height;
       cfg = baseCfg;
     }

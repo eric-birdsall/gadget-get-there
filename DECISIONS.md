@@ -110,3 +110,7 @@ Replaces "one use each, auto-switch in order".
 - **Display:**
   - Menu gadget tiles show their budget ("5s", "x2", "x1").
   - The HUD shows remaining budget under each square ("3.2s", "x1", "x0"). The gadget in hand is highlighted, and its outline counts down.
+
+## Slide jump burst and indicator (built)
+- Jumping out of a slide that has lasted at least **1.0 s** adds **+2.5 m/s**.
+- While sliding, a thin ring around the crosshair fills over that second. When full it turns bright cyan and glows, with a short chime.

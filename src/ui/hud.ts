@@ -62,6 +62,9 @@ export class Hud {
   private readonly hint = el('hint');
   private readonly toast = el('toast');
   private readonly crosshair = el('crosshair');
+  private readonly slideRing = el('slide-ring');
+  private readonly slideArc = document.querySelector<SVGCircleElement>('#slide-ring .arc')!;
+  private lastSlideKey = -2;
   private readonly slots = el('slots');
   private readonly gadgetHint = el('gadget-hint');
   private readonly debug = el('debug');
@@ -136,6 +139,17 @@ export class Hud {
         : (remaining[inHand] ?? 1) <= 0
           ? `${gadgetDefinition(current).displayName} used up · scroll to switch`
           : `${gadgetDefinition(current).actionHint} · scroll to switch`;
+  }
+
+  /** Ring round the crosshair while sliding: 0…1 fills, 1 glows (jump now for a burst), −1 hides. */
+  setSlideCharge(charge: number): void {
+    // Floor, not round: 99% and full must differ, or the ready glow would never show.
+    const key = charge < 0 ? -1 : charge >= 1 ? 51 : Math.floor(charge * 50);
+    if (key === this.lastSlideKey) return;
+    this.lastSlideKey = key;
+    this.slideRing.classList.toggle('show', charge >= 0);
+    this.slideRing.classList.toggle('ready', charge >= 1);
+    if (charge >= 0) this.slideArc.style.strokeDashoffset = `${100 * (1 - charge)}`;
   }
 
   setCrosshairLocked(locked: boolean): void {
