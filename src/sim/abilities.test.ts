@@ -201,11 +201,29 @@ describe('wall run and wall jump', () => {
     }
     expect(started).toBe(true);
     const startY = p.pos.y;
-    run(p, { forward: 1 }, 0.6, boxes);
+    run(p, { forward: 1 }, 1, boxes);
     expect(p.wallRun).not.toBeNull();
-    // Light gravity: far less drop than a free fall would give.
-    expect(startY - p.pos.y).toBeLessThan(0.6);
+    // Fast enough: no height lost at all.
+    expect(p.pos.y).toBeGreaterThanOrEqual(startY - 1e-6);
+    expect(p.vel.y).toBeGreaterThanOrEqual(0);
     expect(horizontalSpeed(p)).toBeGreaterThan(9);
+  });
+
+  it('a slower wall run sinks gently', () => {
+    const boxes = [FLOOR, wallR];
+    const p = launchAlongWall(boxes, A.wallRunHoldSpeed - 1);
+    let started = false;
+    for (let t = 0; t < 0.4 && !started; t += DT) {
+      stepPlayer(p, NO_INPUT, boxes);
+      started ||= p.justWallRun;
+    }
+    expect(started).toBe(true);
+    const startY = p.pos.y;
+    run(p, NO_INPUT, 1, boxes);
+    expect(p.wallRun).not.toBeNull();
+    expect(p.pos.y).toBeLessThan(startY);
+    // Still far less than a free fall.
+    expect(startY - p.pos.y).toBeLessThan(1.5);
   });
 
   it('ends after its time limit', () => {

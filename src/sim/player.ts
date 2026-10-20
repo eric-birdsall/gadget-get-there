@@ -649,7 +649,12 @@ function wallRunControl(p: PlayerState, boxes: readonly Box[], cfg: MovementConf
   }
   p.vel.x = ax - n.x * c.wallRunStick;
   p.vel.z = az - n.z * c.wallRunStick;
-  p.vel.y = Math.max(-c.wallRunMaxSink, p.vel.y - cfg.gravity * c.wallRunGravityScale * DT);
+  if (Math.hypot(ax, az) >= c.wallRunHoldSpeed) {
+    // Fast enough: no height lost at all. The little rise from starting the run eases off to level.
+    p.vel.y = Math.max(0, p.vel.y - cfg.gravity * c.wallRunGravityScale * DT);
+  } else {
+    p.vel.y = Math.max(-c.wallRunMaxSink, p.vel.y - cfg.gravity * c.wallRunGravityScale * DT);
+  }
 }
 
 /** Advances a player by one tick. */

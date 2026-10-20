@@ -61,7 +61,7 @@ export class PlayerModel {
   private slideLean = 0;
   /** Mantle progress 0 … 1, or -1 when not mantling. */
   private reach = -1;
-  /** Sideways lean toward a wall being run on: + leans left, − right. */
+  /** Sideways lean away from a wall being run on: + leans left, − right. */
   private wallLean = 0;
 
   /** `ghost` makes a translucent, shadowless copy for the personal-best ghost. */
@@ -195,14 +195,15 @@ export class PlayerModel {
     this.reach = mantle;
   }
 
-  /** Wall running: lean the body toward the wall. */
+  /** Wall running: lean the body away from the wall, feet against it, so it never sinks in. */
   setWallRun(normal: Vector3 | null, dt: number): void {
     let target = 0;
     if (normal) {
-      // The model's right, from its facing; a wall on the right has its normal pointing left.
+      // The model's right, from its facing. A wall on the right has its normal pointing left
+      // (−1 here), and leaning away from it means tipping the top to the left (+).
       const rx = Math.cos(this.yaw);
       const rz = -Math.sin(this.yaw);
-      target = 0.45 * (normal.x * rx + normal.z * rz);
+      target = -0.4 * (normal.x * rx + normal.z * rz);
     }
     this.wallLean += (target - this.wallLean) * follow(14, dt);
   }

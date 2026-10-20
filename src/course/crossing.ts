@@ -92,11 +92,12 @@ export const crossing: CourseDefinition = {
     runWall(-6.5, 38, -91, 12, 26),
     // …and a zigzag of five across the bypass void: run one, kick across to the next. Each starts
     // before the last one ends, so a kick always has a wall waiting.
-    runWall(-3.5, 25, -219, 14, 20),
-    runWall(3.5, 24, -234, 14, 20),
-    runWall(-3.5, 23, -249, 14, 20),
-    runWall(3.5, 22, -264, 14, 20),
-    runWall(-3.5, 21, -279, 14, 20),
+    // Tall, so chained kicks (which gain height on fast runs) never clear the top.
+    runWall(-3.5, 27, -219, 22, 20),
+    runWall(3.5, 26, -234, 22, 20),
+    runWall(-3.5, 25, -249, 22, 20),
+    runWall(3.5, 24, -264, 22, 20),
+    runWall(-3.5, 23, -279, 22, 20),
 
     // Overhead grapple points: beams, blocks and ceilings high above the path.
     overhead(0, 50, -15, 16, 1.2, 2.5),

@@ -94,8 +94,10 @@ export const ABILITY_CONFIG = {
   wallReach: 0.6,
   /** Longest wall run, s. */
   wallRunMaxSeconds: 1.4,
-  /** Share of gravity while wall running. */
+  /** Share of gravity while wall running, when slower than wallRunHoldSpeed. */
   wallRunGravityScale: 0.15,
+  /** At or above this speed along the wall, a wall run holds its height exactly, m/s. */
+  wallRunHoldSpeed: 9,
   /** Upward speed given when a wall run starts, m/s; and the fastest you sink while running, m/s. */
   wallRunStartUp: 1.5,
   wallRunMaxSink: 2.5,

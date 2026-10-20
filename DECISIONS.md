@@ -177,3 +177,8 @@ Replaces "one use each, auto-switch in order".
 
 ## F cycles gadgets (built)
 - **F** steps to the next gadget in slot order, skipping used-up ones, the same as one scroll down. WASD stays for movement; R stays as retry.
+
+## Wall run: lean away, hold height (built)
+- The body leans **away** from the wall (feet on it, top tilted out), so it never sinks into the wall.
+- At **9 m/s or more** along the wall, a wall run loses no height at all. The small rise at the start eases to level. Slower runs still sink gently.
+- The bypass zigzag walls are taller (top +6 m, bottom −2 m), since chained kicks on fast runs now gain height.
