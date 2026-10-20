@@ -1,13 +1,16 @@
+import { ABILITY_CONFIG } from '../config';
+
 // Crouch as a toggle: press once to crouch or slide, again to stand, so a finger is free to jump
 // mid-slide. It lets go by itself when a jump fires (you come out of a slide standing, the burst
-// still fires), on landing after a tuck switched on in the air, and on a respawn.
+// still fires) and on a respawn. Pressed in the air, it tucks, then carries into a slide on the
+// next ground you touch (or lets go, if you land too slow to slide).
 
 export type CrouchMode = 'toggle' | 'hold';
 
 export class CrouchToggle {
   /** Crouch switched on (toggle mode). */
   on = false;
-  /** Switched on while in the air (a tuck): landing lets go. */
+  /** Switched on while in the air: decided on landing. */
   private fromAir = false;
 
   /** A crouch press this frame. */
@@ -17,9 +20,13 @@ export class CrouchToggle {
   }
 
   /** After each sim tick: what happened to the player. */
-  afterTick(p: { justJumped: boolean; justLanded: boolean }): void {
+  afterTick(p: { justJumped: boolean; justLanded: boolean; vel: { x: number; z: number } }): void {
     if (p.justJumped) this.release();
-    else if (p.justLanded && this.fromAir) this.release();
+    else if (p.justLanded && this.fromAir) {
+      // Landed from an air press: slide if fast enough, else stand.
+      this.fromAir = false;
+      if (Math.hypot(p.vel.x, p.vel.z) < ABILITY_CONFIG.slideStartSpeed) this.release();
+    }
   }
 
   release(): void {

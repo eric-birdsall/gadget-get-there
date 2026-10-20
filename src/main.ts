@@ -2,7 +2,7 @@ import { Vector3 } from 'three';
 import { GameAudio, Sfx } from './audio/audio';
 import { ABILITY_CONFIG, CAMERA_CONFIG, DT, MAX_FRAME_SECONDS } from './config';
 import { COURSES, courseById } from './course/courses';
-import { GrappleGadget, findGrappleTarget } from './gadgets/grapple';
+import { GrappleGadget, type GrappleTarget, assistedGrappleTarget, findGrappleTarget, handPosition } from './gadgets/grapple';
 import { LaunchPadGadget, padPlacement } from './gadgets/launchPad';
 import { DEFAULT_LOADOUT, isGadgetId } from './gadgets/registry';
 import { DashGadget } from './gadgets/dash';
@@ -366,6 +366,21 @@ const padNav = new PadNav({
   back: () => void menuBack(),
 });
 
+/** The player picked a device by using it in the menus: save it and show it on the toggle. */
+function chooseInput(d: 'keys' | 'pad'): void {
+  if (settings.inputMode === d) return;
+  settings.inputMode = d;
+  saveSettings(settings);
+  setInputMode(d);
+  menu.syncInputToggle();
+}
+
+// In the menus, a keyboard key switches to mouse and keyboard (mouse clicks don't: a controller
+// player still clicks Play for fullscreen). Esc and key rebinding don't count.
+document.addEventListener('keydown', (e) => {
+  if (paused && e.code !== 'Escape' && !menu.capturing && !e.defaultPrevented) chooseInput('keys');
+});
+
 /** Plays with the controller or with mouse and keyboard; the other is ignored. Labels follow. */
 function setInputMode(d: 'keys' | 'pad'): void {
   if (input.device === d) return;
@@ -427,7 +442,24 @@ function readInput(jumpPressed: boolean, usePressed: boolean[]): SessionInput {
     usePressed,
     aimOrigin,
     aimDir,
+    grappleAim: assistTarget ? grappleAim : undefined,
   };
+}
+
+/** Controller aim assist for the grapple: the hook point it found this frame, and the aim at it. */
+let assistTarget: GrappleTarget | null = null;
+const grappleAim = { origin: new Vector3(), dir: new Vector3() };
+
+/** With the controller, find the grapple's assisted target and aim straight at it (from the hand). */
+function updateGrappleAssist(): void {
+  assistTarget = null;
+  const grapple = session.find(GrappleGadget);
+  const p = session.player;
+  if (input.device !== 'pad' || !grapple || grapple.attached || grapple.remaining <= 0 || session.state === AttemptState.Finished) return;
+  assistTarget = assistedGrappleTarget(session.boxes, aimOrigin, aimDir, p);
+  if (!assistTarget) return;
+  handPosition(p, grappleAim.origin);
+  grappleAim.dir.subVectors(assistTarget.point, grappleAim.origin).normalize();
 }
 
 function handleKeys(): void {
@@ -459,10 +491,13 @@ function frame(now: number): void {
   const cam = renderer.view.camera;
   aimOrigin.copy(cam.position);
   cam.getWorldDirection(aimDir);
+  updateGrappleAssist();
 
   // The controller's Menu button pauses and resumes (resuming can't capture the mouse or go
   // fullscreen: browsers only allow those from a click or key).
   input.pollPad();
+  // In the menus, a controller button switches to playing with the controller.
+  if (paused && input.device === 'keys' && input.padEdges.size > 0 && !menu.capturing) chooseInput('pad');
   // Rebinding on the Controls page: the controller's buttons go there (Menu cancels).
   if (paused && menu.capturing) menu.onPadEdges(input.padEdges);
   else if (input.padEdges.has(PadButton.Menu)) {
@@ -472,11 +507,6 @@ function frame(now: number): void {
       input.lockFromPad();
     }
   } else if (paused) padNav.update(dt, input.padState, input.padEdges);
-  // A controller pressed while set to mouse and keyboard: say where to switch.
-  if (paused && input.padIgnored) {
-    input.padIgnored = false;
-    menu.showNote('Controller detected · to play with it, choose Controller under Play with');
-  }
   if (!paused) {
     handleKeys();
     input.update(dt);
@@ -509,7 +539,8 @@ function frame(now: number): void {
   // Aim previews for every gadget that can still be used.
   const canHook = grapple && !grapple.attached && grapple.remaining > 0 && live;
   const canThrow = !!pads && pads.remaining > 0 && live;
-  const grappleTarget = canHook ? findGrappleTarget(session.boxes, aimOrigin, aimDir, p) : null;
+  // With the controller the marker shows the assisted hook point: exactly where it will catch.
+  const grappleTarget = !canHook ? null : input.device === 'pad' ? assistTarget : findGrappleTarget(session.boxes, aimOrigin, aimDir, p);
   const padPreview = canThrow ? padPlacement(session.boxes, aimOrigin, aimDir, p) : null;
   const showGhost = settings.ghost && ghost !== null;
   renderer.render(paused ? 0 : dt, {

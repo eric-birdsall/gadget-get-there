@@ -297,3 +297,20 @@ Replaces the gadget in hand, switching (scroll, F, 1–5 mid-run) and auto-switc
 - **Buildings under the course:** every flat platform and stepping stone gets a window-lit building down to the street. For looks only: no collision, so every tested route plays the same (you can't wall-run on them yet).
 - **Course pieces:** dark concrete roofs with glowing cyan grid lines, teal glass ramps, dark glass walls edged in magenta, warm stones, crane-yellow beams; cool moonlight.
 - Not yet: the level picker's previews and fly-throughs still draw space; the astronaut is unchanged.
+## Grapple aim assist with the controller (built)
+- Playing with the controller: with nothing to hook under the crosshair, the grapple takes the hook point nearest to it within 7°; with a wall or floor under it, a grapple beam within 4° still wins (beams are almost always what you meant). Searched in rings of directions round the crosshair; the innermost ring with a hit wins, beams counting as a little nearer.
+- The hook marker shows the assisted point, so you see exactly where it will catch.
+- Only the grapple is assisted (its own aim in the session input); the launch pad throws where you point. Mouse and keyboard are unchanged.
+
+## Crouch pressed in the air slides on landing (built)
+- Toggle mode: a crouch press in the air tucks (as before), then stays on through the landing, so you land straight into a slide, if you're at slide speed (12.5 m/s); slower, it lets go and you land standing. Replaces "landing after an in-air tuck lets go". Decided once per press: a later landing (sliding off an edge) doesn't let go.
+
+## Menus take both devices (built)
+- In the menus the controller always works (navigate, A, B, Y), whatever Play with says, and so does the mouse. Using one picks it: a controller button switches to Controller, a keyboard key (not Esc, not one being captured for rebinding) to Mouse & keyboard; mouse clicks don't switch, so a controller player can still click Play for fullscreen. The toggle shows the result and it's saved.
+- In play, the device not chosen is still ignored. Replaces the "Controller detected" hint.
+
+## Grapple is a zipline; one visible kill boundary (built)
+- **Zipline, any direction:** hooking any surface (above, level or below) pulls you straight at it while held: up to 22 m/s, reaching it quickly (70 m/s²), gravity held off. Let go any time to fly on with your speed plus the release boost; arriving (within 2.2 m) or being blocked for 0.15 s ends the zip with your speed carrying on. The zip aims 1.2 m out from the surface (under a beam you arrive below it; at a wall, just short; on a floor, onto it). Hook points nearer than 3 m (the floor at your feet) are looked past. Replaces the reeling pendulum swing.
+- **Falls:** the hidden early check (8 m below your last footing over nothing) is gone; the only fall is the kill boundary, 25 m below the course's lowest point (now its true lowest point, not a bounding sphere). So you can dip far below platforms and recover (jetpack, zip, glide).
+- **Kill boundary drawn:** a red hazard grid at that height, following the player, faint from high up and brighter as you near it, pulsing slightly, fading out at its edges.
+- The Crossing's second bypass beam moved up and on (y 47, z −268) so a zip to it, let go just before, carries onto the next platform. Route tests retuned.

@@ -108,7 +108,7 @@ export const GRAPPLE_LINE: Waypoint[] = [
   ...ZIGZAG,
   { x: 0, z: -205 },
   { x: 0, z: -207, grapple: { at: [0, 40.2, -232], releaseZ: -240 }, noJump: true },
-  { x: 0, z: -248, grapple: { at: [0, 38.2, -264], releaseZ: -276 }, noJump: true },
+  { x: 0, z: -248, grapple: { at: [0, 47, -268], releaseZ: -258 }, noJump: true },
   { x: 0, z: -300, noJump: true },
   ...FINAL,
 ];

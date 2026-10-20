@@ -226,11 +226,24 @@ describe('gadget order', () => {
 describe('falling into the void', () => {
   const twoLevels: CourseDefinition = { ...tiny, pieces: [slab(0, 0, 0, 6, 6), slab(30, -40, 0, 6, 6)] };
 
-  it('counts as a fall soon after dropping off, without waiting for the kill plane', () => {
+  it('falls only at the kill boundary below the course: you can dip well below the platforms first', () => {
     const s = new RunSession(twoLevels, { checkpointsEnabled: false });
-    let seconds = 0;
-    while (!s.step(go()).includes(SessionEvent.Fell) && seconds < 10) seconds += DT;
-    expect(seconds).toBeLessThan(1.5);
+    let lowest = Infinity;
+    let fell = false;
+    for (let t = 0; t < 10 && !fell; t += DT) {
+      fell = s.step(go()).includes(SessionEvent.Fell);
+      if (!fell) lowest = Math.min(lowest, s.player.pos.y);
+    }
+    expect(fell).toBe(true);
+    // Well past the lower platform's level, down to the boundary.
+    expect(lowest).toBeLessThan(-41);
+    expect(lowest).toBeGreaterThanOrEqual(s.killY - 1);
+  });
+
+  it('the kill boundary sits a fixed depth under the lowest point of the course', () => {
+    const s = new RunSession(twoLevels);
+    // The lower slab's underside is at -41.
+    expect(s.killY).toBeCloseTo(-41 - 25, 5);
   });
 
   it('does not count while arcing toward a platform that is not yet below', () => {

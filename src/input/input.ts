@@ -92,8 +92,6 @@ export class InputManager {
   private edges = new Set<PadButton>();
   /** Buttons held when play resumed (A on Resume): ignored until let go, so they don't jump. */
   private padSuppressed = new Set<PadButton>();
-  /** A controller button was pressed while playing with keyboard and mouse (for a hint). */
-  padIgnored = false;
   /** Once a lock has worked, a later refusal is just the browser's re-lock cooldown after Esc. */
   private everLocked = false;
   /** Cursor x as a fraction of the window width, or null when unknown. */
@@ -188,12 +186,14 @@ export class InputManager {
     document.dispatchEvent(new Event('pointerlockchange'));
   }
 
-  /** Reads the controller; call once per frame, paused or not. Ignored unless playing with it. */
+  /**
+   * Reads the controller; call once per frame, paused or not. In the menus it always counts (so
+   * either device can drive them); in play only when playing with it.
+   */
   pollPad(): void {
     const gp = firstPad();
     const read = gp ? readPad(gp) : null;
-    if (device.current !== 'pad') {
-      if (read && read.down.size > 0) this.padIgnored = true;
+    if (device.current !== 'pad' && this.locked) {
       this.pad = null;
       this.edges = new Set();
       this.padPrev = new Set();
@@ -230,7 +230,6 @@ export class InputManager {
     if (device.current === d) return;
     device.current = d;
     this.releaseAll();
-    this.padIgnored = false;
   }
 
   /** Movement from keys and the left stick: +1 forward, +1 right. */

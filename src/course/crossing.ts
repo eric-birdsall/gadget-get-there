@@ -107,7 +107,7 @@ export const crossing: CourseDefinition = {
     overhead(0, 40.5, -150, 22, 1, 10),
     overhead(-6, 38, -175, 16, 1.2, 3),
     overhead(0, 41, -232, 14, 1.5, 3),
-    overhead(0, 39, -264, 14, 1.5, 3),
+    overhead(0, 47, -268, 14, 1.5, 3),
     overhead(18, 33, -250, 3, 1.2, 14),
     overhead(0, 28, -325, 14, 1.2, 3),
     overhead(14, 27, -378, 4, 2, 4),
