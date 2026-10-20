@@ -20,7 +20,7 @@ Pushing to `main` runs the tests, builds, and deploys to GitHub Pages (`.github/
 
 Click **Play** to go fullscreen and capture the mouse. Esc pauses (the run clock freezes too) and a second Esc leaves fullscreen; Resume goes back in. In Chrome/Edge holding Esc also exits; Safari and Firefox exit fullscreen on the first Esc.
 
-Pick up to three of the five gadgets before a run. Each has a fixed budget on every level: Grapple x2 swings, Jetpack 3 s of thrust, Launch Pad x1 launch, Dash Thruster x3 dashes, Wingsuit 6 s of glide. Switch between them any time with the scroll wheel (or 1–5); when one is used up, the next gadget with budget left takes over automatically, and used-up gadgets can't be picked again. Slot 1 is in hand at the start. With checkpoints on, a respawn puts your gadgets back as they were when you reached that checkpoint.
+Pick up to three of the five gadgets before a run. Each has a fixed budget on every level: Grapple x2 swings, Jetpack 3 s of thrust, Launch Pad x1 launch, Dash Thruster x3 dashes, Wingsuit 6 s of glide. Switch between them any time with F or the scroll wheel (or 1–5); when one is used up, the next gadget with budget left takes over automatically, and used-up gadgets can't be picked again. Slot 1 is in hand at the start. With checkpoints on, a respawn puts your gadgets back as they were when you reached that checkpoint.
 
 | Action | Keys |
 |---|---|
@@ -33,7 +33,7 @@ Pick up to three of the five gadgets before a run. Each has a fixed budget on ev
 | Mantle a ledge | Hold Space in the air while moving into a ledge up to ~1 m above your head |
 | Use gadget | E (grapple: hold to hook any surface under the crosshair · jetpack: hold to thrust up · launch pad: press to throw · dash thruster: press to dash · wingsuit: hold in the air to glide) |
 | Choose gadgets | In the menu, click a gadget to put it in the next free slot; click it again (or its slot) to take it out. At the start line, 1 2 3 do the same. Changing gadgets from the menu mid-run restarts. Retries keep them. |
-| Switch gadget | Scroll wheel (skips used-up ones), or 1–5 mid-run |
+| Switch gadget | F or scroll wheel (both skip used-up ones), or 1–5 mid-run |
 | Retry from start | R (or Enter) |
 | Toggle ghost | G |
 | Debug readout (speed, grounded…) | ` |

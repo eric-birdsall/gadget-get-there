@@ -339,6 +339,8 @@ function handleKeys(): void {
   });
   const wheel = input.consumeWheel();
   for (let i = 0; i < Math.abs(wheel); i++) session.cycleGadget(wheel > 0 ? 1 : -1);
+  // F: on to the next gadget, like a scroll down.
+  if (input.consumePress(Action.NextGadget)) session.cycleGadget(1);
   if (input.consumePress(Action.Retry)) restart();
 }
 

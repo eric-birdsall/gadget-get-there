@@ -14,6 +14,7 @@ export enum Action {
   Slot3 = 'slot-3',
   Slot4 = 'slot-4',
   Slot5 = 'slot-5',
+  NextGadget = 'next-gadget',
   ToggleGhost = 'toggle-ghost',
   ToggleDebug = 'toggle-debug',
 }
@@ -35,6 +36,7 @@ export const DEFAULT_BINDINGS: Bindings = {
   [Action.Slot3]: ['Digit3', 'Numpad3'],
   [Action.Slot4]: ['Digit4', 'Numpad4'],
   [Action.Slot5]: ['Digit5', 'Numpad5'],
+  [Action.NextGadget]: ['KeyF'],
   [Action.ToggleGhost]: ['KeyG'],
   [Action.ToggleDebug]: ['Backquote'],
 };

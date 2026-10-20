@@ -135,10 +135,10 @@ export class Hud {
     this.gadgetHint.textContent = !current
       ? 'No gadgets · 1–5 to add some'
       : ready
-        ? '1–5 add or remove gadgets · scroll to switch during the run'
+        ? '1–5 add or remove gadgets · scroll or F to switch during the run'
         : (remaining[inHand] ?? 1) <= 0
           ? 'Gadgets used up · finish on foot'
-          : `${gadgetDefinition(current).actionHint} · scroll to switch`;
+          : `${gadgetDefinition(current).actionHint} · F or scroll to switch`;
   }
 
   /** Ring round the crosshair while sliding: 0…1 fills, 1 glows (jump now for a burst), −1 hides. */

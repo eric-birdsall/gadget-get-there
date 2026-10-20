@@ -174,3 +174,6 @@ Replaces "one use each, auto-switch in order".
 - Gliding never counts as a fall.
 - **Look:** orange wing membranes spread wrist to hip, and the body pitches belly-down about its middle, with a whoosh.
 - **Gadget set:** Grapple, Jetpack, Launch Pad, Dash Thruster, Wingsuit. You pick 3 of 5.
+
+## F cycles gadgets (built)
+- **F** steps to the next gadget in slot order, skipping used-up ones, the same as one scroll down. WASD stays for movement; R stays as retry.

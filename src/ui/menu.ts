@@ -149,7 +149,7 @@ export class Menu {
     el<HTMLButtonElement>('clear-slots').disabled = loadout.length === 0;
     el('menu-gadgets-hint').textContent = running
       ? 'Changing gadgets restarts the run'
-      : 'Click gadgets to fill the slots · scroll to switch between them in the run';
+      : 'Click gadgets to fill the slots · F or scroll switches between them in the run';
   }
 
   setBest(seconds: number | null): void {
