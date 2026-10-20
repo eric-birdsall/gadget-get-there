@@ -3,14 +3,18 @@ import type { MovementConfig, PlayerState } from '../sim/player';
 import { type GadgetContext, GadgetEvent, GadgetId, type GadgetRuntime } from './types';
 
 /**
- * Always on: you roll. Pushing tops out a little above running speed, but speed from slopes
- * barely bleeds away, and turns are wider. Hold the button to tuck for even less drag and more
- * downhill pull, at the cost of steering.
+ * Off until you click: then you roll. Pushing tops out a little above running speed, but speed
+ * from slopes barely bleeds away, and turns are wider. Once on, hold the button to tuck for even
+ * less drag and more downhill pull, at the cost of steering.
  */
 export class RollerbladeGadget implements GadgetRuntime {
   readonly id = GadgetId.Rollerblades;
   limited = true;
+  /** Skates on: switched on by the first click, and the countdown only runs from then. */
+  active = false;
   tucking = false;
+  /** The click that put the skates on must be let go before a hold counts as a tuck. */
+  private awaitingRelease = false;
   /** Seconds spent rolling on the ground; air time is free. */
   private rolled = 0;
 
@@ -21,8 +25,15 @@ export class RollerbladeGadget implements GadgetRuntime {
 
   movement(base: MovementConfig, ctx: GadgetContext): MovementConfig {
     const r = ROLLERBLADE_CONFIG;
+    if (!this.active) {
+      if (!ctx.input.pressed) return base;
+      this.active = true;
+      this.awaitingRelease = true;
+      ctx.emit(GadgetEvent.SkatesOn);
+    }
+    if (!ctx.input.held) this.awaitingRelease = false;
     if (ctx.player.grounded) this.rolled += DT;
-    const tuck = ctx.input.held;
+    const tuck = ctx.input.held && !this.awaitingRelease;
     if (tuck !== this.tucking) {
       this.tucking = tuck;
       ctx.emit(tuck ? GadgetEvent.TuckStarted : GadgetEvent.TuckEnded);

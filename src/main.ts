@@ -183,6 +183,9 @@ function handle(events: AnyEvent[]): void {
       case GadgetEvent.GrappleReleased:
         audio.play(Sfx.GrappleRelease);
         break;
+      case GadgetEvent.SkatesOn:
+        audio.play(Sfx.SkatesOn);
+        break;
       case GadgetEvent.PadPlaced:
         audio.play(Sfx.PadThrow);
         break;
@@ -353,7 +356,7 @@ function frame(now: number): void {
     pitch: input.pitch,
     landed: landedSpeed,
     jumped,
-    skates: g instanceof RollerbladeGadget,
+    skates: g instanceof RollerbladeGadget && g.active,
     tucking: g instanceof RollerbladeGadget && g.tucking && p.grounded,
     sliding: p.stance === Stance.Slide,
     crouching: p.stance === Stance.Crouch,
@@ -379,7 +382,7 @@ function frame(now: number): void {
     fps,
     y: p.pos.y,
   });
-  audio.update(p.vel.length(), g instanceof RollerbladeGadget && p.grounded, Math.hypot(p.vel.x, p.vel.z));
+  audio.update(p.vel.length(), g instanceof RollerbladeGadget && g.active && p.grounded, Math.hypot(p.vel.x, p.vel.z));
   requestAnimationFrame(frame);
 }
 

@@ -85,3 +85,7 @@ Separate from gadgets: they work whichever gadget is equipped.
 - Click a gadget to put it in the next free slot; click it again, or click its slot, to take it out. Later slots move up. (This replaced drag and drop.)
 - A run can carry 0–3 gadgets; with none you play on foot.
 - At the start line, 1 2 3 add or remove gadgets the same way (Q / E no longer do anything).
+
+## Rollerblades start on click (built)
+- Rollerblades are off when they come up: you run normally and their 5 s doesn't count.
+- The first click puts the skates on and starts the countdown. After letting go, holding click tucks as before.

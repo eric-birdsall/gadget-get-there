@@ -86,9 +86,30 @@ describe('grappling hook', () => {
   });
 });
 
+/** One click: puts rollerblades on (and fires other gadgets' actions). */
+const click = (over: Partial<SessionInput> = {}): SessionInput => ({ ...idleInput(), action: true, actionPressed: true, ...over });
+
 describe('rollerblades', () => {
+  it('do nothing until clicked; the switch-on click is not a tuck', () => {
+    const s = new RunSession(course([slab(0, 0, 0, 2000, 2000)]), { gadget: GadgetId.Rollerblades });
+    run(s, { ...idleInput(), forward: 1 }, 3);
+    const blades = s.gadget as RollerbladeGadget;
+    expect(blades.active).toBe(false);
+    expect(blades.remaining).toBe(1);
+    expect(Math.hypot(s.player.vel.x, s.player.vel.z)).toBeCloseTo(MOVEMENT_CONFIG.groundSpeed, 1);
+    // Click and keep holding: skates on, but no tuck until the button is let go and held again.
+    expect(s.step(click({ forward: 1 }))).toContain(GadgetEvent.SkatesOn);
+    run(s, { ...idleInput(), forward: 1, action: true }, 0.5);
+    expect(blades.active).toBe(true);
+    expect(blades.tucking).toBe(false);
+    run(s, { ...idleInput(), forward: 1 }, 0.1);
+    run(s, { ...idleInput(), forward: 1, action: true }, 0.1);
+    expect(blades.tucking).toBe(true);
+  });
+
   it('top out faster than running on flat ground, but not without limit', () => {
     const s = new RunSession(course([slab(0, 0, 0, 2000, 2000)]), { gadget: GadgetId.Rollerblades, unlimited: true });
+    s.step(click());
     run(s, { ...idleInput(), forward: 1 }, 5);
     const speed = Math.hypot(s.player.vel.x, s.player.vel.z);
     expect(speed).toBeGreaterThan(MOVEMENT_CONFIG.groundSpeed);
@@ -99,6 +120,7 @@ describe('rollerblades', () => {
     const hill = [ramp([0, 40, 0], [0, 0, -200], 12)];
     const speedAfter = (gadget: GadgetId) => {
       const s = new RunSession({ ...course(hill), start: { pos: [0, 39.9, -1], yaw: 0 } }, { gadget, unlimited: true });
+      if (gadget === GadgetId.Rollerblades) s.step(click());
       run(s, { ...idleInput(), forward: 1 }, 5);
       return Math.hypot(s.player.vel.x, s.player.vel.z);
     };
@@ -107,6 +129,7 @@ describe('rollerblades', () => {
 
   it('tucking with the button held reports a tuck and coasts', () => {
     const s = new RunSession(course([slab(0, 0, 0, 2000, 2000)]), { gadget: GadgetId.Rollerblades, unlimited: true });
+    s.step(click());
     run(s, { ...idleInput(), forward: 1 }, 2);
     const ev = run(s, { ...idleInput(), forward: 1, action: true }, 1);
     expect(ev).toContain(GadgetEvent.TuckStarted);
@@ -200,9 +223,12 @@ describe('usage limits', () => {
     expect(s.gadget?.id).toBe(GadgetId.Rollerblades);
   });
 
-  it('rollerblades last 5 s on the ground, not counting air time', () => {
+  it('rollerblades last 5 s on the ground from the click, not counting air time', () => {
     const s = new RunSession(course([floor]), { loadout: [GadgetId.Rollerblades, GadgetId.Grapple, GadgetId.LaunchPad] });
     run(s, idleInput(), 0.1);
+    // Time before the click doesn't count.
+    run(s, { ...idleInput(), forward: 1 }, 3);
+    s.step(click());
     // Air time is free.
     s.player.pos.y = 30;
     s.player.grounded = false;

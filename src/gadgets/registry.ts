@@ -14,7 +14,7 @@ export const GADGETS: readonly GadgetDefinition[] = [
   {
     id: GadgetId.Rollerblades,
     displayName: 'Rollerblades',
-    actionHint: 'Always rolling · hold click to tuck for speed',
+    actionHint: 'Click to put the skates on · then hold click to tuck for speed',
     slot: 2,
     create: () => new RollerbladeGadget(),
   },

@@ -15,6 +15,7 @@ export enum GadgetEvent {
   PadPlaced = 'pad-placed',
   PadInvalid = 'pad-invalid',
   PadLaunched = 'pad-launched',
+  SkatesOn = 'skates-on',
   TuckStarted = 'tuck-started',
   TuckEnded = 'tuck-ended',
 }

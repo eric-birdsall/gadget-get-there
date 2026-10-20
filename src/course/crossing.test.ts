@@ -89,6 +89,7 @@ export const GRAPPLE_LINE: Waypoint[] = [
 ];
 
 export const ROLLERBLADE_LINE: Waypoint[] = [
+  { x: -3, z: -5, press: true },
   { x: -5, z: -30 },
   { x: -9, z: -40, hold: true },
   { x: -22, z: -80, hold: true },
@@ -125,7 +126,7 @@ describe('The Crossing', () => {
 
   it.each([
     ['running line, grapple equipped', GadgetId.Grapple, RUNNING_LINE],
-    ['running line, rollerblades', GadgetId.Rollerblades, RUNNING_LINE],
+    ['running line, rollerblades', GadgetId.Rollerblades, [{ x: 0, z: -5, press: true }, ...RUNNING_LINE]],
     ['running line, launch pad equipped', GadgetId.LaunchPad, RUNNING_LINE],
     ['grapple line', GadgetId.Grapple, GRAPPLE_LINE],
     ['rollerblade line', GadgetId.Rollerblades, ROLLERBLADE_LINE],
@@ -154,7 +155,8 @@ describe('The Crossing', () => {
       { x: 0, z: -152, pad: [0, 30, -158] },
       { x: 0, z: -158, noJump: true },
       { x: 0, z: -192, maxSpeed: 14 },
-      ...BYPASS,
+      { ...BYPASS[0], press: true },
+      ...BYPASS.slice(1),
       ...FINAL,
     ];
     const r = runRoute(session, route);

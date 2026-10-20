@@ -17,6 +17,7 @@ export enum Sfx {
   Respawn = 'respawn',
   Slide = 'slide',
   Mantle = 'mantle',
+  SkatesOn = 'skates-on',
   Select = 'select',
 }
 
@@ -257,6 +258,11 @@ export class GameAudio {
       case Sfx.Mantle:
         this.burst(t, 0.08, 'lowpass', 700, 0.25);
         this.tone(180, t + 0.05, 0.15, 'triangle', 0.08, undefined, 0.01, 0.1, 260);
+        break;
+      case Sfx.SkatesOn:
+        this.tone(330, t, 0.08, 'square', 0.06);
+        this.tone(660, t + 0.07, 0.12, 'square', 0.06);
+        this.burst(t, 0.2, 'highpass', 3000, 0.08);
         break;
       case Sfx.Respawn:
         this.tone(600, t, 0.2, 'sine', 0.1, undefined, 0.003, 0.15, 300);

@@ -20,6 +20,8 @@ export interface Waypoint {
   grapple?: { anchor: number; releaseZ: number };
   /** On becoming the target: throw a pad at this point. */
   pad?: [number, number, number];
+  /** Click the gadget button once on becoming the target (e.g. to put rollerblades on). */
+  press?: boolean;
   /** Hold the gadget button (rollerblade tuck) while heading here. */
   hold?: boolean;
   /** Hold slide/crouch while heading here. */
@@ -80,6 +82,10 @@ export function runRoute(session: RunSession, route: Waypoint[], maxSeconds = 12
     if (entered !== target) {
       entered = target;
       if (wp.jump && p.grounded) input.jump = true;
+      if (wp.press) {
+        input.action = true;
+        input.actionPressed = true;
+      }
       if (wp.grapple || wp.pad) {
         const aimAt = wp.grapple ? session.anchors[wp.grapple.anchor] : new Vector3(...wp.pad!);
         handPosition(p, hand);
