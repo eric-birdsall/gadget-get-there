@@ -75,5 +75,9 @@ export interface GadgetDefinition {
   slot: number;
   /** Full budget, for the menu: '5s', 'x2'. */
   budgetLabel: string;
+  /** One sentence on what it does, for the menu's hover card. */
+  summary: string;
+  /** Label/value pairs for the menu's hover card. */
+  stats: [string, string][];
   create(): GadgetRuntime;
 }

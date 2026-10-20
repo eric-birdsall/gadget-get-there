@@ -154,25 +154,52 @@
       button.primary:hover { background: #ff7aa3; }
       /* Loadout picker: click gadgets to fill the numbered slots in order. */
       #menu-palette { display: flex; flex-wrap: wrap; justify-content: center; gap: 26px; margin-bottom: 16px; }
-      .gadget-tile {
-        flex: 0 0 auto; display: flex; flex-direction: column; align-items: center; gap: 6px;
+      /* A palette tile: the gadget (click to add or remove) plus a small "i" for its info. */
+      .gadget-tile { position: relative; }
+      .gadget-tile .pick {
+        display: flex; flex-direction: column; align-items: center; gap: 6px;
         padding: 0; border: none; background: none; font-size: 13px; white-space: nowrap;
       }
-      .gadget-tile:hover { background: none; }
-      .gadget-tile:hover .icon-square { transform: translateY(-2px); }
-      .gadget-tile .icon-square { width: 68px; height: 68px; transition: transform 0.1s; }
-      .gadget-tile.chosen .icon-square { box-shadow: inset 0 0 0 2px var(--accent), inset 0 0 18px rgba(255, 93, 143, 0.4); }
-      .gadget-tile.chosen .name { font-weight: 700; color: #ff8fb0; }
-      .gadget-tile .badge:empty { display: none; }
+      .gadget-tile .pick:hover { background: none; }
+      .gadget-tile .pick:hover .icon-square { transform: translateY(-2px); }
+      .gadget-tile .icon-square { width: 68px; height: 68px; transition: transform 0.1s, opacity 0.15s, filter 0.15s; }
+      /* Already in a slot: greyed out (click again to take it out). */
+      .gadget-tile .pick.chosen .icon-square { opacity: 0.35; filter: grayscale(1); }
+      .gadget-tile .pick.chosen .name { color: var(--muted); opacity: 0.6; }
       /* Budget on the square's bottom edge: "5s", "x2". */
       .icon-square .budget {
         position: absolute; right: 4px; bottom: 3px; font-size: 11px; font-weight: 800; color: #fff;
         letter-spacing: 0.02em; text-shadow: 0 0 4px rgba(127, 246, 255, 0.9);
       }
-      .gadget-tile .badge {
-        position: absolute; right: 4px; top: 4px; display: inline-flex; align-items: center; justify-content: center;
-        width: 16px; height: 16px; border-radius: 3px; background: var(--accent); color: #fff; font-size: 10px; font-weight: 800;
+      .info-button {
+        position: absolute; top: -7px; left: calc(50% + 34px - 11px); flex: none; width: 20px; height: 20px; padding: 0;
+        display: flex; align-items: center; justify-content: center; border-radius: 50%;
+        font: italic 700 12px/1 Georgia, serif; color: #7ff6ff; background: #12152e;
+        border: 1px solid rgba(127, 246, 255, 0.5);
       }
+      .info-button:hover { background: #262b55; color: #fff; }
+
+      /* Gadget info modal, over the menu. */
+      #info-modal {
+        position: fixed; inset: 0; z-index: 12; display: flex; align-items: center; justify-content: center;
+        background: rgba(4, 5, 14, 0.6);
+      }
+      #info-modal .card {
+        position: relative; width: min(420px, calc(100vw - 48px)); box-sizing: border-box; padding: 26px 26px 22px;
+        border-radius: 16px; text-align: left; color: #e8ecf8;
+        background: linear-gradient(160deg, #1d2246, #10132b); box-shadow: 0 0 0 1px rgba(127, 246, 255, 0.25), 0 24px 60px rgba(0, 0, 0, 0.6);
+      }
+      #info-close {
+        position: absolute; top: 12px; right: 12px; flex: none; width: 32px; height: 32px; padding: 0;
+        border-radius: 50%; font-size: 20px; line-height: 1;
+      }
+      #info-body .icon-square { width: 72px; height: 72px; margin-bottom: 12px; }
+      #info-body h2 { margin: 0; font-size: 26px; }
+      #info-body .meta { margin: 2px 0 12px; font-size: 12px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #7ff6ff; }
+      #info-body p { margin: 0 0 14px; line-height: 1.5; font-size: 15px; }
+      #info-body dl { display: grid; grid-template-columns: auto 1fr; gap: 6px 16px; margin: 0; font-size: 14px; }
+      #info-body dt { color: #9aa3c4; }
+      #info-body dd { margin: 0; font-variant-numeric: tabular-nums; }
       #menu-gadgets { margin-bottom: 8px; }
       .loadout-slot {
         display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
@@ -239,6 +266,13 @@
       <div id="result-meta"></div>
       <div class="medal-targets tabular" id="result-targets"></div>
       <div id="result-retry">R to go again · Esc to change gadgets</div>
+    </div>
+
+    <div id="info-modal" class="hidden" role="dialog" aria-modal="true" aria-labelledby="info-body">
+      <div class="card">
+        <button id="info-close" aria-label="Close">×</button>
+        <div id="info-body"></div>
+      </div>
     </div>
 
     <div id="overlay">

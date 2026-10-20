@@ -29,6 +29,7 @@ export class Menu {
   private readonly note = el('menu-note');
   private readonly playButton = el<HTMLButtonElement>('play');
   private readonly slotEls: HTMLButtonElement[] = [];
+  /** Each gadget's pick button in the palette. */
   private readonly tileEls = new Map<GadgetId, HTMLButtonElement>();
   private loadout: GadgetId[] = [];
   private loadoutKey = '';
@@ -93,17 +94,30 @@ export class Menu {
   private buildLoadoutPicker(): void {
     const palette = el('menu-palette');
     for (const g of GADGETS) {
-      const tile = document.createElement('button');
+      // A tile: the gadget button (adds or removes it) and a small "i" that opens its info.
+      const tile = document.createElement('div');
       tile.className = 'gadget-tile';
-      tile.innerHTML =
-        `<span class="icon-square">${GADGET_ICONS[g.id]}<span class="badge"></span>` +
-        `<span class="budget"></span></span><span class="name"></span>`;
-      tile.querySelector('.name')!.textContent = g.displayName;
-      tile.querySelector('.budget')!.textContent = g.budgetLabel;
-      tile.addEventListener('click', () => this.handlers.toggleGadget(g.id));
-      this.tileEls.set(g.id, tile);
+      const pick = document.createElement('button');
+      pick.className = 'pick';
+      pick.innerHTML = `<span class="icon-square">${GADGET_ICONS[g.id]}<span class="budget"></span></span><span class="name"></span>`;
+      pick.querySelector('.name')!.textContent = g.displayName;
+      pick.querySelector('.budget')!.textContent = g.budgetLabel;
+      pick.addEventListener('click', () => this.handlers.toggleGadget(g.id));
+      const info = document.createElement('button');
+      info.className = 'info-button';
+      info.textContent = 'i';
+      info.title = `About the ${g.displayName}`;
+      info.setAttribute('aria-label', `About the ${g.displayName}`);
+      info.addEventListener('click', () => this.openInfo(g.id));
+      tile.append(pick, info);
+      this.tileEls.set(g.id, pick);
       palette.append(tile);
     }
+    el('info-close').addEventListener('click', () => this.closeInfo());
+    // A click on the dimmed backdrop (outside the card) closes it too.
+    el('info-modal').addEventListener('click', (e) => {
+      if (e.target === e.currentTarget) this.closeInfo();
+    });
 
     el('clear-slots').addEventListener('click', () => this.handlers.clearGadgets());
 
@@ -118,6 +132,42 @@ export class Menu {
       this.slotEls.push(slot);
       row.append(slot);
     }
+  }
+
+  get infoOpen(): boolean {
+    return !el('info-modal').classList.contains('hidden');
+  }
+
+  /** The info modal: name, key and budget, a summary, then its stats. */
+  openInfo(id: GadgetId): void {
+    const g = gadgetDefinition(id);
+    const body = el('info-body');
+    body.replaceChildren();
+    const icon = document.createElement('span');
+    icon.className = 'icon-square';
+    icon.innerHTML = GADGET_ICONS[id];
+    const title = document.createElement('h2');
+    title.textContent = g.displayName;
+    const meta = document.createElement('div');
+    meta.className = 'meta';
+    meta.textContent = `Key ${g.slot} · ${g.budgetLabel} per run`;
+    const summary = document.createElement('p');
+    summary.textContent = g.summary;
+    const stats = document.createElement('dl');
+    for (const [label, value] of g.stats) {
+      const dt = document.createElement('dt');
+      dt.textContent = label;
+      const dd = document.createElement('dd');
+      dd.textContent = value;
+      stats.append(dt, dd);
+    }
+    body.append(icon, title, meta, summary, stats);
+    el('info-modal').classList.remove('hidden');
+    el('info-close').focus({ preventScroll: true });
+  }
+
+  closeInfo(): void {
+    el('info-modal').classList.add('hidden');
   }
 
   /** Shows the gadget order. Mid-run (`running`), changing it restarts the run. */
@@ -143,7 +193,6 @@ export class Menu {
     for (const [id, tile] of this.tileEls) {
       const at = loadout.indexOf(id);
       tile.classList.toggle('chosen', at >= 0);
-      tile.querySelector('.badge')!.textContent = at >= 0 ? String(at + 1) : '';
       tile.title = at >= 0 ? `In slot ${at + 1} · click to take it out` : 'Click to add to the next free slot';
     }
     el<HTMLButtonElement>('clear-slots').disabled = loadout.length === 0;
@@ -178,6 +227,7 @@ export class Menu {
 
   hide(): void {
     this.showSettings(false, false);
+    this.closeInfo();
     // Don't leave a menu button focused, or Space during play would press it.
     (document.activeElement as HTMLElement | null)?.blur();
     this.overlay.classList.add('hidden');

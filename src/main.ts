@@ -263,6 +263,10 @@ document.addEventListener(
     if (!paused) {
       e.preventDefault();
       input.unlock();
+    } else if (menu.infoOpen) {
+      // Esc closes the gadget info first.
+      e.preventDefault();
+      menu.closeInfo();
     } else if (menu.settingsOpen) {
       // Esc in settings goes back to the menu rather than leaving fullscreen.
       e.preventDefault();
