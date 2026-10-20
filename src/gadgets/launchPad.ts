@@ -36,6 +36,15 @@ export class LaunchPadGadget implements GadgetRuntime {
   readonly id = GadgetId.LaunchPad;
   limited = true;
   pad: Pad | null = null;
+  /** Seconds since the last throw or launch, for the HUD glow. */
+  private sinceUse = Infinity;
+
+  get active(): boolean {
+    return this.sinceUse < 0.3;
+  }
+
+  /** The pad fired during this tick's afterMove. */
+  launchedThisTick = false;
   private cooldown = 0;
   /** Swings, launches, seconds or dashes used so far. */
   used = 0;
@@ -44,7 +53,7 @@ export class LaunchPadGadget implements GadgetRuntime {
     return this.limited ? `x${Math.max(0, USAGE_CONFIG.padLaunches - this.used)}` : '∞';
   }
 
-  /** A thrown pad stays and still works after switching away. */
+  /** A thrown pad stays and keeps working. */
   unequip(): void {}
 
   /** Re-throwing is free: only launches count. */
@@ -57,6 +66,8 @@ export class LaunchPadGadget implements GadgetRuntime {
   }
 
   beforeMove(ctx: GadgetContext): void {
+    this.launchedThisTick = false;
+    this.sinceUse += DT;
     this.cooldown = Math.max(0, this.cooldown - DT);
     if (this.pad) this.pad.rearm = Math.max(0, this.pad.rearm - DT);
     const { input } = ctx;
@@ -73,6 +84,7 @@ export class LaunchPadGadget implements GadgetRuntime {
       heading: new Vector3(-Math.sin(input.yaw), 0, -Math.cos(input.yaw)),
       rearm: 0,
     };
+    this.sinceUse = 0;
     ctx.emit(GadgetEvent.PadPlaced);
   }
 
@@ -93,6 +105,8 @@ export class LaunchPadGadget implements GadgetRuntime {
     launchPlayer(p, launch);
     pad.rearm = c.rearmSeconds;
     this.used++;
+    this.launchedThisTick = true;
+    this.sinceUse = 0;
     // Out of launches: the pad is done.
     if (this.remaining <= 0) this.pad = null;
     ctx.emit(GadgetEvent.PadLaunched);
@@ -101,5 +115,7 @@ export class LaunchPadGadget implements GadgetRuntime {
   resetTransientState(_player: PlayerState): void {
     this.pad = null;
     this.cooldown = 0;
+    this.launchedThisTick = false;
+    this.sinceUse = Infinity;
   }
 }

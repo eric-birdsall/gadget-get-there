@@ -20,7 +20,7 @@ Pushing to `main` runs the tests, builds, and deploys to GitHub Pages (`.github/
 
 Click **Play** to go fullscreen and capture the mouse. Esc pauses (the run clock freezes too) and a second Esc leaves fullscreen; Resume goes back in. In Chrome/Edge holding Esc also exits; Safari and Firefox exit fullscreen on the first Esc.
 
-Pick up to three of the five gadgets before a run. Each has a fixed budget on every level: Grapple x2 swings, Jetpack 3 s of thrust, Launch Pad x1 launch, Dash Thruster x3 dashes, Wingsuit 6 s of glide. Switch between them any time with F or the scroll wheel (or 1–5); when one is used up, the next gadget with budget left takes over automatically, and used-up gadgets can't be picked again. Slot 1 is in hand at the start. With checkpoints on, a respawn puts your gadgets back as they were when you reached that checkpoint.
+Pick up to three of the five gadgets before a run. Each has a fixed budget on every level: Grapple x2 swings, Jetpack 3 s of thrust, Launch Pad x1 launch, Dash Thruster x3 dashes, Wingsuit 6 s of glide. Each slot has its own use key: E for slot 1, Q for slot 2, F for slot 3, so there's no switching and gadgets can be combined (another gadget's press cuts the grapple rope; the jetpack beats the wingsuit when both are held). With checkpoints on, a respawn puts your gadgets back as they were when you reached that checkpoint.
 
 | Action | Keys |
 |---|---|
@@ -31,9 +31,9 @@ Pick up to three of the five gadgets before a run. Each has a fixed budget on ev
 | Wall run | Jump at a wall beside you while moving fast along it; you run along it for up to 1.4 s |
 | Wall jump | Space while wall running (or touching a wall at your side in the air): kick off away and up |
 | Mantle a ledge | Hold Space in the air while moving into a ledge up to ~1 m above your head |
-| Use gadget | E (grapple: hold to hook any surface under the crosshair · jetpack: hold to thrust up · launch pad: press to throw · dash thruster: press to dash · wingsuit: hold in the air to glide) |
-| Choose gadgets | In the menu, click a gadget to put it in the next free slot; click it again (or its slot) to take it out. At the start line, 1 2 3 do the same. Changing gadgets from the menu mid-run restarts. Retries keep them. |
-| Switch gadget | F or scroll wheel (both skip used-up ones), or 1–5 mid-run |
+| Use gadgets | E (slot 1), Q (slot 2), F (slot 3). Grapple: hold to hook any surface under the crosshair · jetpack: hold to thrust up · launch pad: press to throw · dash thruster: press to dash · wingsuit: hold in the air to glide |
+| Choose gadgets | In the menu, click a gadget to put it in the next free slot; click it again (or its slot) to take it out. At the start line, 1–5 do the same (they do nothing mid-run). Changing gadgets from the menu mid-run restarts. Retries keep them. |
+| Rebind keys | Settings → Key bindings |
 | Retry from start | R (or Enter) |
 | Toggle ghost | G |
 | Debug readout (speed, grounded…) | ` |
@@ -71,7 +71,7 @@ src/
 
 ## Status
 
-Runs carry up to three gadgets with fixed budgets and free scroll-wheel switching, with gadget icons in the HUD and one personal best per level. Phases 0–5 of the spec are in place: movement and camera; The Crossing with checkpoints (ON/OFF setting) and a finish gate; the three gadgets; medals, personal bests per checkpoint mode and the PB ghost; procedural sound and music.
+Runs carry up to three gadgets with fixed budgets, one use key per slot, with gadget icons in the HUD and one personal best per level. Phases 0–5 of the spec are in place: movement and camera; The Crossing with checkpoints (ON/OFF setting) and a finish gate; the three gadgets; medals, personal bests per checkpoint mode and the PB ghost; procedural sound and music.
 
 Character abilities (slide, crouch-walk, mantle) work with every gadget. The Crossing has two optional ability spots: blocks across the central gap that only a mantle reaches, and a barrier on the final platform with a slide-under slot.
 
@@ -79,7 +79,7 @@ The route-bot tests in `src/course/crossing.test.ts` finish The Crossing without
 
 ## Future ideas
 
-- **Main mode: gadget loadouts.** A level selector where you pick 1–5 gadgets in a set order before the round starts. Each gadget has a limited usage (budgets and automatic switching are already in; this adds a level selector). When it runs out you switch to the next gadget automatically, and the HUD always shows what's next. This replaces the spec's one-gadget-per-run rule as the main way to play.
+- **Main mode: gadget loadouts.** A level selector where you pick 1–5 gadgets in a set order before the round starts. Each gadget has a limited usage (budgets and per-slot use keys are already in; this adds a level selector). This replaces the spec's one-gadget-per-run rule as the main way to play.
 - **Training mode:** today's free play, one gadget with unlimited use, for practising and testing each gadget.
 - **Platform gadget (idea):** creates a temporary platform directly in front of the character that you can run, slide and jump on.
 - **Rail boots (idea, name TBD):** boots that let you grind thin rails you couldn't otherwise stand on.

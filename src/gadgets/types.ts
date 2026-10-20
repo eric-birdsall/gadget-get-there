@@ -52,6 +52,8 @@ export interface GadgetRuntime {
   limited: boolean;
   /** Share of this gadget's budget left, 1 … 0. */
   readonly remaining: number;
+  /** Working right now (or just fired), for the HUD glow. */
+  readonly active: boolean;
   /** Budget left, for the HUD: '3.2s', 'x1'. */
   readonly usageLabel: string;
   /** The movement config to use this tick (the base, or a modified copy). */
@@ -60,7 +62,7 @@ export interface GadgetRuntime {
   afterMove(ctx: GadgetContext): void;
   /** Clears tethers, pads and timers: on retry, respawn, and finish. */
   resetTransientState(player: PlayerState): void;
-  /** The player switched to another gadget: let go of whatever this one was doing. */
+  /** Stop whatever this gadget is doing right now (the grapple lets go of its rope). */
   unequip(player: PlayerState): void;
   /** How much has been used (swings, launches, seconds…): saved at checkpoints, restored on respawn. */
   used: number;
@@ -69,15 +71,13 @@ export interface GadgetRuntime {
 export interface GadgetDefinition {
   id: GadgetId;
   displayName: string;
-  /** Short reminder of what the button does, for the HUD. */
-  actionHint: string;
-  /** Hotkey number in the selector. */
+  /** Number key that adds or removes it at the start line. */
   slot: number;
   /** Full budget, for the menu: '5s', 'x2'. */
   budgetLabel: string;
-  /** One sentence on what it does, for the menu's hover card. */
+  /** One sentence on what it does, for the menu's info modal. */
   summary: string;
-  /** Label/value pairs for the menu's hover card. */
+  /** Label/value pairs for the menu's info modal. */
   stats: [string, string][];
   create(): GadgetRuntime;
 }

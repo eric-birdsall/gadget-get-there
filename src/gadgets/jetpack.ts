@@ -10,6 +10,10 @@ export class JetpackGadget implements GadgetRuntime {
   readonly id = GadgetId.Jetpack;
   limited = true;
   thrusting = false;
+
+  get active(): boolean {
+    return this.thrusting;
+  }
   /** Seconds of fuel burned. */
   /** Swings, launches, seconds or dashes used so far. */
   used = 0;
@@ -29,7 +33,9 @@ export class JetpackGadget implements GadgetRuntime {
 
   beforeMove(ctx: GadgetContext): void {
     const p = ctx.player;
+    // Held while hooked, it waits: thrust carries on once the rope comes off.
     const on = ctx.input.held && this.remaining > 0 && !p.tethered && !p.mantle;
+    p.jetting = on;
     if (on !== this.thrusting) {
       this.thrusting = on;
       ctx.emit(on ? GadgetEvent.JetpackOn : GadgetEvent.JetpackOff);
@@ -49,11 +55,13 @@ export class JetpackGadget implements GadgetRuntime {
 
   afterMove(): void {}
 
-  unequip(): void {
+  unequip(p: PlayerState): void {
     this.thrusting = false;
+    p.jetting = false;
   }
 
-  resetTransientState(_player: PlayerState): void {
+  resetTransientState(p: PlayerState): void {
     this.thrusting = false;
+    p.jetting = false;
   }
 }

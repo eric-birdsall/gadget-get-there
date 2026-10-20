@@ -2,7 +2,7 @@ import { GADGETS, gadgetDefinition } from '../gadgets/registry';
 import type { GadgetId } from '../gadgets/types';
 import { type Settings, saveSettings } from '../storage/settings';
 import { MAX_SLOTS } from '../game/session';
-import { Action, type Bindings, MAX_KEYS_PER_ACTION, SLOT_ACTIONS, keyName, switchKeysName } from '../input/input';
+import { Action, type Bindings, MAX_KEYS_PER_ACTION, PICK_ACTIONS, USE_ACTIONS, keyName, useKeysName } from '../input/input';
 import { keyLabel } from '../input/keyNames';
 import { bindKey, clearKey, defaultBindings, saveBindings } from '../storage/bindings';
 import { formatTime } from './hud';
@@ -38,10 +38,14 @@ const CONTROL_GROUPS: { title: string; rows: [Action, string][] }[] = [
   {
     title: 'Gadgets',
     rows: [
-      [Action.Gadget, 'Use gadget'],
-      [Action.NextGadget, 'Next gadget'],
-      ...GADGETS.map((g): [Action, string] => [SLOT_ACTIONS[g.slot - 1], g.displayName]),
+      [Action.UseSlot1, 'Use slot 1'],
+      [Action.UseSlot2, 'Use slot 2'],
+      [Action.UseSlot3, 'Use slot 3'],
     ],
+  },
+  {
+    title: 'Add / remove at the start line',
+    rows: GADGETS.map((g): [Action, string] => [PICK_ACTIONS[g.slot - 1], g.displayName]),
   },
   {
     title: 'Run',
@@ -195,7 +199,7 @@ export class Menu {
     title.textContent = g.displayName;
     const meta = document.createElement('div');
     meta.className = 'meta';
-    meta.textContent = `Key ${keyName(this.bindings, SLOT_ACTIONS[g.slot - 1])} · ${g.budgetLabel} per run`;
+    meta.textContent = `Key ${keyName(this.bindings, PICK_ACTIONS[g.slot - 1])} · ${g.budgetLabel} per run`;
     const summary = document.createElement('p');
     summary.textContent = g.summary;
     const stats = document.createElement('dl');
@@ -226,14 +230,16 @@ export class Menu {
       slot.classList.toggle('empty', !id);
       if (id) {
         slot.innerHTML =
-          `<span class="n">${i + 1}</span><span class="icon-square">${GADGET_ICONS[id]}` +
+          `<span class="n"></span><span class="icon-square">${GADGET_ICONS[id]}` +
           `<span class="budget">${gadgetDefinition(id).budgetLabel}</span></span><span class="name"></span>`;
         slot.querySelector('.name')!.textContent = gadgetDefinition(id).displayName;
         slot.title = `Click to take ${gadgetDefinition(id).displayName} out`;
       } else {
-        slot.innerHTML = `<span class="n">${i + 1}</span><span class="icon-square empty"></span><span class="name">Empty</span>`;
+        slot.innerHTML = `<span class="n"></span><span class="icon-square empty"></span><span class="name">Empty</span>`;
         slot.title = 'Click a gadget above to fill this slot';
       }
+      // Each slot is labelled with the key that uses it in the run.
+      slot.querySelector('.n')!.textContent = keyName(this.bindings, USE_ACTIONS[i]);
     });
     for (const [id, tile] of this.tileEls) {
       const at = loadout.indexOf(id);
@@ -243,7 +249,7 @@ export class Menu {
     el<HTMLButtonElement>('clear-slots').disabled = loadout.length === 0;
     el('menu-gadgets-hint').textContent = running
       ? 'Changing gadgets restarts the run'
-      : `Click gadgets to fill the slots · ${switchKeysName(this.bindings)} switches between them in the run`;
+      : `Click gadgets to fill the slots · ${useKeysName(this.bindings)} use them in the run`;
   }
 
   setBest(seconds: number | null): void {

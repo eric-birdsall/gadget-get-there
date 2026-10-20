@@ -17,13 +17,20 @@ export function loadBindings(): Bindings {
   const out = defaultBindings();
   const saved = readJson(BINDINGS_KEY) as { version?: number; data?: unknown } | null;
   if (!saved || saved.version !== BINDINGS_VERSION || !saved.data || typeof saved.data !== 'object') return out;
-  const data = saved.data as Record<string, unknown>;
+  const data = { ...(saved.data as Record<string, unknown>) };
+  // Before per-slot use keys there was one "use gadget" key: it becomes slot 1's.
+  if (!(Action.UseSlot1 in data) && 'gadget' in data) data[Action.UseSlot1] = data.gadget;
+  const fromSave = new Set<Action>();
   for (const a of Object.values(Action)) {
     const keys = data[a];
     if (Array.isArray(keys) && keys.length <= MAX_KEYS_PER_ACTION && keys.every((k) => typeof k === 'string' && k !== '' && k !== 'Escape')) {
       out[a] = [...new Set(keys as string[])];
+      fromSave.add(a);
     }
   }
+  // A default key the player has put on something else stays there.
+  const taken = new Set([...fromSave].flatMap((a) => out[a]));
+  for (const a of Object.values(Action)) if (!fromSave.has(a)) out[a] = out[a].filter((k) => !taken.has(k));
   return out;
 }
 

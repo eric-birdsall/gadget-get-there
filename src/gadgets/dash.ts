@@ -9,11 +9,18 @@ const dir = new Vector3();
  * Press for a short, fast burst the way you're going (or, standing still, the way you're
  * looking), on the ground or in the air.
  */
+/** How long the HUD slot glows after a dash. */
+const FLASH_SECONDS = 0.3;
+
 export class DashGadget implements GadgetRuntime {
   readonly id = GadgetId.Dash;
   limited = true;
   /** Seconds since the last dash, for the trail effect; large when none. */
   sinceDash = Infinity;
+
+  get active(): boolean {
+    return this.sinceDash < FLASH_SECONDS;
+  }
   /** Swings, launches, seconds or dashes used so far. */
   used = 0;
   private cooldown = 0;

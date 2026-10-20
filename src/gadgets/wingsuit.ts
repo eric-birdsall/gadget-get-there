@@ -14,6 +14,10 @@ export class WingsuitGadget implements GadgetRuntime {
   readonly id = GadgetId.Wingsuit;
   limited = true;
   gliding = false;
+
+  get active(): boolean {
+    return this.gliding;
+  }
   /** Seconds of glide used. */
   used = 0;
 
@@ -32,7 +36,8 @@ export class WingsuitGadget implements GadgetRuntime {
 
   beforeMove(ctx: GadgetContext): void {
     const { player: p, input } = ctx;
-    const on = input.held && !p.grounded && !p.tethered && !p.mantle && !p.wallRun && this.remaining > 0;
+    // Pauses (spending nothing) while hooked or while the jetpack thrusts, and carries on after.
+    const on = input.held && !p.grounded && !p.tethered && !p.jetting && !p.mantle && !p.wallRun && this.remaining > 0;
     if (on !== this.gliding) {
       this.gliding = on;
       ctx.emit(on ? GadgetEvent.GlideStarted : GadgetEvent.GlideEnded);

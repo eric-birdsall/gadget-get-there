@@ -196,7 +196,7 @@ describe('The Crossing', () => {
     expect(r.seconds).toBeLessThan(70);
   });
 
-  it('a mixed run (swing, pad, then a dash, switching between them) finishes and beats plain running', () => {
+  it('a mixed run (swing on E, pad on Q, dash on F) finishes and beats plain running', () => {
     const session = new RunSession(crossing, {
       loadout: [GadgetId.Grapple, GadgetId.LaunchPad, GadgetId.Dash],
       checkpointsEnabled: false,
@@ -217,8 +217,6 @@ describe('The Crossing', () => {
     const r = runRoute(session, route);
     expect(r.falls, `fell near (${r.last.toArray().map((n) => n.toFixed(1))}) heading for waypoint ${r.waypoint}`).toBe(0);
     expect(r.finished, `stuck near (${r.last.toArray().map((n) => n.toFixed(1))})`).toBe(true);
-    // Picked the pad; when it was used up the dash took over automatically.
-    expect(r.events.filter((e) => e === 'gadget-switched').length).toBe(2);
     expect(session.gadgets.map((g) => g.usageLabel)).toEqual(['x1', 'x0', 'x2']);
     results.set('mixed run', r.seconds);
     expect(r.seconds).toBeLessThan(results.get('running line, grapple equipped')!);

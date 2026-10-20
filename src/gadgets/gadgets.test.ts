@@ -8,6 +8,7 @@ import { AttemptState, RunSession, type SessionInput, idleInput } from '../game/
 import { GrappleGadget, handPosition } from './grapple';
 import { LaunchPadGadget } from './launchPad';
 import { JetpackGadget } from './jetpack';
+import { WingsuitGadget } from './wingsuit';
 import { GadgetEvent, GadgetId } from './types';
 
 type Point = [number, number, number];
@@ -27,6 +28,12 @@ function aimAt(s: RunSession, target: Vector3, over: Partial<SessionInput> = {})
   return { ...idleInput(), aimOrigin: hand, aimDir: target.clone().sub(hand).normalize(), ...over };
 }
 
+/** Slot `i`'s use key held, and pressed this tick. */
+const press = (i = 0): Partial<SessionInput> => ({ use: slotKey(i), usePressed: slotKey(i) });
+/** Slot `i`'s use key held. */
+const hold = (i = 0): Partial<SessionInput> => ({ use: slotKey(i), usePressed: [] });
+const slotKey = (i: number) => [0, 1, 2].map((k) => k === i);
+
 function run(s: RunSession, input: SessionInput, seconds: number): string[] {
   const events: string[] = [];
   for (let t = 0; t < seconds; t += DT) events.push(...s.step(input));
@@ -40,11 +47,11 @@ describe('grappling hook', () => {
   it('hooks the surface under the crosshair and pulls you toward it', () => {
     const s = new RunSession(course([floor], [anchor.toArray() as Point]), { gadget: GadgetId.Grapple, unlimited: true });
     run(s, idleInput(), 0.1);
-    const ev = s.step(aimAt(s, anchor, { action: true, actionPressed: true }));
+    const ev = s.step(aimAt(s, anchor, { ...press() }));
     expect(ev).toContain(GadgetEvent.GrappleAttached);
-    expect((s.gadget as GrappleGadget).attached).toBe(true);
+    expect((s.gadgets[0] as GrappleGadget).attached).toBe(true);
     const start = s.player.pos.distanceTo(anchor);
-    run(s, aimAt(s, anchor, { action: true }), 1);
+    run(s, aimAt(s, anchor, { ...hold() }), 1);
     expect(s.player.pos.distanceTo(anchor)).toBeLessThan(start - 3);
     expect(s.player.grounded).toBe(false);
   });
@@ -53,7 +60,7 @@ describe('grappling hook', () => {
     const s = new RunSession(course([floor], [anchor.toArray() as Point]), { gadget: GadgetId.Grapple, unlimited: true });
     run(s, idleInput(), 0.1);
     const away = new Vector3(0, 0, 50);
-    const ev = s.step(aimAt(s, away, { action: true, actionPressed: true, forward: 1 }));
+    const ev = s.step(aimAt(s, away, { ...press(), forward: 1 }));
     expect(ev).toContain(GadgetEvent.GrappleMissed);
     run(s, { ...idleInput(), forward: 1 }, 0.5);
     expect(Math.hypot(s.player.vel.x, s.player.vel.z)).toBeGreaterThan(5);
@@ -63,23 +70,23 @@ describe('grappling hook', () => {
     const wall = { center: [0, 5, -7] as Point, size: [20, 10, 1] as Point };
     const s = new RunSession(course([floor, wall], [anchor.toArray() as Point]), { gadget: GadgetId.Grapple, unlimited: true });
     run(s, idleInput(), 0.1);
-    expect(s.step(aimAt(s, anchor, { action: true, actionPressed: true }))).toContain(GadgetEvent.GrappleAttached);
-    expect((s.gadget as GrappleGadget).point!.z).toBeCloseTo(-6.45, 1);
+    expect(s.step(aimAt(s, anchor, { ...press() }))).toContain(GadgetEvent.GrappleAttached);
+    expect((s.gadgets[0] as GrappleGadget).point!.z).toBeCloseTo(-6.45, 1);
   });
 
   it('does not reach past its range', () => {
     const far = { center: [0, 20, -GRAPPLE_CONFIG.range - 10] as Point, size: [20, 2, 2] as Point };
     const s = new RunSession(course([floor, far]), { gadget: GadgetId.Grapple, unlimited: true });
     run(s, idleInput(), 0.1);
-    const ev = s.step(aimAt(s, new Vector3(0, 19, -GRAPPLE_CONFIG.range - 9), { action: true, actionPressed: true }));
+    const ev = s.step(aimAt(s, new Vector3(0, 19, -GRAPPLE_CONFIG.range - 9), { ...press() }));
     expect(ev).toContain(GadgetEvent.GrappleMissed);
   });
 
   it('releasing keeps your momentum', () => {
     const s = new RunSession(course([floor], [anchor.toArray() as Point]), { gadget: GadgetId.Grapple, unlimited: true });
     run(s, idleInput(), 0.1);
-    s.step(aimAt(s, anchor, { action: true, actionPressed: true }));
-    run(s, aimAt(s, anchor, { action: true }), 0.6);
+    s.step(aimAt(s, anchor, { ...press() }));
+    run(s, aimAt(s, anchor, { ...hold() }), 0.6);
     const before = s.player.vel.length();
     const ev = s.step(aimAt(s, anchor));
     expect(ev).toContain(GadgetEvent.GrappleReleased);
@@ -90,15 +97,15 @@ describe('grappling hook', () => {
   it('retry clears the tether', () => {
     const s = new RunSession(course([floor], [anchor.toArray() as Point]), { gadget: GadgetId.Grapple, unlimited: true });
     run(s, idleInput(), 0.1);
-    s.step(aimAt(s, anchor, { action: true, actionPressed: true }));
+    s.step(aimAt(s, anchor, { ...press() }));
     s.restart();
-    expect((s.gadget as GrappleGadget).attached).toBe(false);
+    expect((s.gadgets[0] as GrappleGadget).attached).toBe(false);
     expect(s.player.tethered).toBe(false);
   });
 });
 
 /** One press of the gadget button. */
-const click = (over: Partial<SessionInput> = {}): SessionInput => ({ ...idleInput(), action: true, actionPressed: true, ...over });
+const click = (over: Partial<SessionInput> = {}, slot = 0): SessionInput => ({ ...idleInput(), ...press(slot), ...over });
 
 describe('jetpack', () => {
   const floor = slab(0, 0, 0, 2000, 2000);
@@ -106,7 +113,7 @@ describe('jetpack', () => {
   it('holding the button lifts off the ground and climbs', () => {
     const s = new RunSession(course([floor]), { gadget: GadgetId.Jetpack, unlimited: true });
     run(s, idleInput(), 0.1);
-    const ev = run(s, { ...idleInput(), action: true }, 1);
+    const ev = run(s, { ...idleInput(), ...hold() }, 1);
     expect(ev).toContain(GadgetEvent.JetpackOn);
     expect(s.player.grounded).toBe(false);
     expect(s.player.pos.y).toBeGreaterThan(3);
@@ -116,8 +123,8 @@ describe('jetpack', () => {
   it('lets go: you fall again; fuel only burns while thrusting', () => {
     const s = new RunSession(course([floor]), { gadget: GadgetId.Jetpack });
     run(s, idleInput(), 0.1);
-    run(s, { ...idleInput(), action: true }, 1);
-    const jet = s.gadget as JetpackGadget;
+    run(s, { ...idleInput(), ...hold() }, 1);
+    const jet = s.gadgets[0] as JetpackGadget;
     const left = jet.remaining;
     expect(left).toBeCloseTo(1 - 1 / USAGE_CONFIG.jetpackSeconds, 1);
     const ev = run(s, idleInput(), 2);
@@ -126,12 +133,12 @@ describe('jetpack', () => {
     expect(jet.remaining).toBe(left);
   });
 
-  it('runs out after its fuel, then the next gadget takes over', () => {
+  it('runs out after its fuel', () => {
     const s = new RunSession(course([floor]), { loadout: [GadgetId.Jetpack, GadgetId.Dash] });
     run(s, idleInput(), 0.1);
-    run(s, { ...idleInput(), action: true }, USAGE_CONFIG.jetpackSeconds + 0.1);
+    run(s, { ...idleInput(), ...hold() }, USAGE_CONFIG.jetpackSeconds + 0.1);
     expect(s.gadgets[0].usageLabel).toBe('0.0s');
-    expect(s.gadget?.id).toBe(GadgetId.Dash);
+    expect((s.gadgets[0] as JetpackGadget).thrusting).toBe(false);
   });
 });
 
@@ -171,9 +178,10 @@ describe('dash thruster', () => {
       run(s, { ...idleInput(), forward: 1 }, DASH_CONFIG.cooldown + 0.05);
       expect(s.step(click({ forward: 1 }))).toContain(GadgetEvent.Dashed);
     }
-    // All used: the grapple takes over.
+    // All used.
     expect(s.gadgets[0].usageLabel).toBe('x0');
-    expect(s.gadget?.id).toBe(GadgetId.Grapple);
+    run(s, { ...idleInput(), forward: 1 }, DASH_CONFIG.cooldown + 0.05);
+    expect(s.step(click({ forward: 1 }))).not.toContain(GadgetEvent.Dashed);
   });
 });
 
@@ -184,7 +192,7 @@ describe('wingsuit', () => {
     const s = new RunSession(course([floor]), { gadget: GadgetId.Wingsuit, unlimited: true });
     s.player.pos.set(0, 60, 0);
     s.player.vel.set(0, 0, -10);
-    const input = { ...idleInput(), action: true, aimDir: new Vector3(0, -lookDown, -1).normalize() };
+    const input = { ...idleInput(), ...hold(), aimDir: new Vector3(0, -lookDown, -1).normalize() };
     return { s, input };
   }
 
@@ -216,13 +224,12 @@ describe('wingsuit', () => {
   it('does nothing on the ground; glide time only counts in the air; runs out', () => {
     const s = new RunSession(course([floor]), { loadout: [GadgetId.Wingsuit, GadgetId.Dash] });
     run(s, idleInput(), 0.1);
-    run(s, { ...idleInput(), action: true, forward: 1 }, 1);
-    expect(s.gadget!.used).toBe(0);
+    run(s, { ...idleInput(), ...hold(), forward: 1 }, 1);
+    expect(s.gadgets[0].used).toBe(0);
     s.player.pos.y = 200;
     s.player.grounded = false;
-    run(s, { ...idleInput(), action: true }, USAGE_CONFIG.wingsuitSeconds + 0.2);
+    run(s, { ...idleInput(), ...hold() }, USAGE_CONFIG.wingsuitSeconds + 0.2);
     expect(s.gadgets[0].usageLabel).toBe('0.0s');
-    expect(s.gadget?.id).toBe(GadgetId.Dash);
   });
 });
 
@@ -232,9 +239,9 @@ describe('launch pad', () => {
   it('throws a pad onto the floor ahead, and stepping on it launches you along its heading', () => {
     const s = new RunSession(course([floor]), { gadget: GadgetId.LaunchPad, unlimited: true });
     run(s, idleInput(), 0.1);
-    const ev = s.step(aimAt(s, new Vector3(0, 0, -8), { action: true, actionPressed: true }));
+    const ev = s.step(aimAt(s, new Vector3(0, 0, -8), { ...press() }));
     expect(ev).toContain(GadgetEvent.PadPlaced);
-    const pad = (s.gadget as LaunchPadGadget).pad!;
+    const pad = (s.gadgets[0] as LaunchPadGadget).pad!;
     expect(pad.pos.z).toBeCloseTo(-8, 1);
     const launched = run(s, { ...idleInput(), forward: 1 }, 1.5);
     expect(launched).toContain(GadgetEvent.PadLaunched);
@@ -246,101 +253,150 @@ describe('launch pad', () => {
     const wall = { center: [0, 5, -6] as [number, number, number], size: [20, 10, 1] as [number, number, number] };
     const s = new RunSession(course([floor, wall]), { gadget: GadgetId.LaunchPad, unlimited: true });
     run(s, idleInput(), 0.1);
-    expect(s.step(aimAt(s, new Vector3(0, 3, -6), { action: true, actionPressed: true }))).toContain(GadgetEvent.PadInvalid);
+    expect(s.step(aimAt(s, new Vector3(0, 3, -6), { ...press() }))).toContain(GadgetEvent.PadInvalid);
     run(s, idleInput(), LAUNCH_PAD_CONFIG.throwCooldown + 0.05);
     const far = new Vector3(0, 0, 10 + LAUNCH_PAD_CONFIG.throwRange * 2);
-    expect(s.step(aimAt(s, far, { action: true, actionPressed: true }))).toContain(GadgetEvent.PadInvalid);
+    expect(s.step(aimAt(s, far, { ...press() }))).toContain(GadgetEvent.PadInvalid);
     run(s, idleInput(), LAUNCH_PAD_CONFIG.throwCooldown + 0.05);
-    expect(s.step(aimAt(s, new Vector3(0, 0, 4), { action: true, actionPressed: true }))).toContain(GadgetEvent.PadPlaced);
+    expect(s.step(aimAt(s, new Vector3(0, 0, 4), { ...press() }))).toContain(GadgetEvent.PadPlaced);
   });
 
   it('keeps one pad: a new throw replaces the old', () => {
     const s = new RunSession(course([floor]), { gadget: GadgetId.LaunchPad, unlimited: true });
     run(s, idleInput(), 0.1);
-    s.step(aimAt(s, new Vector3(0, 0, -8), { action: true, actionPressed: true }));
+    s.step(aimAt(s, new Vector3(0, 0, -8), { ...press() }));
     run(s, idleInput(), LAUNCH_PAD_CONFIG.throwCooldown + 0.05);
-    s.step(aimAt(s, new Vector3(5, 0, -5), { action: true, actionPressed: true }));
-    expect((s.gadget as LaunchPadGadget).pad!.pos.x).toBeCloseTo(5, 1);
+    s.step(aimAt(s, new Vector3(5, 0, -5), { ...press() }));
+    expect((s.gadgets[0] as LaunchPadGadget).pad!.pos.x).toBeCloseTo(5, 1);
   });
 
   it('retry and respawn clear the pad', () => {
     const s = new RunSession(course([floor]), { gadget: GadgetId.LaunchPad, unlimited: true });
     run(s, idleInput(), 0.1);
-    s.step(aimAt(s, new Vector3(0, 0, -8), { action: true, actionPressed: true }));
+    s.step(aimAt(s, new Vector3(0, 0, -8), { ...press() }));
     s.restart();
-    expect((s.gadget as LaunchPadGadget).pad).toBeNull();
+    expect((s.gadgets[0] as LaunchPadGadget).pad).toBeNull();
     expect(s.state).toBe(AttemptState.Ready);
   });
 });
 
-describe('budgets and switching', () => {
+describe('budgets and using gadgets together', () => {
   const floor = slab(0, 0, 0, 2000, 2000);
   const anchor = new Vector3(0, 12, -15);
   const anchors = [anchor.toArray() as Point];
 
-  /** Latch on, swing briefly, let go. */
-  function swing(s: RunSession): string[] {
-    s.step(aimAt(s, anchor, { action: true, actionPressed: true }));
-    run(s, aimAt(s, anchor, { action: true }), 0.3);
+  /** Latch on with slot `slot`'s key, swing briefly, let go. */
+  function swing(s: RunSession, slot = 0): string[] {
+    s.step(aimAt(s, anchor, press(slot)));
+    run(s, aimAt(s, anchor, hold(slot)), 0.3);
     return s.step(aimAt(s, anchor));
   }
 
-  it('the grapple has two swings; misses are free; when used up the next gadget takes over', () => {
+  it('the grapple has two swings and misses are free', () => {
     const s = new RunSession(course([floor], anchors), { loadout: [GadgetId.Grapple, GadgetId.LaunchPad] });
     run(s, idleInput(), 0.1);
-    s.step(aimAt(s, new Vector3(0, 0, 50), { action: true, actionPressed: true }));
-    expect(s.gadget?.usageLabel).toBe(`x${USAGE_CONFIG.grappleSwings}`);
-    for (let i = 0; i < USAGE_CONFIG.grappleSwings - 1; i++) {
+    s.step(aimAt(s, new Vector3(0, 0, 50), press()));
+    expect(s.gadgets[0].usageLabel).toBe(`x${USAGE_CONFIG.grappleSwings}`);
+    for (let i = 0; i < USAGE_CONFIG.grappleSwings; i++) {
       run(s, idleInput(), 1.5);
       expect(swing(s)).toContain(GadgetEvent.GrappleReleased);
     }
-    expect(s.gadget?.id).toBe(GadgetId.Grapple);
-    run(s, idleInput(), 1.5);
-    expect(swing(s)).toContain('gadget-switched');
     expect(s.gadgets[0].usageLabel).toBe('x0');
-    expect(s.gadget?.id).toBe(GadgetId.LaunchPad);
-    // And it can't be picked again.
-    expect(s.selectGadget(GadgetId.Grapple)).toBe(false);
+    run(s, idleInput(), 1.5);
+    expect(s.step(aimAt(s, anchor, press()))).not.toContain(GadgetEvent.GrappleAttached);
   });
 
-  it('switching away mid-swing lets go, and the swing counts', () => {
-    const s = new RunSession(course([floor], anchors), { loadout: [GadgetId.Grapple, GadgetId.LaunchPad] });
+  it('each slot has its own key: slot 2 dashes while slot 1 is the grapple', () => {
+    const s = new RunSession(course([floor]), { loadout: [GadgetId.Grapple, GadgetId.Dash] });
     run(s, idleInput(), 0.1);
-    s.step(aimAt(s, anchor, { action: true, actionPressed: true }));
-    expect((s.gadget as GrappleGadget).attached).toBe(true);
-    s.cycleGadget(1);
+    expect(s.step(click({ forward: 1 }, 1))).toContain(GadgetEvent.Dashed);
+    expect(s.gadgets[1].used).toBe(1);
+    expect(s.gadgets[0].used).toBe(0);
+  });
+
+  it('a fresh press of another gadget cuts the rope with no boost, and the swing counts', () => {
+    const s = new RunSession(course([floor], anchors), { loadout: [GadgetId.Grapple, GadgetId.Dash] });
+    run(s, idleInput(), 0.1);
+    s.step(aimAt(s, anchor, press(0)));
+    run(s, aimAt(s, anchor, hold(0)), 0.3);
+    expect((s.gadgets[0] as GrappleGadget).attached).toBe(true);
+    const ev = s.step(aimAt(s, anchor, { ...press(1), use: [true, true, false] }));
+    expect(ev).toContain(GadgetEvent.GrappleReleased);
+    expect(ev).toContain(GadgetEvent.Dashed);
     expect(s.player.tethered).toBe(false);
     expect(s.gadgets[0].usageLabel).toBe(`x${USAGE_CONFIG.grappleSwings - 1}`);
-    expect(s.step(idleInput())).toContain(GadgetEvent.GrappleReleased);
+    // The dash sets the speed: no release boost on top.
+    expect(Math.hypot(s.player.vel.x, s.player.vel.z)).toBeLessThan(DASH_CONFIG.speed + DASH_CONFIG.boostOverCurrent + GRAPPLE_CONFIG.releaseBoost);
   });
 
-  it('a thrown pad keeps working after switching to another gadget', () => {
+  it('throwing a pad mid-swing keeps the rope; touching a pad while hooked launches and cuts it', () => {
+    const low = new Vector3(0, 6, -10);
+    const s = new RunSession(course([floor], [low.toArray() as Point]), { loadout: [GadgetId.Grapple, GadgetId.LaunchPad] });
+    run(s, idleInput(), 0.1);
+    s.step(aimAt(s, low, press(0)));
+    expect((s.gadgets[0] as GrappleGadget).attached).toBe(true);
+    // Throw at the floor right underfoot.
+    const ev = s.step(aimAt(s, new Vector3(s.player.pos.x, 0, s.player.pos.z - 1.5), { ...press(1), use: [true, true, false] }));
+    expect(ev).toContain(GadgetEvent.PadPlaced);
+    expect((s.gadgets[0] as GrappleGadget).attached).toBe(true);
+    // Hold the rope and drop onto the pad: it launches and the rope goes.
+    const pad = (s.gadgets[1] as LaunchPadGadget).pad!;
+    s.player.pos.set(pad.pos.x, pad.pos.y + 0.2, pad.pos.z);
+    s.player.vel.set(0, -1, 0);
+    const launch = s.step(aimAt(s, low, hold(0)));
+    expect(launch).toContain(GadgetEvent.PadLaunched);
+    expect(launch).toContain(GadgetEvent.GrappleReleased);
+    expect(s.player.tethered).toBe(false);
+  });
+
+  it('jetpack and wingsuit held together: the jetpack wins and the glide pauses, then carries on', () => {
+    const s = new RunSession(course([floor]), { loadout: [GadgetId.Wingsuit, GadgetId.Jetpack] });
+    s.player.pos.set(0, 100, 0);
+    s.player.vel.set(0, 0, -10);
+    const both = { ...idleInput(), use: [true, true, false], usePressed: [] };
+    run(s, both, 0.5);
+    const wings = s.gadgets[0] as WingsuitGadget;
+    const jet = s.gadgets[1] as JetpackGadget;
+    expect(jet.thrusting).toBe(true);
+    expect(wings.gliding).toBe(false);
+    expect(wings.used).toBe(0);
+    expect(s.player.vel.y).toBeGreaterThan(0);
+    // Let go of the jetpack, still holding the wingsuit.
+    run(s, { ...idleInput(), ...hold(0) }, 0.5);
+    expect(wings.gliding).toBe(true);
+    expect(wings.used).toBeGreaterThan(0);
+  });
+
+  it('hooking while the jetpack is held pauses it; it carries on once the rope comes off', () => {
+    const s = new RunSession(course([floor], anchors), { loadout: [GadgetId.Grapple, GadgetId.Jetpack] });
+    run(s, idleInput(), 0.1);
+    run(s, { ...idleInput(), ...hold(1) }, 0.2);
+    const jet = s.gadgets[1] as JetpackGadget;
+    expect(jet.thrusting).toBe(true);
+    s.step(aimAt(s, anchor, { use: [true, true, false], usePressed: [true, false, false] }));
+    expect((s.gadgets[0] as GrappleGadget).attached).toBe(true);
+    const fuel = jet.used;
+    run(s, aimAt(s, anchor, { use: [true, true, false], usePressed: [] }), 0.3);
+    // Held, not pressed: the rope stays, and no fuel burns.
+    expect((s.gadgets[0] as GrappleGadget).attached).toBe(true);
+    expect(jet.thrusting).toBe(false);
+    expect(jet.used).toBe(fuel);
+    // Let go of the rope: thrust picks up again.
+    run(s, aimAt(s, anchor, hold(1)), 0.1);
+    expect(jet.thrusting).toBe(true);
+  });
+
+  it('a thrown pad keeps working while you use other gadgets', () => {
     const s = new RunSession(course([floor]), { loadout: [GadgetId.LaunchPad, GadgetId.Dash] });
     run(s, idleInput(), 0.1);
-    s.step(aimAt(s, new Vector3(0, 0, -20), { action: true, actionPressed: true }));
+    s.step(aimAt(s, new Vector3(0, 0, -20), press()));
     run(s, idleInput(), LAUNCH_PAD_CONFIG.throwCooldown + 0.05);
     // Re-throwing is free.
-    s.step(aimAt(s, new Vector3(0, 0, -8), { action: true, actionPressed: true }));
-    s.selectGadget(GadgetId.Dash);
+    s.step(aimAt(s, new Vector3(0, 0, -8), press()));
     const ev = run(s, { ...idleInput(), forward: 1 }, 1.5);
     expect(ev).toContain(GadgetEvent.PadLaunched);
     expect(s.gadgets[0].usageLabel).toBe('x0');
     expect((s.gadgets[0] as LaunchPadGadget).pad).toBeNull();
-    expect(s.gadget?.id).toBe(GadgetId.Dash);
-  });
-
-  it('switching away from the jetpack stops the burn and keeps the fuel that is left', () => {
-    const s = new RunSession(course([floor]), { loadout: [GadgetId.Jetpack, GadgetId.Grapple] });
-    run(s, idleInput(), 0.1);
-    run(s, { ...idleInput(), action: true }, 1);
-    const jet = s.gadget as JetpackGadget;
-    const left = jet.remaining;
-    s.selectGadget(GadgetId.Grapple);
-    run(s, { ...idleInput(), action: true }, 1);
-    expect(jet.thrusting).toBe(false);
-    expect(jet.remaining).toBe(left);
-    s.selectGadget(GadgetId.Jetpack);
-    expect(s.gadget?.id).toBe(GadgetId.Jetpack);
   });
 
   it('a retry refills every budget', () => {
@@ -348,16 +404,16 @@ describe('budgets and switching', () => {
     run(s, idleInput(), 0.1);
     swing(s);
     s.restart();
-    expect(s.gadget?.remaining).toBe(1);
+    expect(s.gadgets[0]?.remaining).toBe(1);
   });
 });
 
 it('rapid retries do not pile up gadget state', () => {
   const s = new RunSession(crossing, { gadget: GadgetId.LaunchPad, unlimited: true });
   for (let i = 0; i < 200; i++) {
-    s.step(aimAt(s, new Vector3(0, 40, -6), { action: true, actionPressed: true }));
+    s.step(aimAt(s, new Vector3(0, 40, -6), { ...press() }));
     s.restart();
   }
-  expect((s.gadget as LaunchPadGadget).pad).toBeNull();
+  expect((s.gadgets[0] as LaunchPadGadget).pad).toBeNull();
   expect(s.attempt).toBe(201);
 });

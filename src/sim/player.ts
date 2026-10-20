@@ -52,6 +52,8 @@ export interface PlayerState {
   landingSpeed: number;
   /** On a grapple line: always airborne, so the rope (not footing) decides the motion. */
   tethered: boolean;
+  /** Jetpack thrusting this tick: the wingsuit pauses for it. */
+  jetting: boolean;
   /** Seconds during which ground contact doesn't count, so a launch isn't glued back down. */
   airborneLock: number;
   stance: Stance;
@@ -90,6 +92,7 @@ export function createPlayer(pos: Vector3): PlayerState {
     justLanded: false,
     landingSpeed: 0,
     tethered: false,
+    jetting: false,
     airborneLock: 0,
     stance: Stance.Stand,
     slideBoostCooldown: 0,
@@ -119,6 +122,7 @@ export function resetPlayer(p: PlayerState, pos: Vector3): void {
   p.justLanded = false;
   p.landingSpeed = 0;
   p.tethered = false;
+  p.jetting = false;
   p.airborneLock = 0;
   p.stance = Stance.Stand;
   p.slideBoostCooldown = 0;

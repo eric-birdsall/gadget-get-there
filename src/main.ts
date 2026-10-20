@@ -12,7 +12,7 @@ import { GadgetEvent, type GadgetId } from './gadgets/types';
 import { type GhostPose, GhostPlayer } from './game/ghost';
 import { medalFor } from './game/medals';
 import { type AnyEvent, AttemptState, MAX_SLOTS, RunSession, type SessionInput, SessionEvent } from './game/session';
-import { Action, InputManager, SLOT_ACTIONS } from './input/input';
+import { Action, InputManager, PICK_ACTIONS, USE_ACTIONS } from './input/input';
 import { Renderer } from './render/renderer';
 import { Stance } from './sim/player';
 import { RecordStore } from './storage/records';
@@ -85,7 +85,7 @@ function refreshGadget(): void {
   const ready = session.state === AttemptState.Ready;
   hud.setGadgets(
     session.loadout,
-    session.slot,
+    session.gadgets.map((g) => g.active),
     session.gadgets.map((g) => g.remaining),
     session.gadgets.map((g) => g.usageLabel),
     ready,
@@ -182,9 +182,6 @@ function handle(events: AnyEvent[]): void {
         break;
       case SessionEvent.Mantled:
         audio.play(Sfx.Mantle);
-        break;
-      case SessionEvent.GadgetSwitched:
-        audio.play(Sfx.Select);
         break;
       case SessionEvent.Fell:
         audio.play(Sfx.Respawn);
@@ -319,15 +316,15 @@ input.onLockError = (switchedToFreeCursor) => {
   if (!switchedToFreeCursor) menu.show(started, "The browser didn't capture the mouse. Click again in a moment.");
 };
 
-function readInput(jumpPressed: boolean, actionPressed: boolean): SessionInput {
+function readInput(jumpPressed: boolean, usePressed: boolean[]): SessionInput {
   return {
     forward: input.axis(Action.Forward, Action.Back),
     right: input.axis(Action.Right, Action.Left),
     yaw: input.yaw,
     jump: input.isHeld(Action.Jump) || jumpPressed,
     crouch: input.isHeld(Action.Crouch),
-    action: input.isHeld(Action.Gadget) || actionPressed,
-    actionPressed,
+    use: USE_ACTIONS.map((a, i) => input.isHeld(a) || usePressed[i]),
+    usePressed,
     aimOrigin,
     aimDir,
   };
@@ -345,17 +342,11 @@ function handleKeys(): void {
     menu.syncCheckbox('ghost');
     hud.showToast(settings.ghost ? 'Ghost on' : 'Ghost off', 0.8);
   }
-  // 1–5: at the start line, add that gadget to the next free slot or take it out; mid-run,
-  // take it in hand. The scroll wheel steps through the slots, skipping used-up gadgets.
-  SLOT_ACTIONS.forEach((a, i) => {
-    if (!input.consumePress(a) || !GADGETS[i]) return;
-    if (session.state === AttemptState.Ready) toggleGadget(GADGETS[i].id);
-    else session.selectGadget(GADGETS[i].id);
+  // 1–5: at the start line, add that gadget to the next free slot or take it out. Mid-run they
+  // do nothing, so a stray press can't wreck a run.
+  PICK_ACTIONS.forEach((a, i) => {
+    if (input.consumePress(a) && GADGETS[i] && session.state === AttemptState.Ready) toggleGadget(GADGETS[i].id);
   });
-  const wheel = input.consumeWheel();
-  for (let i = 0; i < Math.abs(wheel); i++) session.cycleGadget(wheel > 0 ? 1 : -1);
-  // F: on to the next gadget, like a scroll down.
-  if (input.consumePress(Action.NextGadget)) session.cycleGadget(1);
   if (input.consumePress(Action.Retry)) restart();
 }
 
@@ -379,26 +370,30 @@ function frame(now: number): void {
     input.update(dt);
     // Taps shorter than a tick still count, on the first tick of this frame.
     let jumpPressed = input.consumePress(Action.Jump);
-    let actionPressed = input.consumePress(Action.Gadget);
+    let usePressed = USE_ACTIONS.map((a) => input.consumePress(a));
     accumulator += dt;
     while (accumulator >= DT) {
       prevFeet.copy(session.player.pos);
-      handle(session.step(readInput(jumpPressed, actionPressed)));
-      jumpPressed = actionPressed = false;
+      handle(session.step(readInput(jumpPressed, usePressed)));
+      jumpPressed = false;
+      usePressed = USE_ACTIONS.map(() => false);
       accumulator -= DT;
     }
   }
   input.endFrame();
 
   const p = session.player;
-  const g = session.gadget;
   drawFeet.lerpVectors(prevFeet, p.pos, paused ? 1 : accumulator / DT);
-  const grapple = g instanceof GrappleGadget ? g : null;
-  const pads = g instanceof LaunchPadGadget ? g : null;
   const live = session.state !== AttemptState.Finished;
+  const grapple = session.find(GrappleGadget);
+  const pads = session.find(LaunchPadGadget);
+  const jetpack = session.find(JetpackGadget);
+  const dash = session.find(DashGadget);
+  // Aim previews for every gadget that can still be used.
   const canHook = grapple && !grapple.attached && grapple.remaining > 0 && live;
+  const canThrow = !!pads && pads.remaining > 0 && live;
   const grappleTarget = canHook ? findGrappleTarget(session.boxes, aimOrigin, aimDir, p) : null;
-  const padPreview = pads && live ? padPlacement(session.boxes, aimOrigin, aimDir, p) : null;
+  const padPreview = canThrow ? padPlacement(session.boxes, aimOrigin, aimDir, p) : null;
   const showGhost = settings.ghost && ghost !== null;
   renderer.render(paused ? 0 : dt, {
     pose: { feet: drawFeet, vel: p.vel, grounded: p.grounded },
@@ -406,18 +401,17 @@ function frame(now: number): void {
     pitch: input.pitch,
     landed: landedSpeed,
     jumped,
-    thrust: g instanceof JetpackGadget && g.thrusting ? 1 : 0,
-    dashFlash: g instanceof DashGadget ? Math.max(0, 1 - g.sinceDash / 0.3) : 0,
-    gliding: g instanceof WingsuitGadget && g.gliding,
+    thrust: jetpack?.thrusting ? 1 : 0,
+    dashFlash: dash ? Math.max(0, 1 - dash.sinceDash / 0.3) : 0,
+    gliding: !!session.find(WingsuitGadget)?.gliding,
     sliding: p.stance === Stance.Slide,
     crouching: p.stance === Stance.Crouch,
     mantle: p.mantle ? p.mantle.t / ABILITY_CONFIG.mantleDuration : -1,
     wallRunNormal: p.wallRun?.normal ?? null,
     grappleTarget,
     grappleRope: grapple?.point ?? null,
-    // A thrown pad stays in the world after switching to another gadget.
-    pad: session.gadgets.find((x): x is LaunchPadGadget => x instanceof LaunchPadGadget)?.pad ?? null,
-    padEquipped: !!pads && live,
+    pad: pads?.pad ?? null,
+    padEquipped: canThrow,
     padPreview,
     checkpointReached: session.checkpoint,
     ghost: showGhost ? ghost!.poseAt(session.elapsed, ghostPose) : null,
@@ -436,7 +430,7 @@ function frame(now: number): void {
     fps,
     y: p.pos.y,
   });
-  audio.update(p.vel.length(), g instanceof JetpackGadget && g.thrusting);
+  audio.update(p.vel.length(), !!jetpack?.thrusting);
   requestAnimationFrame(frame);
 }
 

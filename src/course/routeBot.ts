@@ -23,11 +23,11 @@ export interface Waypoint {
   grapple?: { at: [number, number, number]; releaseZ: number };
   /** On becoming the target: throw a pad at this point. */
   pad?: [number, number, number];
-  /** Take this gadget in hand on becoming the target (before any press or throw). */
+  /** From here on, press and hold this gadget's slot key (slot 1's until a route says otherwise). */
   select?: GadgetId;
-  /** Press the gadget button once on becoming the target (e.g. to dash). */
+  /** Press the gadget's key once on becoming the target (e.g. to dash). */
   press?: boolean;
-  /** Hold the gadget button (jetpack thrust) while heading here. */
+  /** Hold the gadget's key (jetpack thrust) while heading here. */
   hold?: boolean;
   /** Hold slide/crouch while heading here. */
   crouch?: boolean;
@@ -55,7 +55,13 @@ export function runRoute(session: RunSession, route: Waypoint[], maxSeconds = 12
   const p = session.player;
   let target = 0;
   let falls = 0;
-  let holding: { releaseZ: number } | null = null;
+  let holding: { releaseZ: number; slot: number } | null = null;
+  /** The slot whose key the route is using. */
+  let slot = 0;
+  const use = (input: SessionInput, i: number, pressed: boolean) => {
+    input.use[i] = true;
+    if (pressed) input.usePressed[i] = true;
+  };
   let entered = -1;
   const events: AnyEvent[] = [];
   const before = new Vector3();
@@ -86,32 +92,28 @@ export function runRoute(session: RunSession, route: Waypoint[], maxSeconds = 12
     // Fresh target: fire whatever it asks for.
     if (entered !== target) {
       entered = target;
-      if (wp.select) session.selectGadget(wp.select);
+      if (wp.select) slot = Math.max(0, session.loadout.indexOf(wp.select));
       if (wp.jump && p.grounded) input.jump = true;
       if (wp.kick) input.jump = true;
-      if (wp.press) {
-        input.action = true;
-        input.actionPressed = true;
-      }
+      if (wp.press) use(input, slot, true);
       if (wp.grapple || wp.pad) {
         const aimAt = new Vector3(...(wp.grapple ? wp.grapple.at : wp.pad!));
         handPosition(p, hand);
         input.aimOrigin = hand.clone();
         input.aimDir = aimAt.clone().sub(hand).normalize();
-        input.action = true;
-        input.actionPressed = true;
-        if (wp.grapple) holding = { releaseZ: wp.grapple.releaseZ };
+        use(input, slot, true);
+        if (wp.grapple) holding = { releaseZ: wp.grapple.releaseZ, slot };
       }
     }
     if (holding) {
-      input.action = p.pos.z > holding.releaseZ;
-      if (!input.action) {
+      if (p.pos.z > holding.releaseZ) use(input, holding.slot, false);
+      else {
         // Let go: on to the next waypoint.
         holding = null;
         target = Math.min(target + 1, route.length - 1);
       }
     }
-    if (wp.hold) input.action = true;
+    if (wp.hold) use(input, slot, false);
     if (wp.crouch) input.crouch = true;
     if (wp.holdJump && !p.grounded) input.jump = true;
 

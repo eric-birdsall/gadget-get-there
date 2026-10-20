@@ -60,7 +60,7 @@ export class GrappleGadget implements GadgetRuntime {
     return this.limited ? `x${Math.max(0, USAGE_CONFIG.grappleSwings - this.used)}` : '∞';
   }
 
-  /** Switching away lets go of the rope; the swing counts. */
+  /** Another gadget cut the rope (or a mantle ended the swing): let go with no boost; the swing counts. */
   unequip(p: PlayerState): void {
     if (this.attached) this.release(p, false);
   }
@@ -68,6 +68,10 @@ export class GrappleGadget implements GadgetRuntime {
   /** Misses are free: only finished swings count. */
   get remaining(): number {
     return this.limited ? Math.max(0, 1 - this.used / USAGE_CONFIG.grappleSwings) : 1;
+  }
+
+  get active(): boolean {
+    return this.attached;
   }
 
   get attached(): boolean {

@@ -8,14 +8,17 @@ export enum Action {
   Right = 'right',
   Jump = 'jump',
   Crouch = 'crouch',
-  Gadget = 'gadget',
+  /** Use the gadget in slot 1, 2 or 3. */
+  UseSlot1 = 'use-slot-1',
+  UseSlot2 = 'use-slot-2',
+  UseSlot3 = 'use-slot-3',
   Retry = 'retry',
-  Slot1 = 'slot-1',
-  Slot2 = 'slot-2',
-  Slot3 = 'slot-3',
-  Slot4 = 'slot-4',
-  Slot5 = 'slot-5',
-  NextGadget = 'next-gadget',
+  /** At the start line: add or remove gadget N (palette order). */
+  PickGadget1 = 'slot-1',
+  PickGadget2 = 'slot-2',
+  PickGadget3 = 'slot-3',
+  PickGadget4 = 'slot-4',
+  PickGadget5 = 'slot-5',
   ToggleGhost = 'toggle-ghost',
   ToggleDebug = 'toggle-debug',
 }
@@ -31,19 +34,23 @@ export const DEFAULT_BINDINGS: Bindings = {
   [Action.Right]: ['KeyD', 'ArrowRight'],
   [Action.Jump]: ['Space'],
   [Action.Crouch]: ['ShiftLeft', 'ShiftRight'],
-  [Action.Gadget]: ['KeyE'],
+  [Action.UseSlot1]: ['KeyE'],
+  [Action.UseSlot2]: ['KeyQ'],
+  [Action.UseSlot3]: ['KeyF'],
   [Action.Retry]: ['KeyR', 'Enter'],
-  [Action.Slot1]: ['Digit1', 'Numpad1'],
-  [Action.Slot2]: ['Digit2', 'Numpad2'],
-  [Action.Slot3]: ['Digit3', 'Numpad3'],
-  [Action.Slot4]: ['Digit4', 'Numpad4'],
-  [Action.Slot5]: ['Digit5', 'Numpad5'],
-  [Action.NextGadget]: ['KeyF'],
+  [Action.PickGadget1]: ['Digit1', 'Numpad1'],
+  [Action.PickGadget2]: ['Digit2', 'Numpad2'],
+  [Action.PickGadget3]: ['Digit3', 'Numpad3'],
+  [Action.PickGadget4]: ['Digit4', 'Numpad4'],
+  [Action.PickGadget5]: ['Digit5', 'Numpad5'],
   [Action.ToggleGhost]: ['KeyG'],
   [Action.ToggleDebug]: ['Backquote'],
 };
 
-export const SLOT_ACTIONS = [Action.Slot1, Action.Slot2, Action.Slot3, Action.Slot4, Action.Slot5] as const;
+/** Use keys, by slot. */
+export const USE_ACTIONS = [Action.UseSlot1, Action.UseSlot2, Action.UseSlot3] as const;
+/** Start-line add/remove keys, by palette position. */
+export const PICK_ACTIONS = [Action.PickGadget1, Action.PickGadget2, Action.PickGadget3, Action.PickGadget4, Action.PickGadget5] as const;
 
 /** The action's main key as shown on screen, e.g. "E". */
 export function keyName(bindings: Bindings, action: Action): string {
@@ -51,24 +58,15 @@ export function keyName(bindings: Bindings, action: Action): string {
   return code ? keyLabel(code) : 'unbound';
 }
 
-/** How to switch gadgets: "F or scroll", or just "scroll" with no key bound. */
-export function switchKeysName(bindings: Bindings): string {
-  return bindings[Action.NextGadget].length ? `${keyName(bindings, Action.NextGadget)} or scroll` : 'scroll';
+/** The add/remove keys together: "1–5" by default. */
+export function pickKeysName(bindings: Bindings): string {
+  return keyRangeLabel(PICK_ACTIONS.map((a) => keyName(bindings, a)));
 }
 
-/** The gadget keys together: "1–5" by default. */
-export function slotKeysName(bindings: Bindings): string {
-  return keyRangeLabel(SLOT_ACTIONS.map((a) => keyName(bindings, a)));
+/** The use keys for `slots` slots together: "E / Q / F" by default. */
+export function useKeysName(bindings: Bindings, slots: number = USE_ACTIONS.length): string {
+  return USE_ACTIONS.slice(0, slots).map((a) => keyName(bindings, a)).join(' / ');
 }
-
-/**
- * Scroll-wheel stepping: the first wheel event after a pause is one step straight away, however
- * small (one notch on a mouse, the start of a trackpad swipe). While events keep coming, another
- * step needs this much more scrolling, so a fast spin steps several times but a smooth-scrolling
- * notch (many small events) stays one step.
- */
-const WHEEL_GESTURE_GAP_MS = 90;
-const WHEEL_REPEAT_PX = 100;
 
 /** Keyboard and pointer-locked mouse. The game reads held state and one-shot presses each frame. */
 export class InputManager {
@@ -86,10 +84,6 @@ export class InputManager {
   onLockError: (switchedToFreeCursor: boolean) => void = () => {};
 
   private held = new Set<string>();
-  /** Scroll-wheel notches since the last read: + down, − up. */
-  private wheelSteps = 0;
-  private wheelAccum = 0;
-  private lastWheelEvent = -Infinity;
   private pressed = new Set<string>();
   /**
    * Playing without pointer lock: ?nolock, or automatically when the browser refuses the lock
@@ -127,30 +121,6 @@ export class InputManager {
       const dy = e.movementY * CAMERA_CONFIG.verticalSensitivity * this.sensitivity * (this.invertY ? -1 : 1);
       this.pitch = Math.min(CAMERA_CONFIG.maxPitch, Math.max(CAMERA_CONFIG.minPitch, this.pitch + dy));
     });
-    document.addEventListener(
-      'wheel',
-      (e) => {
-        if (!this.locked) return;
-        e.preventDefault();
-        // Lines and pages to pixels; then one step per notch, so a trackpad fling isn't a dozen.
-        const px = e.deltaMode === 1 ? e.deltaY * 40 : e.deltaMode === 2 ? e.deltaY * 400 : e.deltaY;
-        if (px === 0) return;
-        const now = performance.now();
-        const newGesture = now - this.lastWheelEvent > WHEEL_GESTURE_GAP_MS;
-        this.lastWheelEvent = now;
-        if (newGesture || Math.sign(px) !== Math.sign(this.wheelAccum)) {
-          this.wheelSteps += Math.sign(px);
-          this.wheelAccum = px;
-          return;
-        }
-        this.wheelAccum += px;
-        if (Math.abs(this.wheelAccum) >= WHEEL_REPEAT_PX) {
-          this.wheelSteps += Math.sign(this.wheelAccum);
-          this.wheelAccum = 0;
-        }
-      },
-      { passive: false },
-    );
     document.addEventListener('contextmenu', (e) => e.preventDefault());
     // Leaving the window keeps the last edge position, so pushing past the edge keeps turning.
     document.documentElement.addEventListener('mouseleave', (e) => {
@@ -232,13 +202,6 @@ export class InputManager {
     return hit;
   }
 
-  /** Scroll steps since the last call: positive down, negative up. */
-  consumeWheel(): number {
-    const steps = this.wheelSteps;
-    this.wheelSteps = 0;
-    return steps;
-  }
-
   /** Drops presses nobody consumed this frame, so they don't fire later. */
   endFrame(): void {
     this.pressed.clear();
@@ -251,7 +214,5 @@ export class InputManager {
   private releaseAll(): void {
     this.held.clear();
     this.pressed.clear();
-    this.wheelSteps = 0;
-    this.wheelAccum = 0;
   }
 }

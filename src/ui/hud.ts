@@ -3,7 +3,7 @@ import { GADGETS, gadgetDefinition } from '../gadgets/registry';
 import type { GadgetId } from '../gadgets/types';
 import { Medal } from '../game/medals';
 import { AttemptState } from '../game/session';
-import { Action, type Bindings, SLOT_ACTIONS, keyName, slotKeysName, switchKeysName } from '../input/input';
+import { Action, type Bindings, USE_ACTIONS, keyName, pickKeysName, useKeysName } from '../input/input';
 import { GADGET_ICONS } from './icons';
 
 const el = (id: string) => document.getElementById(id)!;
@@ -93,7 +93,7 @@ export class Hud {
   /** Rewrites every key shown on screen; call after the bindings change. */
   refreshKeys(): void {
     const b = this.bindings;
-    el('hint').textContent = `Move to start the clock · ${slotKeysName(b)} add or remove gadgets · ${switchKeysName(b)} switches`;
+    el('hint').textContent = `Move to start the clock · ${pickKeysName(b)} add or remove gadgets`;
     el('controls-hint').textContent = `${keyName(b, Action.Retry)} retry · ${keyName(b, Action.ToggleGhost)} ghost · Esc pause`;
     el('result-retry').textContent = `${keyName(b, Action.Retry)} to go again · Esc to change gadgets`;
     this.lastGadgetKey = '';
@@ -115,12 +115,11 @@ export class Hud {
   }
 
   /**
-   * The chosen gadgets in slot order: the one in hand highlighted, each with its budget left
-   * underneath and its outline counting down, used-up ones crossed out. At the start line each
-   * shows the key that adds or removes it.
+   * The chosen gadgets in slot order, each with its use key, its budget left underneath and its
+   * outline counting down; glowing while it works, crossed out once used up.
    */
-  setGadgets(loadout: readonly GadgetId[], inHand: number, remaining: readonly number[], labels: readonly string[], ready: boolean): void {
-    const key = `${loadout.join()}|${inHand}|${labels.join()}|${ready}`;
+  setGadgets(loadout: readonly GadgetId[], active: readonly boolean[], remaining: readonly number[], labels: readonly string[], ready: boolean): void {
+    const key = `${loadout.join()}|${active.join()}|${labels.join()}|${ready}`;
     if (key === this.lastGadgetKey) return;
     this.lastGadgetKey = key;
     // Only chosen gadgets get a slot on screen.
@@ -130,28 +129,25 @@ export class Hud {
       if (el.dataset.gadget !== id) {
         el.dataset.gadget = id;
         el.querySelector('.icon')!.innerHTML = GADGET_ICONS[id];
-        el.querySelector('.key')!.textContent = keyName(this.bindings, SLOT_ACTIONS[gadgetDefinition(id).slot - 1]);
+        el.querySelector('.key')!.textContent = keyName(this.bindings, USE_ACTIONS[i]);
         el.title = gadgetDefinition(id).displayName;
       }
       const left = remaining[i] ?? 1;
       el.querySelector('.label')!.textContent = labels[i] ?? '';
-      el.classList.toggle('active', i === inHand);
+      el.classList.toggle('active', !!active[i]);
       el.classList.toggle('used', left <= 0);
-      el.classList.toggle('ready', ready);
       // The outline traces down as the budget is spent.
       const ring = el.querySelector<SVGRectElement>('.ring rect')!;
       ring.style.strokeDasharray = '100';
       ring.style.strokeDashoffset = `${100 * (1 - left)}`;
     });
-    const current = loadout[inHand];
+    // Start line only: the badges say it all during the run.
     const b = this.bindings;
-    this.gadgetHint.textContent = !current
-      ? `No gadgets · ${slotKeysName(b)} to add some`
-      : ready
-        ? `${slotKeysName(b)} add or remove gadgets · ${switchKeysName(b)} to switch during the run`
-        : (remaining[inHand] ?? 1) <= 0
-          ? 'Gadgets used up · finish on foot'
-          : `${gadgetDefinition(current).actionHint.replace('{use}', keyName(b, Action.Gadget))} · ${switchKeysName(b)} to switch`;
+    this.gadgetHint.textContent = !ready
+      ? ''
+      : loadout.length === 0
+        ? `No gadgets · ${pickKeysName(b)} to add some`
+        : `${pickKeysName(b)} add or remove gadgets · ${useKeysName(b, loadout.length)} use them`;
   }
 
   /** Ring round the crosshair while sliding: 0…1 fills, 1 glows (jump now for a burst), −1 hides. */

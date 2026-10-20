@@ -37,7 +37,7 @@ describe('attempt state machine', () => {
 
   it('a gadget press also starts the clock', () => {
     const s = new RunSession(tiny);
-    s.step({ ...idleInput(), action: true, actionPressed: true });
+    s.step({ ...idleInput(), use: [false, true], usePressed: [false, true] });
     expect(s.state).toBe(AttemptState.Running);
   });
 
@@ -151,7 +151,7 @@ describe('gadget order', () => {
     expect(s.toggleGadget(GadgetId.Grapple)).toBe(true);
     // The rest move up.
     expect(s.loadout).toEqual([GadgetId.LaunchPad, GadgetId.Jetpack]);
-    expect(s.gadget?.id).toBe(GadgetId.LaunchPad);
+    expect(s.gadgets[0]?.id).toBe(GadgetId.LaunchPad);
     s.toggleGadget(GadgetId.Grapple);
     expect(s.loadout).toEqual([GadgetId.LaunchPad, GadgetId.Jetpack, GadgetId.Grapple]);
     expect(s.loadout[1]).toBe(GadgetId.Jetpack);
@@ -161,7 +161,7 @@ describe('gadget order', () => {
     const s = new RunSession(tiny, { loadout: [GadgetId.Grapple, GadgetId.LaunchPad] });
     expect(s.clearGadgets()).toBe(true);
     expect(s.loadout).toEqual([]);
-    expect(s.gadget).toBeNull();
+    expect(s.gadgets).toEqual([]);
     expect(s.clearGadgets()).toBe(false);
     s.toggleGadget(GadgetId.Jetpack);
     s.step(go());
@@ -174,7 +174,7 @@ describe('gadget order', () => {
     expect(s.loadout).toEqual([GadgetId.Jetpack]);
     s.toggleGadget(GadgetId.Jetpack);
     expect(s.loadout).toEqual([]);
-    expect(s.gadget).toBeNull();
+    expect(s.gadgets).toEqual([]);
     s.step(go());
     expect(s.state).toBe(AttemptState.Running);
   });
@@ -184,65 +184,42 @@ describe('gadget order', () => {
     s.step(go());
     expect(s.toggleGadget(GadgetId.Grapple)).toBe(false);
     expect(s.loadout[0]).toBe(GadgetId.Grapple);
-    expect(s.gadget?.id).toBe(GadgetId.Grapple);
+    expect(s.gadgets[0]?.id).toBe(GadgetId.Grapple);
   });
 
   it('a checkpoint respawn restores gadgets to how they were at that checkpoint', () => {
     const s = new RunSession(tiny, { checkpointsEnabled: true, loadout: [GadgetId.Grapple, GadgetId.Jetpack] });
+    const jet = { ...idleInput(), use: [false, true] };
     s.step(go());
-    s.selectGadget(GadgetId.Jetpack);
-    // Burn a little fuel, then reach the checkpoint with the jetpack in hand.
-    for (let i = 0; i < 30; i++) s.step({ ...idleInput(), action: true });
+    // Burn a little fuel, then reach the checkpoint.
+    for (let i = 0; i < 30; i++) s.step(jet);
     s.player.pos.set(0, 0, -10);
     s.player.vel.set(0, 0, 0);
     s.step(idleInput());
     expect(s.checkpoint).toBe(0);
-    const atCheckpoint = s.gadget!.used;
+    const atCheckpoint = s.gadgets[1].used;
     expect(atCheckpoint).toBeGreaterThan(0);
-    // After it: burn more, and switch to the grapple.
-    for (let i = 0; i < 30; i++) s.step({ ...idleInput(), action: true });
+    // After it: burn more.
+    for (let i = 0; i < 30; i++) s.step(jet);
     for (let i = 0; i < 120; i++) s.step(idleInput());
-    s.selectGadget(GadgetId.Grapple);
     expect(s.gadgets[1].used).toBeGreaterThan(atCheckpoint);
     // Fall: back to the checkpoint's state.
     expect(stepUntil(s, go({ right: 1, forward: 0 }), SessionEvent.Fell)).toBe(true);
     expect(s.state).toBe(AttemptState.Running);
-    expect(s.gadget?.id).toBe(GadgetId.Jetpack);
     expect(s.gadgets[1].used).toBe(atCheckpoint);
     // A full retry refills everything.
     s.restart();
-    expect(s.gadget?.id).toBe(GadgetId.Grapple);
     expect(s.gadgets.every((g) => g.remaining === 1)).toBe(true);
   });
 
   it('a respawn before any checkpoint gives back the full start loadout', () => {
     const s = new RunSession(tiny, { checkpointsEnabled: true, loadout: [GadgetId.Jetpack, GadgetId.Grapple] });
-    for (let i = 0; i < 30; i++) s.step({ ...idleInput(), action: true });
+    for (let i = 0; i < 30; i++) s.step({ ...idleInput(), use: [true] });
     for (let i = 0; i < 120; i++) s.step(idleInput());
-    expect(s.gadget!.used).toBeGreaterThan(0);
+    expect(s.gadgets[0].used).toBeGreaterThan(0);
     expect(stepUntil(s, go({ right: 1, forward: 0 }), SessionEvent.Fell)).toBe(true);
     expect(s.state).toBe(AttemptState.Running);
     expect(s.gadgets.every((g) => g.used === 0)).toBe(true);
-  });
-
-  it('switching: 1/2/3 or scroll pick any time before the finish, skipping used-up gadgets', () => {
-    const s = new RunSession(tiny, { loadout: [GadgetId.Grapple, GadgetId.LaunchPad, GadgetId.Jetpack] });
-    expect(s.selectGadget(GadgetId.Jetpack)).toBe(true);
-    expect(s.state).toBe(AttemptState.Ready);
-    s.step(go());
-    expect(s.cycleGadget(1)).toBe(true);
-    expect(s.gadget?.id).toBe(GadgetId.Grapple);
-    expect(s.cycleGadget(-1)).toBe(true);
-    expect(s.gadget?.id).toBe(GadgetId.Jetpack);
-    // Spend the launch pad: scrolling goes past it.
-    s.gadgets[1].used = 1;
-    expect(s.cycleGadget(-1)).toBe(true);
-    expect(s.gadget?.id).toBe(GadgetId.Grapple);
-    expect(s.cycleGadget(1)).toBe(true);
-    expect(s.gadget?.id).toBe(GadgetId.Jetpack);
-    // Picking it directly doesn't work either: used-up gadgets are out.
-    expect(s.selectGadget(GadgetId.LaunchPad)).toBe(false);
-    expect(s.gadget?.id).toBe(GadgetId.Jetpack);
   });
 });
 

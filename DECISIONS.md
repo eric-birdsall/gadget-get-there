@@ -182,3 +182,18 @@ Replaces "one use each, auto-switch in order".
 - The body leans **away** from the wall (feet on it, top tilted out), so it never sinks into the wall.
 - At **9 m/s or more** along the wall, a wall run loses no height at all. The small rise at the start eases to level. Slower runs still sink gently.
 - The bypass zigzag walls are taller (top +6 m, bottom −2 m), since chained kicks on fast runs now gain height.
+
+## One use key per slot (built)
+Replaces the gadget in hand, switching (scroll, F, 1–5 mid-run) and auto-switch.
+- **E uses slot 1, Q slot 2, F slot 3** (rebindable). Slot order now decides which key a gadget is on.
+- **1–5 add/remove gadgets at the start line only;** mid-run they do nothing, so a stray press can't wreck a run. The scroll wheel does nothing.
+- **Using gadgets together:**
+  - A **fresh press** of another gadget (with budget left) cuts the grapple rope: no release boost, the swing counts. Swing → dash, swing → glide, swing → jetpack in one press.
+  - **Throwing a pad keeps the rope** (a throw doesn't move you). **Touching a pad while hooked** launches you and cuts the rope, no boost.
+  - **Jetpack + wingsuit held:** the jetpack wins; the glide pauses without spending seconds and carries on when you let go of the jetpack.
+  - **Hooking while the jetpack/wingsuit is held:** the hook takes and the held gadget pauses on the rope (held isn't a fresh press); it carries on once the rope comes off.
+  - A dash during a glide fades back to glide speed (no special rule).
+  - Gadgets tick in a fixed order (pad, grapple, dash, jetpack, wingsuit), whatever their slots, so the result never depends on slot order.
+- **Aim previews** (hook marker, pad ghost) show for every gadget with budget left.
+- **HUD:** each slot always shows its use key; a slot glows while its gadget works (hooked, thrusting, gliding, or just dashed/thrown). The start-line hint reads "1–5 add or remove gadgets · E / Q / F use them"; no hint mid-run. Menu slot cards are labelled E / Q / F.
+- Saved bindings: an old custom "use gadget" key moves to slot 1; a key the player put elsewhere stays there, even if it's now a default.
