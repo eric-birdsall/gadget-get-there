@@ -1,14 +1,10 @@
 import {
   ACESFilmicToneMapping,
-  BoxGeometry,
   Color,
   DirectionalLight,
-  EdgesGeometry,
   Fog,
   Group,
   HemisphereLight,
-  LineBasicMaterial,
-  LineSegments,
   Mesh,
   MeshStandardMaterial,
   PCFSoftShadowMap,
@@ -21,10 +17,10 @@ import { ABILITY_CONFIG, CAMERA_CONFIG, GRAPPLE_CONFIG } from '../config';
 import type { CourseDefinition } from '../course/types';
 import type { Pad } from '../gadgets/launchPad';
 import type { GhostPose } from '../game/ghost';
-import { type Box, SurfaceKind, raycast } from '../sim/collision';
+import { type Box, raycast } from '../sim/collision';
 import { ThirdPersonCamera } from './camera';
 import { CityBackdrop, cityCourseDressing } from './city';
-import { gridMaterial } from './materials';
+import { PieceKit } from './pieces';
 import { THEMES, type Theme } from './theme';
 import { BlobShadow, PlayerModel, type PlayerPose } from './playerModel';
 import { KillBoundary } from './killBoundary';
@@ -192,27 +188,9 @@ export class Renderer {
   }
 
   private buildCourse(): void {
-    const look = THEMES[this.theme];
-    const materials = new Map<SurfaceKind, MeshStandardMaterial>();
-    const edgeMaterials = new Map<SurfaceKind, LineBasicMaterial>();
-    for (const box of this.boxes) {
-      let mat = materials.get(box.kind);
-      if (!mat) materials.set(box.kind, (mat = gridMaterial(box.kind, look)));
-      let edgeMat = edgeMaterials.get(box.kind);
-      if (!edgeMat) {
-        const c = new Color(look.surfaces[box.kind].line).multiplyScalar(look.edgeBrightness);
-        edgeMaterials.set(box.kind, (edgeMat = new LineBasicMaterial({ color: c })));
-      }
-      const geo = new BoxGeometry(box.half.x * 2, box.half.y * 2, box.half.z * 2);
-      const mesh = new Mesh(geo, mat);
-      mesh.position.copy(box.center);
-      mesh.quaternion.copy(box.rot);
-      mesh.castShadow = true;
-      mesh.receiveShadow = true;
-      mesh.add(new LineSegments(new EdgesGeometry(geo), edgeMat));
-      this.courseGroup.add(mesh);
-    }
-    this.courseMaterials.push(...materials.values(), ...edgeMaterials.values());
+    const kit = new PieceKit(this.theme);
+    for (const box of this.boxes) this.courseGroup.add(kit.mesh(box));
+    this.courseMaterials.push(kit);
     // In the city, every rooftop has its building under it.
     if (this.theme === 'city') {
       const craneTops: Vector3[] = [];

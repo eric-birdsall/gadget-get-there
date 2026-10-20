@@ -1,13 +1,9 @@
 import {
   ACESFilmicToneMapping,
-  BoxGeometry,
   Box3,
   Color,
   DirectionalLight,
-  EdgesGeometry,
   HemisphereLight,
-  LineBasicMaterial,
-  LineSegments,
   Mesh,
   type MeshStandardMaterial,
   PerspectiveCamera,
@@ -18,9 +14,9 @@ import {
 } from 'three';
 import type { CourseDefinition } from '../course/types';
 import { Fog } from 'three';
-import { makeBox, type SurfaceKind } from '../sim/collision';
+import { makeBox } from '../sim/collision';
 import { cityCourseDressing, facadeMaterial, nightSky } from './city';
-import { gridMaterial } from './materials';
+import { PieceKit } from './pieces';
 import { THEMES, type Theme } from './theme';
 import { finishGate } from './worldViews';
 
@@ -44,16 +40,16 @@ export function previewRenderer(keepPicture = false): WebGLRenderer {
 /** What a set of preview scenes share: the look, its materials, and (in the city) the building facade. */
 export interface PreviewKit {
   theme: Theme;
-  materials: Map<SurfaceKind, MeshStandardMaterial>;
+  pieces: PieceKit;
   facade: MeshStandardMaterial | null;
 }
 
 export function previewKit(theme: Theme): PreviewKit {
-  return { theme, materials: new Map(), facade: theme === 'city' ? facadeMaterial() : null };
+  return { theme, pieces: new PieceKit(theme), facade: theme === 'city' ? facadeMaterial() : null };
 }
 
 export function disposeKit(kit: PreviewKit): void {
-  for (const m of kit.materials.values()) m.dispose();
+  kit.pieces.dispose();
   kit.facade?.dispose();
 }
 
@@ -70,14 +66,7 @@ export function buildCourseScene(course: CourseDefinition, kit: PreviewKit): { s
   const bounds = new Box3();
   const boxes = course.pieces.map(makeBox);
   for (const box of boxes) {
-    let mat = kit.materials.get(box.kind);
-    if (!mat) kit.materials.set(box.kind, (mat = gridMaterial(box.kind, look)));
-    const geo = new BoxGeometry(box.half.x * 2, box.half.y * 2, box.half.z * 2);
-    const mesh = new Mesh(geo, mat);
-    mesh.position.copy(box.center);
-    mesh.quaternion.copy(box.rot);
-    mesh.add(new LineSegments(new EdgesGeometry(geo), new LineBasicMaterial({ color: new Color(look.surfaces[box.kind].line).multiplyScalar(look.edgeBrightness) })));
-    scene.add(mesh);
+    scene.add(kit.pieces.mesh(box));
     bounds.expandByPoint(box.center);
   }
   scene.add(finishGate(course.finish));

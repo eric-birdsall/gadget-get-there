@@ -6,11 +6,17 @@ import { SurfaceKind } from '../sim/collision';
 export type Theme = 'space' | 'city';
 
 export interface ThemeLook {
-  /** Each surface kind's base colour, its grid-line colour, and how much the lines glow (0 = lit only). */
-  surfaces: Record<SurfaceKind, { base: string; line: string }>;
+  /**
+   * Each surface kind's base colour, its grid-line colour, and its outline colour (the line
+   * colour times `edgeBrightness` when not given).
+   */
+  surfaces: Record<SurfaceKind, { base: string; line: string; edge?: string }>;
+  /** How much the grid lines glow on their own (0 = lit only). */
   lineGlow: number;
-  /** Outline colour factor: below 1 darkens the line colour (space), 1 is full neon (city). */
+  /** Outline colour factor for surfaces with no edge colour of their own. */
   edgeBrightness: number;
+  /** How much weathering shows as soft blotches across surfaces (0 = clean). */
+  grime: number;
   background: string;
   fog: { color: string; near: number; far: number };
   fill: { sky: string; ground: string; intensity: number };
@@ -28,23 +34,26 @@ export const THEMES: Record<Theme, ThemeLook> = {
     },
     lineGlow: 0,
     edgeBrightness: 0.7,
+    grime: 0,
     background: '#070918',
     fog: { color: '#070918', near: 220, far: 900 },
     fill: { sky: '#a9b8ff', ground: '#2a2050', intensity: 1.25 },
     sun: { color: '#fff6e8', intensity: 3.0 },
   },
-  // Night: dark concrete roofs with cyan neon lines, teal glass ramps, dark glass walls edged in
-  // magenta, warm water-tower stones, crane-yellow beams; cool moonlight and purple haze.
+  // Night: weathered concrete roofs with paving seams and pale parapet edges, steel ramps, walls as
+  // billboards or brick (see pieces.ts), brick water-tower stones, crane-yellow beams; cool
+  // moonlight and purple haze. Nothing on the course glows: the neon is in the skyline.
   city: {
     surfaces: {
-      [SurfaceKind.Platform]: { base: '#3a3f52', line: '#3fe6ff' },
-      [SurfaceKind.Ramp]: { base: '#2d6b78', line: '#7ff6ff' },
-      [SurfaceKind.Wall]: { base: '#2a2546', line: '#ff4fd8' },
-      [SurfaceKind.Accent]: { base: '#7a5532', line: '#ffb347' },
-      [SurfaceKind.Overhead]: { base: '#e8b923', line: '#fff07a' },
+      [SurfaceKind.Platform]: { base: '#5a5b61', line: '#6c6d73', edge: '#a3a5ab' },
+      [SurfaceKind.Ramp]: { base: '#4f5762', line: '#6a727e', edge: '#a6aebb' },
+      [SurfaceKind.Wall]: { base: '#3e4352', line: '#555b6b', edge: '#8c929e' },
+      [SurfaceKind.Accent]: { base: '#7a4a38', line: '#9a7a68', edge: '#c09a80' },
+      [SurfaceKind.Overhead]: { base: '#d6a51c', line: '#b88c14', edge: '#f0d060' },
     },
-    lineGlow: 0.6,
+    lineGlow: 0,
     edgeBrightness: 1,
+    grime: 0.35,
     background: '#0b0820',
     fog: { color: '#160e2e', near: 90, far: 560 },
     fill: { sky: '#7d84e8', ground: '#3a1f4d', intensity: 1.1 },

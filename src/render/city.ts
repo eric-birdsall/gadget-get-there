@@ -7,6 +7,7 @@ import {
   PointsMaterial,
   BoxGeometry,
   CanvasTexture,
+  CylinderGeometry,
   EdgesGeometry,
   LineBasicMaterial,
   LineSegments,
@@ -27,6 +28,7 @@ import {
 } from 'three';
 import type { CourseDefinition } from '../course/types';
 import { type Box, SurfaceKind, raycast } from '../sim/collision';
+import { isBillboard } from './pieces';
 import { NOISE_GLSL, rng } from './space';
 
 // The city at night: the course is on rooftops high above a city. A dusk sky (deep blue overhead,
@@ -224,7 +226,7 @@ class Skyline {
   }
 }
 
-/** Streets far below: a dark ground with glowing orange street lines in a grid, fading into the haze. */
+/** Streets far below: a dark ground with lit streets between uneven blocks, fading into the haze. */
 function streets(): Mesh {
   const mat = new ShaderMaterial({
     fog: true,
@@ -244,10 +246,19 @@ void main() {
 }`,
     fragmentShader: `varying vec3 vWorld;
 #include <fog_pars_fragment>
+${NOISE_GLSL}
 void main() {
-  vec2 g = abs(fract(vWorld.xz / 46.0 + 0.5) - 0.5) * 46.0;
-  float street = 1.0 - smoothstep(2.5, 4.0, min(g.x, g.y));
-  vec3 col = mix(vec3(0.03, 0.02, 0.06), vec3(1.0, 0.55, 0.22), street * 0.85);
+  vec2 p = vWorld.xz / 46.0 + 0.5;
+  vec2 g = abs(fract(p) - 0.5) * 46.0;
+  // Some blocks run together (a street left out between them), so the grid isn't regular.
+  vec2 block = floor(p);
+  float alongX = step(0.3, hash(vec3(block.x, block.y, 1.0)));
+  float alongZ = step(0.3, hash(vec3(block.x, block.y, 2.0)));
+  float street = max((1.0 - smoothstep(2.0, 3.5, g.x)) * alongX, (1.0 - smoothstep(2.0, 3.5, g.y)) * alongZ);
+  // Patchy: busy streets bright, quiet ones dim; sodium orange with whiter stretches.
+  float busy = noise(vWorld * 0.012);
+  vec3 lamp = mix(vec3(1.0, 0.55, 0.22), vec3(1.0, 0.86, 0.66), noise(vWorld * 0.03 + 7.0));
+  vec3 col = mix(vec3(0.03, 0.02, 0.06), lamp, street * (0.2 + 0.55 * busy));
   gl_FragColor = vec4(col, 1.0);
   #include <fog_fragment>
 }`,
@@ -340,6 +351,62 @@ function cranes(boxes: readonly Box[], aviation: Vector3[]): Group {
   return g;
 }
 
+const rigSteel = new MeshStandardMaterial({ color: '#2e323d', roughness: 0.5, metalness: 0.5 });
+const lampGlow = new MeshBasicMaterial({ color: '#fff1d0' });
+
+/** Billboard rigging: a lamp about every this many metres along the top of each face. */
+const LAMP_SPACING = 5;
+/** How far a lamp's arm reaches out from the face, m. */
+const LAMP_REACH = 0.7;
+/** A billboard pole's radius, m, and boards longer than this get two poles. */
+const POLE_RADIUS = 0.45;
+const TWO_POLES_LENGTH = 16;
+
+/**
+ * Rigging for each billboard (see pieces.ts): a row of lamps leaning out over the top of each face,
+ * and poles down to the street where nothing of the course is underneath. For looks only.
+ */
+function billboardRigging(boxes: readonly Box[]): Group {
+  const g = new Group();
+  const arm = new BoxGeometry(LAMP_REACH, 0.08, 0.08);
+  const head = new BoxGeometry(0.24, 0.14, 0.5);
+  for (const b of boxes) {
+    if (!isBillboard(b) || Math.abs(b.rot.x) > 1e-4 || Math.abs(b.rot.z) > 1e-4) continue;
+    // Built along local Z with the faces toward ±X, then turned to the board.
+    const thinX = b.half.x <= b.half.z;
+    const length = 2 * (thinX ? b.half.z : b.half.x);
+    const thick = thinX ? b.half.x : b.half.z;
+    const rig = new Group();
+    rig.position.copy(b.center);
+    rig.quaternion.copy(b.rot);
+    if (!thinX) rig.rotateY(Math.PI / 2);
+    const lamps = Math.max(2, Math.round(length / LAMP_SPACING));
+    for (const side of [-1, 1]) {
+      for (let i = 0; i < lamps; i++) {
+        const z = ((i + 0.5) / lamps - 0.5) * length;
+        const a = new Mesh(arm, rigSteel);
+        a.position.set(side * (thick + LAMP_REACH / 2), b.half.y + 0.2, z);
+        // Tipped back toward the face it lights.
+        const h = new Mesh(head, lampGlow);
+        h.rotation.z = side * 0.5;
+        h.position.set(side * (thick + LAMP_REACH), b.half.y + 0.12, z);
+        rig.add(a, h);
+      }
+    }
+    const bottom = b.center.y - b.half.y;
+    const offsets = length > TWO_POLES_LENGTH ? [-length * 0.3, length * 0.3] : [0];
+    for (const off of offsets) {
+      const p = new Vector3(0, 0, off).applyQuaternion(rig.quaternion).add(b.center);
+      if (!columnClear(boxes, p.x, p.z, bottom - 0.2, POLE_RADIUS + 0.3)) continue;
+      const pole = new Mesh(new CylinderGeometry(POLE_RADIUS, POLE_RADIUS, bottom - GROUND_Y, 10), rigSteel);
+      pole.position.set(p.x, (bottom + GROUND_Y) / 2, p.z);
+      g.add(pole);
+    }
+    g.add(rig);
+  }
+  return g;
+}
+
 /** A helipad marking: a dark disc, a yellow ring and a white H, drawn once. */
 let helipadTexture: CanvasTexture | null = null;
 function helipad(): CanvasTexture {
@@ -384,12 +451,12 @@ function helipads(course: CourseDefinition): Group {
 
 /**
  * The city dressing for one course, all for looks only: a building under each rooftop, the
- * grapple beams as tower cranes, helipads on the checkpoint rooftops. Positions for blinking
+ * grapple beams as tower cranes, helipads on the checkpoint rooftops, lamps and poles for the billboards. Positions for blinking
  * aircraft lights (crane tops) are added to `aviation`.
  */
 export function cityCourseDressing(course: CourseDefinition, boxes: readonly Box[], facade: MeshStandardMaterial, aviation: Vector3[] = []): Group {
   const g = new Group();
-  g.add(buildingsUnder(boxes, facade), cranes(boxes, aviation), helipads(course));
+  g.add(buildingsUnder(boxes, facade), cranes(boxes, aviation), helipads(course), billboardRigging(boxes));
   return g;
 }
 
