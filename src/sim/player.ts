@@ -60,6 +60,12 @@ export interface PlayerState {
   /** Seconds into the current slide (0 when not sliding). */
   slideTime: number;
   mantle: Mantle | null;
+  /** Running along a wall: its outward normal and how long so far. */
+  wallRun: { normal: Vector3; time: number; speed: number } | null;
+  /** The wall last run on or kicked off; it can't be used again until you land or touch another. */
+  lastWall: Vector3 | null;
+  /** Seconds left in which air steering is off, so a wall kick carries you away from the wall. */
+  airSteerLock: number;
   /** Set for the one tick a slide starts or a mantle grabs, for animation and sound. */
   justSlid: boolean;
   /** Set for the one tick a long slide's jump gives its burst of speed. */
@@ -67,6 +73,8 @@ export interface PlayerState {
   /** Set for the one tick a slide reaches the length that earns the jump burst. */
   justSlideReady: boolean;
   justMantled: boolean;
+  justWallRun: boolean;
+  justWallJumped: boolean;
 }
 
 export function createPlayer(pos: Vector3): PlayerState {
@@ -91,6 +99,11 @@ export function createPlayer(pos: Vector3): PlayerState {
     justSlideJumped: false,
     justSlideReady: false,
     justMantled: false,
+    wallRun: null,
+    lastWall: null,
+    airSteerLock: 0,
+    justWallRun: false,
+    justWallJumped: false,
   };
 }
 
@@ -115,6 +128,11 @@ export function resetPlayer(p: PlayerState, pos: Vector3): void {
   p.justSlideJumped = false;
   p.justSlideReady = false;
   p.justMantled = false;
+  p.wallRun = null;
+  p.lastWall = null;
+  p.airSteerLock = 0;
+  p.justWallRun = false;
+  p.justWallJumped = false;
 }
 
 /** Capsule height for a stance: sliding and crouching are low. */
@@ -300,7 +318,7 @@ function groundControl(p: PlayerState, cfg: MovementConfig): void {
 
 function airControl(p: PlayerState, cfg: MovementConfig): void {
   p.vel.y = Math.max(-cfg.maximumFallSpeed, p.vel.y - cfg.gravity * DT);
-  if (wish.lengthSq() === 0) return;
+  if (wish.lengthSq() === 0 || p.airSteerLock > 0) return;
   const before = Math.hypot(p.vel.x, p.vel.z);
   const accel = cfg.airAcceleration * cfg.airControlFactor * DT;
   p.vel.x += wish.x * accel;
@@ -527,6 +545,113 @@ function advanceMantle(p: PlayerState): void {
   p.mantle = null;
 }
 
+const wallProbe = new Vector3();
+const wallDir = new Vector3();
+const heading = new Vector3();
+
+/** A near-vertical wall within reach in `dir` (horizontal, unit), from chest or hip height. */
+function wallAt(p: PlayerState, boxes: readonly Box[], dir: Vector3, reach: number): Vector3 | null {
+  for (const h of WALL_PROBE_HEIGHTS) {
+    wallProbe.set(p.pos.x, p.pos.y + h, p.pos.z);
+    const hit = raycast(boxes, wallProbe, dir, PLAYER_SHAPE.radius + reach);
+    if (hit && Math.abs(hit.normal.y) < 0.3) return wallNormal.copy(hit.normal).setY(0).normalize();
+  }
+  return null;
+}
+const WALL_PROBE_HEIGHTS = [1.0, 0.5];
+const wallNormal = new Vector3();
+
+/** True if `n` is (about) the wall in `last`. */
+const sameWall = (last: Vector3 | null, n: Vector3) => !!last && last.dot(n) > 0.9;
+
+/**
+ * A wall in reach at either side of the direction of travel. (Not straight ahead: jumping at a
+ * wall in front is for mantling over it, not bouncing off.)
+ */
+function nearbyWall(p: PlayerState, boxes: readonly Box[]): Vector3 | null {
+  const speed = Math.hypot(p.vel.x, p.vel.z);
+  if (speed > 0.5) heading.set(p.vel.x / speed, 0, p.vel.z / speed);
+  else if (wish.lengthSq() > 0) heading.copy(wish);
+  else return null;
+  const reach = ABILITY_CONFIG.wallReach;
+  return wallAt(p, boxes, wallDir.set(-heading.z, 0, heading.x), reach) ?? wallAt(p, boxes, wallDir.set(heading.z, 0, -heading.x), reach);
+}
+
+/**
+ * Jump pressed in the air beside a wall (or mid wall run): kick off it, away and up, keeping
+ * your speed along it. Not off the same wall twice in a row.
+ */
+function tryWallJump(p: PlayerState, boxes: readonly Box[], cfg: MovementConfig): boolean {
+  if (p.grounded || p.tethered || p.stance !== Stance.Stand || p.jumpQueued > cfg.jumpBuffer) return false;
+  const c = ABILITY_CONFIG;
+  const n = p.wallRun ? p.wallRun.normal.clone() : nearbyWall(p, boxes)?.clone();
+  if (!n || (!p.wallRun && sameWall(p.lastWall, n))) return false;
+  const into = p.vel.x * n.x + p.vel.z * n.z;
+  // Keep the along-the-wall part of your speed; replace the rest with the kick.
+  p.vel.x = (p.vel.x - n.x * into) * c.wallJumpKeepAlong + n.x * c.wallJumpOut;
+  p.vel.z = (p.vel.z - n.z * into) * c.wallJumpKeepAlong + n.z * c.wallJumpOut;
+  p.vel.y = c.wallJumpUp;
+  p.lastWall = n;
+  p.wallRun = null;
+  p.airSteerLock = c.wallJumpSteerLock;
+  p.jumpQueued = Infinity;
+  p.airTime = cfg.coyoteTime + 1;
+  p.justWallJumped = true;
+  p.justJumped = true;
+  return true;
+}
+
+/** Airborne, fast, travelling along a wall at your side, with clear air below: start a wall run. */
+function tryStartWallRun(p: PlayerState, boxes: readonly Box[]): void {
+  const c = ABILITY_CONFIG;
+  if (p.grounded || p.tethered || p.wallRun || p.stance !== Stance.Stand) return;
+  const speed = Math.hypot(p.vel.x, p.vel.z);
+  if (speed < c.wallRunMinSpeed) return;
+  heading.set(p.vel.x / speed, 0, p.vel.z / speed);
+  const reach = c.wallReach;
+  const n = wallAt(p, boxes, wallDir.set(-heading.z, 0, heading.x), reach) ?? wallAt(p, boxes, wallDir.set(heading.z, 0, -heading.x), reach);
+  if (!n || sameWall(p.lastWall, n)) return;
+  // Travelling along it, not into it.
+  const along = Math.sqrt(Math.max(0, 1 - (heading.x * n.x + heading.z * n.z) ** 2));
+  if (along < c.wallRunMinAlong) return;
+  // Not just skimming the floor.
+  wallProbe.set(p.pos.x, p.pos.y + 0.1, p.pos.z);
+  if (raycast(boxes, wallProbe, DOWN, c.wallRunMinHeight)) return;
+  p.wallRun = { normal: n.clone(), time: 0, speed };
+  p.lastWall = n.clone();
+  p.vel.y = Math.max(p.vel.y * 0.3, c.wallRunStartUp);
+  p.justWallRun = true;
+}
+
+/** While wall running: light gravity, held against the wall, speed kept. Ends when the wall or time runs out. */
+function wallRunControl(p: PlayerState, boxes: readonly Box[], cfg: MovementConfig): void {
+  const c = ABILITY_CONFIG;
+  const run = p.wallRun!;
+  run.time += DT;
+  const n = run.normal;
+  wallDir.copy(n).negate();
+  const still = wallAt(p, boxes, wallDir, c.wallReach + 0.2);
+  const speed = Math.hypot(p.vel.x, p.vel.z);
+  if (!still || still.dot(n) < 0.8 || run.time > c.wallRunMaxSeconds || speed < c.wallRunEndSpeed) {
+    p.wallRun = null;
+    airControl(p, cfg);
+    return;
+  }
+  // Run along the wall at the speed you came in with, leaning in lightly so contact holds.
+  const into = p.vel.x * n.x + p.vel.z * n.z;
+  let ax = p.vel.x - n.x * into;
+  let az = p.vel.z - n.z * into;
+  const along = Math.hypot(ax, az);
+  if (along > 1e-3) {
+    const keep = Math.max(along, run.speed) / along;
+    ax *= keep;
+    az *= keep;
+  }
+  p.vel.x = ax - n.x * c.wallRunStick;
+  p.vel.z = az - n.z * c.wallRunStick;
+  p.vel.y = Math.max(-c.wallRunMaxSink, p.vel.y - cfg.gravity * c.wallRunGravityScale * DT);
+}
+
 /** Advances a player by one tick. */
 export function stepPlayer(p: PlayerState, input: PlayerInput, boxes: readonly Box[], baseCfg: MovementConfig = MOVEMENT_CONFIG): void {
   let cfg = baseCfg;
@@ -536,6 +661,9 @@ export function stepPlayer(p: PlayerState, input: PlayerInput, boxes: readonly B
   p.justSlideJumped = false;
   p.justSlideReady = false;
   p.justMantled = false;
+  p.justWallRun = false;
+  p.justWallJumped = false;
+  p.airSteerLock = Math.max(0, p.airSteerLock - DT);
   if (input.jump && !p.jumpHeld) p.jumpQueued = 0;
   if (p.mantle) {
     p.jumpHeld = input.jump;
@@ -581,8 +709,14 @@ export function stepPlayer(p: PlayerState, input: PlayerInput, boxes: readonly B
     p.justJumped = true;
   }
 
+  if (p.tethered || p.stance !== Stance.Stand) p.wallRun = null;
+  tryWallJump(p, boxes, cfg);
   if (p.grounded) groundControl(p, cfg);
-  else airControl(p, cfg);
+  else if (p.wallRun) wallRunControl(p, boxes, cfg);
+  else {
+    airControl(p, cfg);
+    tryStartWallRun(p, boxes);
+  }
   if (tryMantle(p, input, boxes, cfg)) return;
 
   const wasGrounded = p.grounded;
@@ -609,6 +743,9 @@ export function stepPlayer(p: PlayerState, input: PlayerInput, boxes: readonly B
     p.grounded = true;
     p.groundNormal.copy(ground);
     p.airTime = 0;
+    // Landing ends a wall run and frees every wall again.
+    p.wallRun = null;
+    p.lastWall = null;
   } else {
     p.grounded = false;
     p.groundNormal.copy(UP);

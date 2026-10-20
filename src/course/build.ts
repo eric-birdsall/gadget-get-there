@@ -97,3 +97,8 @@ export function wall(x: number, z: number, width: number, depth: number, bottom:
 export function overhead(x: number, y: number, z: number, width: number, height: number, depth: number): BoxSpec {
   return { center: [x, y, z], size: [width, height, depth], kind: SurfaceKind.Overhead };
 }
+
+/** A tall, thin wall to run along, lying along Z: centre (x, y, z), `height` tall, `length` long. */
+export function runWall(x: number, y: number, z: number, height: number, length: number): BoxSpec {
+  return { center: [x, y, z], size: [1, height, length], kind: SurfaceKind.Wall };
+}

@@ -72,6 +72,30 @@ const ABILITY_LINE: Waypoint[] = [
   { x: 55, z: -386 },
 ];
 
+/** Across the bypass on the wall zigzag: run one wall, kick across to the next. */
+export const WALL_LINE: Waypoint[] = [
+  ...START,
+  ...HOPS,
+  ...STONES,
+  ...TO_HUB_A,
+  ...ZIGZAG,
+  { x: -1.5, z: -203 },
+  { x: -2, z: -212 },
+  // Each run waypoint is reached ~2.5 m early, which is when the next waypoint's kick fires:
+  // still on the wall, with the next wall already alongside.
+  { x: -2, z: -223.5, noJump: true },
+  { x: 2, z: -232, kick: true, noJump: true },
+  { x: 2, z: -240.5, noJump: true },
+  { x: -2, z: -247, kick: true, noJump: true },
+  { x: -2, z: -255.5, noJump: true },
+  { x: 2, z: -262, kick: true, noJump: true },
+  { x: 2, z: -270.5, noJump: true },
+  { x: -2, z: -277, kick: true, noJump: true },
+  { x: -2, z: -285.5, noJump: true },
+  { x: 0, z: -296, kick: true, noJump: true },
+  ...FINAL,
+];
+
 const RUNNING_LINE = [...START, ...HOPS, ...STONES, ...TO_HUB_A, ...ZIGZAG, ...BYPASS, ...FINAL];
 
 export const GRAPPLE_LINE: Waypoint[] = [
@@ -167,6 +191,16 @@ describe('The Crossing', () => {
     expect(session.gadgets.map((g) => g.usageLabel)).toEqual(['x1', 'x0', '0.0s']);
     results.set('mixed run', r.seconds);
     expect(r.seconds).toBeLessThan(results.get('running line, grapple equipped')!);
+  });
+
+  it('the wall line across the bypass (run, kick, run, kick…) finishes without falling', () => {
+    const session = new RunSession(crossing, { loadout: [], checkpointsEnabled: false });
+    const route = WALL_LINE;
+    const r = runRoute(session, route);
+    expect(r.falls, `fell near (${r.last.toArray().map((n) => n.toFixed(1))}) heading for waypoint ${r.waypoint}`).toBe(0);
+    expect(r.finished).toBe(true);
+    expect(r.events.filter((e) => e === 'wall-run-started').length).toBeGreaterThanOrEqual(3);
+    results.set('wall line', r.seconds);
   });
 
   it("each gadget's own line beats plain running", () => {

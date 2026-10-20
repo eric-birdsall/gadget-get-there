@@ -163,6 +163,12 @@ function handle(events: AnyEvent[]): void {
       case SessionEvent.SlideStarted:
         audio.play(Sfx.Slide);
         break;
+      case SessionEvent.WallRunStarted:
+        audio.play(Sfx.WallRun);
+        break;
+      case SessionEvent.WallJumped:
+        audio.play(Sfx.WallJump);
+        break;
       case SessionEvent.SlideReady:
         audio.play(Sfx.SlideReady);
         break;
@@ -383,6 +389,7 @@ function frame(now: number): void {
     sliding: p.stance === Stance.Slide,
     crouching: p.stance === Stance.Crouch,
     mantle: p.mantle ? p.mantle.t / ABILITY_CONFIG.mantleDuration : -1,
+    wallRunNormal: p.wallRun?.normal ?? null,
     grappleTarget,
     grappleRope: grapple?.point ?? null,
     // A thrown pad stays in the world after switching to another gadget.

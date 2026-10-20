@@ -134,3 +134,18 @@ Replaces "one use each, auto-switch in order".
 ## Auto-switch when used up (built)
 - When the gadget in hand runs out, the next gadget (in slot order) with budget left takes over automatically. If none is left, you're on foot.
 - Used-up gadgets can't be picked again: the scroll wheel skips them and 1/2/3 ignore them.
+
+## Wall run and wall jump (built; a character ability, not a gadget)
+- **Wall run:** airborne, moving at 7 m/s or more mostly along a near-vertical wall at your side, at least 0.8 m above any floor.
+  - You run along the wall for up to **1.4 s**, at the speed you came in with.
+  - Gravity drops to 15%, so you hold height. The body leans into the wall.
+  - It ends when the wall runs out, time's up, you slow below 5 m/s, or you land.
+- **Wall jump:** jump while wall running, or while touching a wall at your side in the air.
+  - You kick off at 8 m/s away and 9.5 m/s up, keeping your speed along the wall.
+  - Air steering pauses for 0.3 s so the kick carries you clear.
+  - You can't run on or kick off the same wall twice in a row without landing or touching another wall.
+  - Walls straight ahead are for mantling, not kicking.
+- **Course walls:**
+  - a test wall along the start runway's right edge;
+  - one beside the big gap in section 2;
+  - five overlapping walls zigzagging across the bypass void. The bot crosses it in about 43 s overall, against about 46 s for plain running.

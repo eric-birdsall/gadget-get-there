@@ -177,3 +177,98 @@ describe('mantle', () => {
     expect(p.pos.y).toBeLessThan(0.1);
   });
 });
+
+describe('wall run and wall jump', () => {
+  // A long wall along the -Z direction, its face at x = 2 (normal −x), standing on a floor.
+  const wallR = makeBox({ center: [2.5, 4, -30], size: [1, 8, 60] });
+  // A second wall on the other side, 8 m away, face at x = −6 (normal +x).
+  const wallL = makeBox({ center: [-6.5, 4, -30], size: [1, 8, 60] });
+
+  /** In the air 5 m up, flying along the right-hand wall at `speed`, steering forward or not. */
+  function launchAlongWall(_boxes: Box[], speed = 10): PlayerState {
+    const p = createPlayer(new Vector3(1.2, 5, 0));
+    p.vel.set(0, 1, -speed);
+    return p;
+  }
+
+  it('running into a wall at your side from a jump starts a wall run that holds height', () => {
+    const boxes = [FLOOR, wallR];
+    const p = launchAlongWall(boxes);
+    let started = false;
+    for (let t = 0; t < 0.4 && !started; t += DT) {
+      stepPlayer(p, { ...NO_INPUT, forward: 1 }, boxes);
+      started ||= p.justWallRun;
+    }
+    expect(started).toBe(true);
+    const startY = p.pos.y;
+    run(p, { forward: 1 }, 0.6, boxes);
+    expect(p.wallRun).not.toBeNull();
+    // Light gravity: far less drop than a free fall would give.
+    expect(startY - p.pos.y).toBeLessThan(0.6);
+    expect(horizontalSpeed(p)).toBeGreaterThan(9);
+  });
+
+  it('ends after its time limit', () => {
+    const boxes = [FLOOR, wallR];
+    const p = launchAlongWall(boxes);
+    run(p, { forward: 1 }, 0.3, boxes);
+    expect(p.wallRun).not.toBeNull();
+    run(p, { forward: 1 }, A.wallRunMaxSeconds + 0.1, boxes);
+    expect(p.wallRun).toBeNull();
+  });
+
+  it('does not start when too slow or when just skimming the floor', () => {
+    const boxes = [FLOOR, wallR];
+    const slow = launchAlongWall(boxes, A.wallRunMinSpeed - 2);
+    let started = false;
+    // No steering, so air control doesn't speed it up.
+    for (let t = 0; t < 0.6; t += DT) {
+      stepPlayer(slow, NO_INPUT, boxes);
+      started ||= slow.justWallRun;
+    }
+    expect(started).toBe(false);
+    // On the ground next to it: no wall run.
+    const ground = createPlayer(new Vector3(1.0, 0, 0));
+    run(ground, {}, 0.1, boxes);
+    ground.vel.set(0, 0, -10);
+    run(ground, { forward: 1 }, 0.5, boxes);
+    expect(ground.wallRun).toBeNull();
+  });
+
+  it('jumping off the wall kicks you away and up, keeping your speed along it', () => {
+    const boxes = [FLOOR, wallR];
+    const p = launchAlongWall(boxes);
+    run(p, { forward: 1 }, 0.3, boxes);
+    expect(p.wallRun).not.toBeNull();
+    const along = -p.vel.z;
+    stepPlayer(p, { ...NO_INPUT, forward: 1, jump: true }, boxes);
+    expect(p.justWallJumped).toBe(true);
+    expect(p.wallRun).toBeNull();
+    expect(p.vel.x).toBeLessThan(-A.wallJumpOut + 0.5);
+    expect(p.vel.y).toBeGreaterThan(A.wallJumpUp - 1);
+    expect(-p.vel.z).toBeGreaterThan(along - 0.5);
+  });
+
+  it('can bounce between two walls, but not kick off the same wall twice in a row', () => {
+    const boxes = [FLOOR, wallR, wallL];
+    const p = launchAlongWall(boxes);
+    run(p, { forward: 1 }, 0.3, boxes);
+    stepPlayer(p, { ...NO_INPUT, forward: 1, jump: true }, boxes);
+    expect(p.justWallJumped).toBe(true);
+    // Steer for the left wall: a wall run starts there, and you can kick off it back right.
+    let onLeft = false;
+    for (let t = 0; t < 1.5 && !onLeft; t += DT) {
+      stepPlayer(p, { ...NO_INPUT, forward: 1, right: -1 }, boxes);
+      onLeft = !!p.wallRun && p.wallRun.normal.x > 0.9;
+    }
+    expect(onLeft).toBe(true);
+    stepPlayer(p, { ...NO_INPUT, forward: 1, jump: true }, boxes);
+    expect(p.justWallJumped).toBe(true);
+    expect(p.vel.x).toBeGreaterThan(0);
+    // Straight away again, still beside that same left wall: no second kick off it.
+    p.pos.x = -5.5;
+    run(p, { forward: 1 }, 0.05, boxes);
+    stepPlayer(p, { ...NO_INPUT, forward: 1, jump: true }, boxes);
+    expect(p.justWallJumped).toBe(false);
+  });
+});

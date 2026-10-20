@@ -52,6 +52,8 @@ export class PlayerModel {
   private slideLean = 0;
   /** Mantle progress 0 … 1, or -1 when not mantling. */
   private reach = -1;
+  /** Sideways lean toward a wall being run on: + leans left, − right. */
+  private wallLean = 0;
 
   /** `ghost` makes a translucent, shadowless copy for the personal-best ghost. */
   constructor(ghost = false) {
@@ -153,6 +155,18 @@ export class PlayerModel {
     this.reach = mantle;
   }
 
+  /** Wall running: lean the body toward the wall. */
+  setWallRun(normal: Vector3 | null, dt: number): void {
+    let target = 0;
+    if (normal) {
+      // The model's right, from its facing; a wall on the right has its normal pointing left.
+      const rx = Math.cos(this.yaw);
+      const rz = -Math.sin(this.yaw);
+      target = 0.45 * (normal.x * rx + normal.z * rz);
+    }
+    this.wallLean += (target - this.wallLean) * follow(14, dt);
+  }
+
   /** Rollerblade tuck: crouch and lean further in. */
   setTuck(on: boolean, dt: number): void {
     this.tuck += ((on ? 1 : 0) - this.tuck) * follow(10, dt);
@@ -195,7 +209,7 @@ export class PlayerModel {
     this.root.rotation.set(0, this.yaw, 0);
     // Mantle: reach forward over the lip early, straighten as you pull up.
     const reachLean = this.reach >= 0 ? 0.7 * Math.sin(Math.PI * Math.min(1, this.reach)) : 0;
-    this.body.rotation.set(-this.lean - this.tuck * 0.35 + this.slideLean * 0.9 - reachLean, 0, this.bank);
+    this.body.rotation.set(-this.lean - this.tuck * 0.35 + this.slideLean * 0.9 - reachLean, 0, this.bank + this.wallLean);
     const sy = 1 + this.squash - this.tuck * 0.18 - this.low * 0.45;
     const sxz = 1 / Math.sqrt(sy);
     this.body.scale.set(sxz, sy, sxz);

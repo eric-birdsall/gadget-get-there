@@ -41,6 +41,8 @@ export interface RenderFrame {
   crouching: boolean;
   /** Mantle progress 0 … 1, or -1. */
   mantle: number;
+  /** The wall being run on (its outward normal), or null. */
+  wallRunNormal: Vector3 | null;
   /** Where the grapple would hook right now (in hand, in range), or null. */
   grappleTarget: { point: Vector3; normal: Vector3 } | null;
   /** Where the player's rope is fixed, or null. */
@@ -170,6 +172,7 @@ export class Renderer {
     this.view.pivotDrop += ((f.sliding || f.crouching ? 0.6 : 0) - this.view.pivotDrop) * Math.min(1, dt * 10);
     this.view.update(dt, pose.feet, speed, f.yaw, f.pitch, this.boxes);
     this.player.setStance(f.sliding, f.crouching, f.mantle, dt);
+    this.player.setWallRun(f.wallRunNormal, dt);
     this.player.setSkates(f.skates);
     this.player.setTuck(f.tucking, dt);
     this.player.update(dt, pose, f.landed, f.jumped);

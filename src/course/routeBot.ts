@@ -17,6 +17,8 @@ export interface Waypoint {
   noJump?: boolean;
   /** Jump as soon as this waypoint becomes the target. */
   jump?: boolean;
+  /** Press jump on becoming the target even in the air (a wall jump off the wall being run). */
+  kick?: boolean;
   /** On becoming the target: hook this point and hold until `releaseZ` is passed. */
   grapple?: { at: [number, number, number]; releaseZ: number };
   /** On becoming the target: throw a pad at this point. */
@@ -86,6 +88,7 @@ export function runRoute(session: RunSession, route: Waypoint[], maxSeconds = 12
       entered = target;
       if (wp.select) session.selectGadget(wp.select);
       if (wp.jump && p.grounded) input.jump = true;
+      if (wp.kick) input.jump = true;
       if (wp.press) {
         input.action = true;
         input.actionPressed = true;

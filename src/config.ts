@@ -85,6 +85,30 @@ export const ABILITY_CONFIG = {
   mantleReach: 0.5,
   /** How far past the wall face the player ends up, m. */
   mantleInset: 0.45,
+  /** Wall run: start at this horizontal speed or more, m/s… */
+  wallRunMinSpeed: 7,
+  /** …travelling at least this much along the wall (1 = parallel), and this high above any floor, m. */
+  wallRunMinAlong: 0.6,
+  wallRunMinHeight: 0.8,
+  /** How far from the body a wall can be run on or kicked off, m. */
+  wallReach: 0.6,
+  /** Longest wall run, s. */
+  wallRunMaxSeconds: 1.4,
+  /** Share of gravity while wall running. */
+  wallRunGravityScale: 0.15,
+  /** Upward speed given when a wall run starts, m/s; and the fastest you sink while running, m/s. */
+  wallRunStartUp: 1.5,
+  wallRunMaxSink: 2.5,
+  /** Slower than this along the wall, the run ends, m/s. */
+  wallRunEndSpeed: 5,
+  /** Small push into the wall that keeps contact, m/s. */
+  wallRunStick: 0.4,
+  /** Wall jump: speed away from the wall and upward, m/s; share of along-the-wall speed kept. */
+  wallJumpOut: 8,
+  wallJumpUp: 9.5,
+  wallJumpKeepAlong: 1,
+  /** Air steering is off this long after a wall jump, so the kick carries you clear, s. */
+  wallJumpSteerLock: 0.3,
   /** Pull-up time, s. */
   mantleDuration: 0.25,
   /** Fraction of horizontal speed kept after a mantle (never below running speed). */

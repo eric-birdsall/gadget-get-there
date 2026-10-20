@@ -1,6 +1,6 @@
 import { GadgetId } from '../gadgets/types';
 import { SurfaceKind } from '../sim/collision';
-import { bankedCurve, overhead, ramp, slab, wall } from './build';
+import { bankedCurve, overhead, ramp, runWall, slab, wall } from './build';
 import type { CourseDefinition } from './types';
 
 /**
@@ -18,6 +18,9 @@ import type { CourseDefinition } from './types';
  *    to the right (good on rollerblades).
  * 5. Final sprint: a steep down ramp, a broad platform with a barrier (slide under its middle
  *    or go round), a banked right turn (a block above the corner) and the finish gate.
+ *
+ * Tall walls for wall running sit beside the runway, beside the big gap, and in a zigzag across
+ * the bypass void.
  *
  * The grapple hooks any surface, so the course also floats gold beams, blocks and ceilings well
  * above the path (out of jump reach) to swing from.
@@ -82,6 +85,18 @@ export const crossing: CourseDefinition = {
     { center: [0, 12.55, -352], size: [5, 2.9, 2], kind: SurfaceKind.Wall },
     ...bankedCurve(16, 10, -370, 16, 180, 90, 10, 16, 12),
     slab(36, 10, -386, 40, 10),
+
+    // Wall-run walls. A test wall beside the start runway (jump off its right edge onto it)…
+    runWall(9.5, 43.5, -20, 7, 28),
+    // …one beside the big gap in section 2, to run past it on the left…
+    runWall(-6.5, 38, -91, 12, 26),
+    // …and a zigzag of five across the bypass void: run one, kick across to the next. Each starts
+    // before the last one ends, so a kick always has a wall waiting.
+    runWall(-3.5, 25, -219, 14, 20),
+    runWall(3.5, 24, -234, 14, 20),
+    runWall(-3.5, 23, -249, 14, 20),
+    runWall(3.5, 22, -264, 14, 20),
+    runWall(-3.5, 21, -279, 14, 20),
 
     // Overhead grapple points: beams, blocks and ceilings high above the path.
     overhead(0, 50, -15, 16, 1.2, 2.5),

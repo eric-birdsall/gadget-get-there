@@ -21,6 +21,8 @@ export enum SessionEvent {
   Landed = 'landed',
   Fell = 'fell',
   SlideStarted = 'slide-started',
+  WallRunStarted = 'wall-run-started',
+  WallJumped = 'wall-jumped',
   /** A slide has gone on long enough that jumping now gives the speed burst. */
   SlideReady = 'slide-ready',
   /** A jump out of a long slide gave its speed burst. */
@@ -331,6 +333,8 @@ export class RunSession {
     if (p.justSlideReady) this.events.push(SessionEvent.SlideReady);
     if (p.justSlideJumped) this.events.push(SessionEvent.SlideJumped);
     if (p.justMantled) this.events.push(SessionEvent.Mantled);
+    if (p.justWallRun) this.events.push(SessionEvent.WallRunStarted);
+    if (p.justWallJumped) this.events.push(SessionEvent.WallJumped);
     if (p.grounded) this.lastGroundY = p.pos.y;
 
     if (this.state === AttemptState.Running) {
@@ -385,7 +389,7 @@ export class RunSession {
   private hasFallen(): boolean {
     const { pos, vel } = this.player;
     if (pos.y < this.killY) return true;
-    if (this.player.grounded || this.player.tethered || vel.y >= 0) return false;
+    if (this.player.grounded || this.player.tethered || this.player.wallRun || vel.y >= 0) return false;
     if (pos.y > this.lastGroundY - WORLD_CONFIG.voidFallDepth) return false;
     if (raycast(this.boxes, pos, DOWN, pos.y - this.killY)) return false;
     return !this.arcHitsAnything();
