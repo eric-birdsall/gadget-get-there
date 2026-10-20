@@ -29,7 +29,7 @@ export function padPlacement(boxes: readonly Box[], aimOrigin: Vector3, aimDir: 
 }
 
 /**
- * Click to throw a pad onto the surface under the crosshair. Touching it launches you up and
+ * Press the gadget button to throw a pad onto the surface under the crosshair. Touching it launches you up and
  * along the direction you were facing when you threw it. One pad at a time.
  */
 export class LaunchPadGadget implements GadgetRuntime {

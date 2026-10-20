@@ -26,7 +26,7 @@ export const DEFAULT_BINDINGS: Bindings = {
   [Action.Right]: ['KeyD', 'ArrowRight'],
   [Action.Jump]: ['Space'],
   [Action.Crouch]: ['ShiftLeft', 'ShiftRight'],
-  [Action.Gadget]: ['Mouse0'],
+  [Action.Gadget]: ['KeyE'],
   [Action.Retry]: ['KeyR', 'Enter'],
   [Action.Slot1]: ['Digit1', 'Numpad1'],
   [Action.Slot2]: ['Digit2', 'Numpad2'],

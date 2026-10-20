@@ -20,7 +20,7 @@ export interface Waypoint {
   grapple?: { anchor: number; releaseZ: number };
   /** On becoming the target: throw a pad at this point. */
   pad?: [number, number, number];
-  /** Click the gadget button once on becoming the target (e.g. to put rollerblades on). */
+  /** Press the gadget button once on becoming the target (e.g. to put rollerblades on). */
   press?: boolean;
   /** Hold the gadget button (rollerblade tuck) while heading here. */
   hold?: boolean;
