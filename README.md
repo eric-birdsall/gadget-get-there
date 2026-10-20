@@ -40,7 +40,7 @@ Pick up to three of the five gadgets before a run. Each has a fixed budget on ev
 | Toggle ghost | G |
 | Debug readout (speed, grounded…) | ` |
 | Pause | Esc (a second Esc leaves fullscreen) |
-| Play with | Settings → Controls → Play with: Mouse & keyboard or Controller. The other is ignored until you switch (a hint shows if you press a controller button while set to keyboard). |
+| Play with | The first dropdown on the menu: Mouse & keyboard or Controller. The other is ignored until you switch (a hint shows if you press a controller button while set to keyboard). |
 | Controller (Xbox layout) | Left stick move · right stick look · A jump · B slide/crouch · left stick click sprint · RT / LT / RB use slots 1 / 2 / 3 · Menu pause/resume · View retry. The buttons (not the sticks or Menu) can be rebound in Settings → Key bindings. In the menus: D-pad or left stick to move, A to press, B to go back, Y for a gadget's info (left/right adjusts sliders). With the controller chosen, on-screen labels show its buttons. Click Play once for fullscreen (the mouse isn't captured); starting from the controller plays on in the window. |
 | Settings | Settings button on the menu (Esc or Back returns); Tuning is in there |
 

@@ -460,7 +460,7 @@ function frame(now: number): void {
   // A controller pressed while set to mouse and keyboard: say where to switch.
   if (paused && input.padIgnored) {
     input.padIgnored = false;
-    menu.showNote('Controller detected · to play with it, choose Controller in Settings → Play with');
+    menu.showNote('Controller detected · to play with it, choose Controller under Play with');
   }
   if (!paused) {
     handleKeys();

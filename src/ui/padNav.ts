@@ -162,16 +162,21 @@ function stepSelect(el: HTMLSelectElement, step: number): void {
   el.dispatchEvent(new Event('change', { bubbles: true }));
 }
 
+/** Controls within this much of the nearest one ahead count as the same next row (or column), px. */
+const ROW_SLACK = 90;
+
 /**
  * The control to move to. Controls in line with this one (sharing some of its row for left and
- * right, or its column for up and down) come first, the closest of them; only with none in line
- * does it move off to the side, to the nearest weighing sideways distance heavily.
+ * right, or its column for up and down) come first: of those, the ones about as near as the
+ * nearest (the next row or column along), and of those the most directly in line. Only with none
+ * in line does it move off to the side, to the nearest weighing sideways distance heavily.
  */
 export function nearest(from: HTMLElement, list: readonly HTMLElement[], dir: Dir): HTMLElement | null {
   const a = from.getBoundingClientRect();
   const horizontal = dir === 'left' || dir === 'right';
-  let best: HTMLElement | null = null;
-  let bestScore = Infinity;
+  const inLine: { el: HTMLElement; gap: number; across: number }[] = [];
+  let side: HTMLElement | null = null;
+  let sideScore = Infinity;
   for (const el of list) {
     if (el === from) continue;
     const b = el.getBoundingClientRect();
@@ -186,12 +191,18 @@ export function nearest(from: HTMLElement, list: readonly HTMLElement[], dir: Di
     const across = horizontal
       ? Math.abs(b.top + b.height / 2 - (a.top + a.height / 2))
       : Math.abs(b.left + b.width / 2 - (a.left + a.width / 2));
-    // In line: ranked by distance alone, always ahead of anything off to the side.
-    const score = overlap > 0 ? Math.max(0, gap) + across * 0.1 : 1e6 + Math.max(0, gap) + across * 3;
-    if (score < bestScore) {
-      bestScore = score;
-      best = el;
+    if (overlap > 0) inLine.push({ el, gap: Math.max(0, gap), across });
+    else {
+      const score = Math.max(0, gap) + across * 3;
+      if (score < sideScore) {
+        sideScore = score;
+        side = el;
+      }
     }
   }
-  return best;
+  if (inLine.length === 0) return side;
+  const nearestGap = Math.min(...inLine.map((c) => c.gap));
+  const nextRow = inLine.filter((c) => c.gap <= nearestGap + ROW_SLACK);
+  nextRow.sort((p, q) => p.across - q.across || p.gap - q.gap);
+  return nextRow[0].el;
 }

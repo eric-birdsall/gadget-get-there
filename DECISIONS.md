@@ -277,3 +277,7 @@ Replaces the gadget in hand, switching (scroll, F, 1–5 mid-run) and auto-switc
 - Press crouch/slide once to crouch or slide, again to stand, so a finger is free for jump mid-slide. A jump lets go (you come out of a slide standing; the burst still fires), as does landing after a tuck switched on in the air, and a respawn. Sliding off an edge keeps it on, so you land still sliding.
 - Settings → Controls → Crouch / slide: Toggle (default) or Hold (the old way). Both devices.
 - The toggle lives in the input layer (`src/input/crouchToggle.ts`); the sim still takes crouch as held, so tests and route bots are unchanged.
+
+## Menu layout (built)
+- Top to bottom: **Play with** dropdown (Mouse & keyboard / Controller, moved out of Settings), **Level** dropdown (each option shows the level's best and medal; replaces the level cards), then the loadout: the five gadgets in a panel on the left (about three quarters of the width) and the three slots stacked on the right with Clear slots under them (one column on narrow screens). Then the hint, the personal best, Play, and Settings.
+- Controller moves: among controls about as near as the nearest in that direction (within 90 px, the next row or column), the one most directly in line wins, so moves land sensibly across the two-column layout.

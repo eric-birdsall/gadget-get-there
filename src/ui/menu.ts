@@ -121,6 +121,7 @@ export class Menu {
     el('restart').addEventListener('click', handlers.restart);
     el('tuning').addEventListener('click', handlers.tuning);
     el('open-settings').addEventListener('click', () => this.showSettings(true));
+    el<HTMLSelectElement>('menu-level').addEventListener('change', (e) => handlers.selectLevel((e.target as HTMLSelectElement).value));
     el('close-settings').addEventListener('click', () => this.showSettings(false));
     el('open-controls').addEventListener('click', () => this.showControls(true));
     el('close-controls').addEventListener('click', () => this.showControls(false));
@@ -302,31 +303,17 @@ export class Menu {
         : `Click gadgets to fill the slots · ${useKeysName(this.bindings)} use them in the run`;
   }
 
-  /** The level row: each level's name and best, the current one highlighted. */
+  /** The level dropdown: each level with its best time and medal, the current one chosen. */
   setLevels(levels: readonly LevelEntry[], current: string): void {
-    const row = el('menu-levels');
-    row.replaceChildren();
-    for (const l of levels) {
-      const b = document.createElement('button');
-      b.className = 'level-card';
-      b.classList.toggle('current', l.id === current);
-      b.setAttribute('aria-pressed', String(l.id === current));
-      const name = document.createElement('span');
-      name.className = 'level-name';
-      name.textContent = l.name;
-      const best = document.createElement('span');
-      best.className = 'level-best';
-      best.textContent = l.best === null ? 'Not finished yet' : formatTime(l.best);
-      if (l.medal) {
-        const dot = document.createElement('span');
-        dot.className = `medal-dot ${l.medal}`;
-        dot.title = l.medal === 'none' ? 'Finished' : `${l.medal[0].toUpperCase()}${l.medal.slice(1)} medal`;
-        best.prepend(dot);
-      }
-      b.append(name, best);
-      b.addEventListener('click', () => this.handlers.selectLevel(l.id));
-      row.append(b);
-    }
+    const select = el<HTMLSelectElement>('menu-level');
+    select.replaceChildren(
+      ...levels.map((l) => {
+        const best = l.best === null ? 'not finished yet' : `best ${formatTime(l.best)}`;
+        const medal = l.medal && l.medal !== 'none' ? ` · ${l.medal[0].toUpperCase()}${l.medal.slice(1)}` : '';
+        return new Option(`${l.name} — ${best}${medal}`, l.id, false, l.id === current);
+      }),
+    );
+    select.value = current;
   }
 
   setBest(seconds: number | null): void {

@@ -159,7 +159,7 @@
       }
       #card {
         --panel: #12152e; --panel-2: #1b1f40; --line: rgba(127, 246, 255, 0.18); --text: #e8ecf8; --muted: #9aa3c4;
-        width: min(720px, calc(100vw - 48px)); max-height: calc(100vh - 48px); overflow-y: auto; box-sizing: border-box;
+        width: min(800px, calc(100vw - 48px)); max-height: calc(100vh - 48px); overflow-y: auto; box-sizing: border-box;
         display: grid; grid-template-columns: 1fr; gap: 8px 40px; padding: 32px 36px 26px;
         border-radius: 18px; text-align: center; color: var(--text);
         background: linear-gradient(160deg, rgba(27, 31, 64, 0.97), rgba(12, 14, 32, 0.97));
@@ -203,20 +203,20 @@
       button.primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 700; font-size: 19px; }
       button.primary:hover { background: #ff7aa3; }
       /* Loadout picker: click gadgets to fill the numbered slots in order. */
-      /* Level selector: one card per level, its best time and medal. */
-      #menu-levels { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-bottom: 22px; }
-      #card .level-card {
-        display: flex; flex-direction: column; align-items: flex-start; gap: 4px; margin: 0; padding: 12px 14px;
-        text-align: left; border-radius: 12px; background: rgba(255, 255, 255, 0.04); box-shadow: inset 0 0 0 1px rgba(127, 246, 255, 0.15);
+      /* The menu's two dropdowns: what to play with, and the level. */
+      .menu-fields { display: grid; grid-template-columns: auto 1fr; gap: 10px 14px; align-items: center; margin: 0 0 20px; text-align: left; }
+      .menu-fields label { font-size: 12px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #7ff6ff; opacity: 0.85; }
+      #card select {
+        width: 100%; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--line);
+        background: var(--panel-2); color: var(--text); font-size: 16px; font-family: inherit;
       }
-      #card .level-card:hover { background: rgba(127, 246, 255, 0.08); }
-      #card .level-card.current { background: rgba(127, 246, 255, 0.12); box-shadow: inset 0 0 0 2px #7ff6ff, 0 0 18px rgba(127, 246, 255, 0.25); }
-      .level-name { font-family: var(--font-display); font-size: 14px; font-weight: 700; letter-spacing: 0.03em; }
-      .level-best { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
-      .medal-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--muted); }
-      .medal-dot.gold { background: var(--gold); }
-      .medal-dot.silver { background: var(--silver); }
-      .medal-dot.bronze { background: var(--bronze); }
+      /* Gadgets (about three quarters) beside the slots (a quarter), which stack top to bottom. */
+      .menu-loadout { display: grid; grid-template-columns: 3fr 1fr; gap: 18px; align-items: stretch; margin-bottom: 10px; }
+      .menu-loadout #menu-palette { margin: 0; padding: 14px 8px; align-content: center; border-radius: 14px; background: rgba(255, 255, 255, 0.02); box-shadow: inset 0 0 0 1px rgba(127, 246, 255, 0.08); }
+      .menu-slots { display: flex; flex-direction: column; gap: 8px; }
+      .menu-slots #menu-gadgets { display: flex; flex-direction: column; gap: 8px; margin: 0; }
+      .menu-slots button.small { margin: 2px 0 0; }
+      @media (max-width: 640px) { .menu-loadout { grid-template-columns: 1fr; } }
       #menu-palette { display: flex; flex-wrap: wrap; justify-content: center; gap: 26px; margin-bottom: 16px; }
       /* A palette tile: the gadget (click to add or remove) plus a small "i" for its info. */
       .gadget-tile { position: relative; }
@@ -266,10 +266,11 @@
       #info-body dd { margin: 0; font-variant-numeric: tabular-nums; }
       #menu-gadgets { margin-bottom: 8px; }
       .loadout-slot {
-        display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
-        padding: 12px 6px; font-size: 13px; border-radius: 12px; background: rgba(255, 255, 255, 0.03);
+        display: grid; grid-template-columns: auto auto 1fr; align-items: center; gap: 8px; flex: 0 0 auto;
+        padding: 8px 10px; font-size: 13px; text-align: left; border-radius: 12px; background: rgba(255, 255, 255, 0.03);
       }
-      .loadout-slot .icon-square { width: 56px; height: 56px; }
+      .loadout-slot .icon-square { width: 44px; height: 44px; }
+      .loadout-slot .name { line-height: 1.2; }
       .loadout-slot .n { font-size: 12px; font-weight: 800; color: #7ff6ff; }
       .loadout-slot.empty { border-style: dashed; color: var(--muted); cursor: default; }
       .loadout-slot.empty:hover { background: rgba(255, 255, 255, 0.03); }
@@ -349,12 +350,25 @@
         <div id="card-main">
         <h1>Gadget Get There</h1>
         <p class="sub">Pick a level and up to three gadgets · combine them · beat your best</p>
-        <div id="menu-levels"></div>
         <p id="menu-note"></p>
-        <div id="menu-palette"></div>
-        <div id="menu-gadgets" class="row"></div>
+        <div class="menu-fields">
+          <label for="set-input">Play with</label>
+          <select id="set-input">
+            <option value="keys">Mouse &amp; keyboard</option>
+            <option value="pad">Controller</option>
+          </select>
+          <label for="menu-level">Level</label>
+          <select id="menu-level"></select>
+        </div>
+        <!-- Gadgets on the left; the three slots, top to bottom, on the right. -->
+        <div class="menu-loadout">
+          <div id="menu-palette"></div>
+          <div class="menu-slots">
+            <div id="menu-gadgets"></div>
+            <button id="clear-slots" class="small">Clear slots</button>
+          </div>
+        </div>
         <p id="menu-gadgets-hint"></p>
-        <div class="row"><button id="clear-slots" class="small">Clear slots</button></div>
         <div id="pbs" class="tabular"></div>
         <div class="row"><button id="play" class="primary">Play</button></div>
         <div class="row">
@@ -371,12 +385,6 @@
           <label class="check">Checkpoints (respawn there with your gadgets as they were; clock keeps running) <input id="set-checkpoints" type="checkbox" /></label>
           <label class="check">Show personal-best ghost <input id="set-ghost" type="checkbox" /></label>
           <h3>Controls</h3>
-          <label class="check">Play with
-            <select id="set-input">
-              <option value="keys">Mouse &amp; keyboard</option>
-              <option value="pad">Controller</option>
-            </select>
-          </label>
           <label class="check">Crouch / slide
             <select id="set-crouch">
               <option value="toggle">Toggle (press on, press off)</option>
