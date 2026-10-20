@@ -38,7 +38,7 @@ Pick up to three of the five gadgets before a run. Each has a fixed budget on ev
 | Toggle ghost | G |
 | Debug readout (speed, grounded…) | ` |
 | Pause | Esc (a second Esc leaves fullscreen) |
-| Controller (Xbox layout) | Left stick move · right stick look · A jump · B slide/crouch · RT / LT / RB use slots 1 / 2 / 3 · Menu pause/resume · View retry. In the menus: D-pad or left stick to move, A to press, B to go back, Y for a gadget's info (left/right adjusts sliders). While you play with the controller, on-screen labels show its buttons. Click Play once for fullscreen; starting from the controller plays on in the window with the cursor free. |
+| Controller (Xbox layout) | Left stick move · right stick look · A jump · B slide/crouch · RT / LT / RB use slots 1 / 2 / 3 · Menu pause/resume · View retry. The buttons (not the sticks or Menu) can be rebound in Settings → Key bindings. In the menus: D-pad or left stick to move, A to press, B to go back, Y for a gadget's info (left/right adjusts sliders). While you play with the controller, on-screen labels show its buttons. Click Play once for fullscreen; starting from the controller plays on in the window with the cursor free. |
 | Settings | Settings button on the menu (Esc or Back returns); Tuning is in there |
 
 If the browser refuses to capture the mouse (embedded panes do), the game plays with a visible cursor instead: mouse look works inside the window, and holding the cursor at or past the left/right edge keeps turning. A normal browser tab gives full mouse look.

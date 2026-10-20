@@ -1,3 +1,4 @@
+import { DEFAULT_PAD_BINDINGS, PAD_BINDABLE, PAD_RESERVED, type PadBindings, type PadButton, isPadButton } from '../input/gamepad';
 import { Action, type Bindings, DEFAULT_BINDINGS, MAX_KEYS_PER_ACTION } from '../input/input';
 import { readJson, writeJson } from './settings';
 
@@ -63,4 +64,50 @@ export function bindKey(bindings: Bindings, action: Action, index: number, code:
 /** Empties position `index` of `action`. */
 export function clearKey(bindings: Bindings, action: Action, index: number): void {
   bindings[action] = bindings[action].filter((_, i) => i !== index);
+}
+
+// Controller buttons: one per action, saved apart from the keys.
+
+const PAD_BINDINGS_KEY = 'gadget-get-there.pad-bindings';
+const PAD_BINDINGS_VERSION = 1;
+
+export function defaultPadBindings(): PadBindings {
+  return { ...DEFAULT_PAD_BINDINGS };
+}
+
+/** Saved controller bindings, or the defaults. A save is taken whole: it lists every bound action. */
+export function loadPadBindings(): PadBindings {
+  const saved = readJson(PAD_BINDINGS_KEY) as { version?: number; data?: unknown } | null;
+  if (!saved || saved.version !== PAD_BINDINGS_VERSION || !saved.data || typeof saved.data !== 'object') return defaultPadBindings();
+  const out: PadBindings = {};
+  const used = new Set<PadButton>();
+  for (const a of PAD_BINDABLE) {
+    const b = (saved.data as Record<string, unknown>)[a];
+    if (isPadButton(b) && !PAD_RESERVED.has(b) && !used.has(b)) {
+      out[a] = b;
+      used.add(b);
+    }
+  }
+  return out;
+}
+
+export function savePadBindings(pad: PadBindings): void {
+  writeJson(PAD_BINDINGS_KEY, { version: PAD_BINDINGS_VERSION, data: pad });
+}
+
+/** Puts `button` on `action`, taking it off any other action. Returns the actions it was taken from. */
+export function bindPadButton(pad: PadBindings, action: Action, button: PadButton): Action[] {
+  const taken: Action[] = [];
+  for (const a of PAD_BINDABLE) {
+    if (a !== action && pad[a] === button) {
+      delete pad[a];
+      taken.push(a);
+    }
+  }
+  pad[action] = button;
+  return taken;
+}
+
+export function clearPadButton(pad: PadBindings, action: Action): void {
+  delete pad[action];
 }

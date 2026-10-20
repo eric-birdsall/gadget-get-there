@@ -4,7 +4,8 @@ import { type Settings, saveSettings } from '../storage/settings';
 import { MAX_SLOTS } from '../game/session';
 import { Action, type Bindings, MAX_KEYS_PER_ACTION, USE_ACTIONS, device, keyName, useKeysName } from '../input/input';
 import { keyLabel } from '../input/keyNames';
-import { bindKey, clearKey, defaultBindings, saveBindings } from '../storage/bindings';
+import { PAD_BINDABLE, PAD_BUTTON_NAMES, PAD_RESERVED, type PadBindings, type PadButton } from '../input/gamepad';
+import { bindKey, bindPadButton, clearKey, clearPadButton, defaultBindings, defaultPadBindings, saveBindings, savePadBindings } from '../storage/bindings';
 import type { Medal } from '../game/medals';
 import { formatTime } from './hud';
 import { GADGET_ICONS } from './icons';
@@ -47,7 +48,7 @@ const CONTROL_GROUPS: { title: string; rows: [Action, string][] }[] = [
     ],
   },
   {
-    title: 'Look (keyboard)',
+    title: 'Look',
     rows: [
       [Action.LookLeft, 'Look left'],
       [Action.LookRight, 'Look right'],
@@ -72,6 +73,18 @@ const CONTROL_GROUPS: { title: string; rows: [Action, string][] }[] = [
   },
 ];
 
+/** The controller column for rows the sticks handle. */
+const STICK_ROWS: Partial<Record<Action, string>> = {
+  [Action.Forward]: 'Left stick',
+  [Action.Back]: 'Left stick',
+  [Action.Left]: 'Left stick',
+  [Action.Right]: 'Left stick',
+  [Action.LookLeft]: 'Right stick',
+  [Action.LookRight]: 'Right stick',
+  [Action.LookUp]: 'Right stick',
+  [Action.LookDown]: 'Right stick',
+};
+
 const actionLabel = (a: Action) => CONTROL_GROUPS.flatMap((g) => g.rows).find(([x]) => x === a)?.[1] ?? a;
 
 type NumberKey = 'sensitivity' | 'keyLookSpeed' | 'fov' | 'musicVolume' | 'sfxVolume';
@@ -91,13 +104,16 @@ export class Menu {
   private loadoutKey = '';
   /** Each action's key buttons on the Controls page. */
   private readonly bindEls = new Map<Action, HTMLButtonElement[]>();
-  /** The key button waiting for a key press, if any. */
-  private capture: { action: Action; index: number } | null = null;
+  /** Each bindable action's controller button on the Controls page. */
+  private readonly padEls = new Map<Action, HTMLButtonElement>();
+  /** The binding button waiting for a key (or, `pad`, a controller button), if any. */
+  private capture: { action: Action; index: number; pad: boolean } | null = null;
   private takenTimer = 0;
 
   constructor(
     private readonly settings: Settings,
     private readonly bindings: Bindings,
+    private readonly padBindings: PadBindings,
     private readonly handlers: MenuHandlers,
   ) {
     this.playButton.addEventListener('click', handlers.play);
@@ -354,11 +370,26 @@ export class Menu {
           row.append(b);
         }
         this.bindEls.set(action, buttons);
+        // The controller column: a button to rebind, or what the sticks do.
+        if (PAD_BINDABLE.includes(action)) {
+          const b = document.createElement('button');
+          b.className = 'bind small pad';
+          b.addEventListener('click', () => this.startCapture(action, 0, true));
+          this.padEls.set(action, b);
+          row.append(b);
+        } else {
+          const fixed = document.createElement('span');
+          fixed.className = 'bind-fixed';
+          fixed.textContent = STICK_ROWS[action] ?? '—';
+          row.append(fixed);
+        }
         list.append(row);
       }
     }
     el('reset-controls').addEventListener('click', () => {
       Object.assign(this.bindings, defaultBindings());
+      for (const a of PAD_BINDABLE) delete this.padBindings[a];
+      Object.assign(this.padBindings, defaultPadBindings());
       this.bindingsChanged();
       this.setControlsNote('Controls reset to the defaults.');
     });
@@ -384,14 +415,38 @@ export class Menu {
     return this.capture !== null;
   }
 
-  private startCapture(action: Action, index: number): void {
-    // Can't leave a gap: an empty main key fills before the alternate.
+  private startCapture(action: Action, index: number, pad = false): void {
     this.endCapture();
-    this.capture = { action, index: Math.min(index, this.bindings[action].length) };
+    if (pad) {
+      this.capture = { action, index: 0, pad: true };
+      const button = this.padEls.get(action)!;
+      button.classList.add('listening');
+      button.textContent = 'Press a button…';
+      this.setControlsNote('Press a controller button · Menu or Esc cancels · Backspace clears');
+      return;
+    }
+    // Can't leave a gap: an empty main key fills before the alternate.
+    this.capture = { action, index: Math.min(index, this.bindings[action].length), pad: false };
     const button = this.bindEls.get(action)![this.capture.index];
     button.classList.add('listening');
     button.textContent = 'Press a key…';
     this.setControlsNote('Press a key or mouse button · Backspace clears · Esc cancels');
+  }
+
+  /**
+   * Controller buttons pressed this frame, while waiting for a binding: a controller button binds
+   * (waiting for one), Menu cancels.
+   */
+  onPadEdges(edges: ReadonlySet<PadButton>): void {
+    if (!this.capture || edges.size === 0) return;
+    if ([...edges].some((b) => PAD_RESERVED.has(b))) return this.cancelCapture();
+    if (!this.capture.pad) return;
+    const { action } = this.capture;
+    const button = [...edges][0];
+    this.capture = null;
+    const taken = bindPadButton(this.padBindings, action, button);
+    this.bindingsChanged();
+    this.noteTaken(PAD_BUTTON_NAMES[button], taken, (a) => this.padEls.get(a)!);
   }
 
   private endCapture(): void {
@@ -404,10 +459,17 @@ export class Menu {
     if (!this.capture) return;
     e.preventDefault();
     e.stopImmediatePropagation();
-    const { action, index } = this.capture;
+    const { action, index, pad } = this.capture;
     if (e.code === 'Escape') {
       this.endCapture();
       this.setControlsNote('');
+    } else if (pad) {
+      // Waiting for a controller button: Backspace clears it, other keys do nothing.
+      if (e.code !== 'Backspace') return;
+      clearPadButton(this.padBindings, action);
+      this.capture = null;
+      this.bindingsChanged();
+      this.setControlsNote(`${actionLabel(action)} controller button cleared.`);
     } else if (e.code === 'Backspace') {
       clearKey(this.bindings, action, index);
       this.capture = null;
@@ -418,8 +480,9 @@ export class Menu {
 
   private onCaptureMouse(e: MouseEvent): void {
     if (!this.capture) return;
-    // Left-clicking another key button just moves the wait there.
-    if (e.button === 0 && (e.target as Element).closest?.('.bind')) {
+    // Left-clicking another binding button just moves the wait there; waiting for a controller
+    // button, any click lets go.
+    if (this.capture.pad || (e.button === 0 && (e.target as Element).closest?.('.bind'))) {
       this.endCapture();
       return;
     }
@@ -436,13 +499,17 @@ export class Menu {
     this.capture = null;
     const taken = bindKey(this.bindings, action, index, code);
     this.bindingsChanged();
+    this.noteTaken(keyLabel(code), taken, (a) => this.bindEls.get(a)![0]);
+  }
+
+  /** One key or button does one thing: say where it came from, and mark those rows. */
+  private noteTaken(name: string, taken: readonly Action[], cell: (a: Action) => HTMLElement): void {
     if (taken.length === 0) {
       this.setControlsNote('');
       return;
     }
-    // One key does one thing: say where it came from, and mark that row.
-    this.setControlsNote(`${keyLabel(code)} moved from ${taken.map(actionLabel).join(', ')}.`);
-    for (const a of taken) this.bindEls.get(a)![0].parentElement!.classList.add('taken');
+    this.setControlsNote(`${name} moved from ${taken.map(actionLabel).join(', ')}.`);
+    for (const a of taken) cell(a).parentElement!.classList.add('taken');
     clearTimeout(this.takenTimer);
     this.takenTimer = window.setTimeout(() => {
       for (const row of el('controls-list').querySelectorAll('.taken')) row.classList.remove('taken');
@@ -451,6 +518,7 @@ export class Menu {
 
   private bindingsChanged(): void {
     saveBindings(this.bindings);
+    savePadBindings(this.padBindings);
     this.renderBindings();
     this.loadoutKey = '';
     this.handlers.bindingsChanged();
@@ -471,6 +539,13 @@ export class Menu {
       });
       // No key at all: the action can't be used.
       buttons[0].parentElement!.classList.toggle('unbound', keys.length === 0);
+    }
+    for (const [action, b] of this.padEls) {
+      const button = this.padBindings[action];
+      b.classList.remove('listening');
+      b.classList.toggle('unset', button === undefined);
+      b.textContent = button === undefined ? '—' : PAD_BUTTON_NAMES[button];
+      b.title = 'Press, then press a controller button';
     }
   }
 

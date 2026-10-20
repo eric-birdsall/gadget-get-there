@@ -1,7 +1,8 @@
 import { Action } from './actions';
 
-// An Xbox-style controller through the browser's Gamepad API ("standard" layout). The mapping
-// is fixed; the keyboard and mouse keep working alongside it.
+// An Xbox-style controller through the browser's Gamepad API ("standard" layout), alongside
+// the keyboard and mouse. The sticks are fixed (move, look) and Menu pauses; the buttons for the
+// other actions can be rebound, one button each.
 
 /** Standard-layout button indices. */
 export enum PadButton {
@@ -23,25 +24,55 @@ export enum PadButton {
   Right = 15,
 }
 
-/** Buttons that act as game actions while playing. */
-export const PAD_ACTIONS: readonly [PadButton, Action][] = [
-  [PadButton.A, Action.Jump],
-  [PadButton.B, Action.Crouch],
-  [PadButton.RT, Action.UseSlot1],
-  [PadButton.LT, Action.UseSlot2],
-  [PadButton.RB, Action.UseSlot3],
-  [PadButton.View, Action.Retry],
+/** Which button does each action while playing (actions left out have none). */
+export type PadBindings = Partial<Record<Action, PadButton>>;
+
+/** Actions a controller button can be bound to. Moving and looking are the sticks. */
+export const PAD_BINDABLE: readonly Action[] = [
+  Action.Jump,
+  Action.Crouch,
+  Action.UseSlot1,
+  Action.UseSlot2,
+  Action.UseSlot3,
+  Action.Retry,
+  Action.ToggleGhost,
 ];
 
-/** How each mapped action's button is written on screen, while playing with the controller. */
-export const PAD_LABELS: Partial<Record<Action, string>> = {
-  [Action.Jump]: 'A',
-  [Action.Crouch]: 'B',
-  [Action.UseSlot1]: 'RT',
-  [Action.UseSlot2]: 'LT',
-  [Action.UseSlot3]: 'RB',
-  [Action.Retry]: 'View',
+export const DEFAULT_PAD_BINDINGS: Readonly<PadBindings> = {
+  [Action.Jump]: PadButton.A,
+  [Action.Crouch]: PadButton.B,
+  [Action.UseSlot1]: PadButton.RT,
+  [Action.UseSlot2]: PadButton.LT,
+  [Action.UseSlot3]: PadButton.RB,
+  [Action.Retry]: PadButton.View,
 };
+
+/** Menu always pauses, so it can't be bound (like Esc on the keyboard). */
+export const PAD_RESERVED: ReadonlySet<PadButton> = new Set([PadButton.Menu]);
+
+/** How a button is written on screen. */
+export const PAD_BUTTON_NAMES: Record<PadButton, string> = {
+  [PadButton.A]: 'A',
+  [PadButton.B]: 'B',
+  [PadButton.X]: 'X',
+  [PadButton.Y]: 'Y',
+  [PadButton.LB]: 'LB',
+  [PadButton.RB]: 'RB',
+  [PadButton.LT]: 'LT',
+  [PadButton.RT]: 'RT',
+  [PadButton.View]: 'View',
+  [PadButton.Menu]: 'Menu',
+  [PadButton.LeftStick]: 'LS click',
+  [PadButton.RightStick]: 'RS click',
+  [PadButton.Up]: 'D-pad ↑',
+  [PadButton.Down]: 'D-pad ↓',
+  [PadButton.Left]: 'D-pad ←',
+  [PadButton.Right]: 'D-pad →',
+};
+
+export function isPadButton(v: unknown): v is PadButton {
+  return typeof v === 'number' && Number.isInteger(v) && v in PAD_BUTTON_NAMES;
+}
 
 /** Stick travel ignored around the centre (worn sticks rest off-centre). */
 const DEADZONE = 0.18;

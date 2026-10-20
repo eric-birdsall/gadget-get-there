@@ -1,6 +1,6 @@
 import { CAMERA_CONFIG } from '../config';
 import { Action } from './actions';
-import { PAD_ACTIONS, PAD_LABELS, PadButton, type PadState, firstPad, readPad } from './gamepad';
+import { DEFAULT_PAD_BINDINGS, PAD_BUTTON_NAMES, type PadBindings, PadButton, type PadState, firstPad, readPad } from './gamepad';
 import { type KeyLookState, newKeyLookState, stepKeyLook } from './keyLook';
 import { keyLabel } from './keyNames';
 
@@ -34,12 +34,13 @@ export const USE_ACTIONS = [Action.UseSlot1, Action.UseSlot2, Action.UseSlot3] a
 
 export type InputDevice = 'keys' | 'pad';
 
-/** What the player last used: on-screen labels show that device's buttons. */
-export const device = { current: 'keys' as InputDevice };
+/** What the player last used (on-screen labels show that device's buttons), and the controller's bindings. */
+export const device: { current: InputDevice; pad: PadBindings } = { current: 'keys', pad: { ...DEFAULT_PAD_BINDINGS } };
 
 /** The action's main key as shown on screen, e.g. "E" (or "RT" when playing with the controller). */
 export function keyName(bindings: Bindings, action: Action): string {
-  if (device.current === 'pad' && PAD_LABELS[action]) return PAD_LABELS[action];
+  const button = device.pad[action];
+  if (device.current === 'pad' && button !== undefined) return PAD_BUTTON_NAMES[button];
   const code = bindings[action][0];
   return code ? keyLabel(code) : 'unbound';
 }
@@ -271,13 +272,15 @@ export class InputManager {
 
   isHeld(action: Action): boolean {
     if (this.bindings[action].some((code) => this.held.has(code))) return true;
-    return PAD_ACTIONS.some(([b, a]) => a === action && this.padDown.has(b));
+    const b = device.pad[action];
+    return b !== undefined && this.padDown.has(b);
   }
 
   /** True once per physical press; consumed by the call. */
   consumePress(action: Action): boolean {
     let hit = false;
-    for (const [b, a] of PAD_ACTIONS) if (a === action && this.padPressed.delete(b)) hit = true;
+    const b = device.pad[action];
+    if (b !== undefined && this.padPressed.delete(b)) hit = true;
     for (const code of this.bindings[action]) {
       if (this.pressed.delete(code)) hit = true;
     }

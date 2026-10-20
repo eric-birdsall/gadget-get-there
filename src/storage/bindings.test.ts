@@ -1,7 +1,8 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { Action, DEFAULT_BINDINGS } from '../input/input';
 import { keyLabel } from '../input/keyNames';
-import { bindKey, clearKey, defaultBindings, loadBindings, saveBindings } from './bindings';
+import { PadButton } from '../input/gamepad';
+import { bindKey, bindPadButton, clearKey, clearPadButton, defaultBindings, defaultPadBindings, loadBindings, loadPadBindings, saveBindings, savePadBindings } from './bindings';
 
 const store = new Map<string, string>();
 beforeEach(() => {
@@ -63,5 +64,34 @@ describe('key bindings', () => {
 
   it('names keys for the screen', () => {
     expect(['KeyE', 'Digit4', 'Numpad2', 'ShiftLeft', 'Mouse2', 'ArrowUp'].map(keyLabel)).toEqual(['E', '4', 'Num 2', 'L Shift', 'Right click', '↑']);
+  });
+
+  it('controller buttons: one per action, a button moves between actions, and they save', () => {
+    const pad = defaultPadBindings();
+    expect(pad[Action.Jump]).toBe(PadButton.A);
+    // X is free: it just binds.
+    expect(bindPadButton(pad, Action.ToggleGhost, PadButton.X)).toEqual([]);
+    // A belongs to Jump: it moves to slot 1, leaving Jump with none.
+    expect(bindPadButton(pad, Action.UseSlot1, PadButton.A)).toEqual([Action.Jump]);
+    expect(pad[Action.Jump]).toBeUndefined();
+    clearPadButton(pad, Action.Retry);
+    savePadBindings(pad);
+    const loaded = loadPadBindings();
+    expect(loaded[Action.UseSlot1]).toBe(PadButton.A);
+    expect(loaded[Action.ToggleGhost]).toBe(PadButton.X);
+    expect(loaded[Action.Jump]).toBeUndefined();
+    expect(loaded[Action.Retry]).toBeUndefined();
+  });
+
+  it('a saved controller binding to Menu, a junk value or a doubled button is dropped', () => {
+    store.set(
+      'gadget-get-there.pad-bindings',
+      JSON.stringify({ version: 1, data: { jump: PadButton.Menu, crouch: 'B', 'use-slot-1': PadButton.X, 'use-slot-2': PadButton.X } }),
+    );
+    const loaded = loadPadBindings();
+    expect(loaded[Action.Jump]).toBeUndefined();
+    expect(loaded[Action.Crouch]).toBeUndefined();
+    expect(loaded[Action.UseSlot1]).toBe(PadButton.X);
+    expect(loaded[Action.UseSlot2]).toBeUndefined();
   });
 });

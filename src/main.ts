@@ -13,12 +13,12 @@ import { type GhostPose, GhostPlayer } from './game/ghost';
 import { medalFor } from './game/medals';
 import { type AnyEvent, AttemptState, MAX_SLOTS, RunSession, type SessionInput, SessionEvent } from './game/session';
 import { PadButton } from './input/gamepad';
-import { Action, InputManager, USE_ACTIONS } from './input/input';
+import { Action, InputManager, USE_ACTIONS, device } from './input/input';
 import { PadNav } from './ui/padNav';
 import { Renderer } from './render/renderer';
 import { Stance } from './sim/player';
 import { RecordStore } from './storage/records';
-import { loadBindings } from './storage/bindings';
+import { loadBindings, loadPadBindings } from './storage/bindings';
 import { loadSettings, saveSettings } from './storage/settings';
 import { Hud } from './ui/hud';
 import { Menu } from './ui/menu';
@@ -29,6 +29,9 @@ loadTuning();
 const settings = loadSettings();
 let course = courseById(settings.level);
 const bindings = loadBindings();
+/** Controller buttons: shared with the input manager and labels, edited in place by the Controls page. */
+const padBindings = loadPadBindings();
+device.pad = padBindings;
 const records = new RecordStore();
 /** The saved gadget order (possibly empty). Gadgets that no longer exist drop out. */
 function savedLoadout(): GadgetId[] {
@@ -268,7 +271,7 @@ function enterPlay(): void {
   input.lock();
 }
 
-const menu = new Menu(settings, bindings, {
+const menu = new Menu(settings, bindings, padBindings, {
   play: enterPlay,
   restart: () => {
     restart();
@@ -424,7 +427,9 @@ function frame(now: number): void {
   // The controller's Menu button pauses and resumes (resuming can't capture the mouse or go
   // fullscreen: browsers only allow those from a click or key).
   input.pollPad();
-  if (input.padEdges.has(PadButton.Menu)) {
+  // Rebinding on the Controls page: the controller's buttons go there (Menu cancels).
+  if (paused && menu.capturing) menu.onPadEdges(input.padEdges);
+  else if (input.padEdges.has(PadButton.Menu)) {
     if (!paused) input.unlock();
     else if (!menu.capturing) {
       audio.start();
@@ -516,5 +521,6 @@ if (new URLSearchParams(location.search).has('dev')) Object.assign(window, {
       input,
       renderer,
       records,
+      menu,
     },
   });
