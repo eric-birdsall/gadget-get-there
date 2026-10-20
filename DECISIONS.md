@@ -285,3 +285,7 @@ Replaces the gadget in hand, switching (scroll, F, 1–5 mid-run) and auto-switc
 ## Play-with toggle; level picker with previews (built)
 - Play with is a two-button toggle (Mouse & keyboard | Controller), the active one lit.
 - Level is a button showing the current level and best; it opens a picker with a card per level: a rendered preview (drawn once on first open, in a throwaway renderer, from up behind the start looking down the course, with the finish gate), your record (time, medal, date, gadgets, checkpoints off if so) and the gold/silver/bronze times. Pick a card to switch; ×, the backdrop, Esc or B closes. Controller: the picker is navigated like any menu.
+
+## Level fly-throughs (built)
+- Hovering a level card (or the controller's highlight on it) plays a live fly-through over its still picture: the camera flies 7 m above a smooth path from the start through each checkpoint to the finish, eased, in 9 s, on a loop, looking a little ahead. Leaving the card shows the still again.
+- One small renderer (480×270) holds every course while the picker is open and is freed when it closes, so play isn't slowed.

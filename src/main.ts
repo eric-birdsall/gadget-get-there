@@ -16,6 +16,7 @@ import { PadButton } from './input/gamepad';
 import { Action, InputManager, USE_ACTIONS, device } from './input/input';
 import { PadNav } from './ui/padNav';
 import { CrouchToggle } from './input/crouchToggle';
+import { FlyThrough } from './render/flythrough';
 import { renderCoursePreviews } from './render/preview';
 import { Renderer } from './render/renderer';
 import { Stance, burstAvailable } from './sim/player';
@@ -302,6 +303,7 @@ const menu = new Menu(settings, bindings, padBindings, {
   toggleGadget,
   selectLevel,
   levelPreviews: () => renderCoursePreviews(COURSES),
+  createFlyThrough: () => new FlyThrough(COURSES),
   clearGadgets: () => {
     if (session.state !== AttemptState.Ready) restart();
     if (!session.clearGadgets()) return;

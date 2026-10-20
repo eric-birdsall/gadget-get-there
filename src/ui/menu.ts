@@ -27,6 +27,15 @@ export interface MenuHandlers {
   selectLevel: (id: string) => void;
   /** A preview picture of each level, by id (drawn on first use). */
   levelPreviews: () => Map<string, string>;
+  /** A live fly-through player for the levels (made when the picker opens, freed when it closes). */
+  createFlyThrough: () => LevelFlyThrough;
+}
+
+/** Plays a level's fly-through in a host element. */
+export interface LevelFlyThrough {
+  play(levelId: string, host: HTMLElement): void;
+  stop(): void;
+  dispose(): void;
 }
 
 /** A level in the selector. */
@@ -110,6 +119,7 @@ export class Menu {
   private levels: LevelEntry[] = [];
   private currentLevel = '';
   private previews: Map<string, string> | null = null;
+  private flyThrough: LevelFlyThrough | null = null;
   /** Each gadget's pick button in the palette. */
   private readonly tileEls = new Map<GadgetId, HTMLButtonElement>();
   private loadout: GadgetId[] = [];
@@ -346,13 +356,18 @@ export class Menu {
   /** The level picker: a card per level with its preview, your record and the medal times. */
   openLevels(): void {
     this.previews ??= this.handlers.levelPreviews();
+    this.flyThrough ??= this.handlers.createFlyThrough();
     this.renderLevels();
     el('level-modal').classList.remove('hidden');
-    el<HTMLElement>('level-list').querySelector<HTMLElement>('.current')?.focus({ preventScroll: true });
+    // With the controller, start on the current level (its highlight flies it, like a hover).
+    if (device.current === 'pad') el<HTMLElement>('level-list').querySelector<HTMLElement>('.current')?.focus({ preventScroll: true });
   }
 
   closeLevels(): void {
     el('level-modal').classList.add('hidden');
+    // The fly-through's renderer only lives while the picker is open.
+    this.flyThrough?.dispose();
+    this.flyThrough = null;
   }
 
   private renderLevels(): void {
@@ -362,11 +377,21 @@ export class Menu {
         const b = document.createElement('button');
         b.className = 'level-pick';
         b.classList.toggle('current', l.id === this.currentLevel);
+        // The still picture; hovering (or the controller's highlight) flies the course over it.
+        const wrap = document.createElement('div');
+        wrap.className = 'preview-wrap';
         const img = document.createElement('img');
         img.className = 'preview';
         img.alt = `${l.name} preview`;
         const src = this.previews?.get(l.id);
         if (src) img.src = src;
+        wrap.append(img);
+        const fly = () => this.flyThrough?.play(l.id, wrap);
+        const land = () => this.flyThrough?.stop();
+        b.addEventListener('mouseenter', fly);
+        b.addEventListener('focus', fly);
+        b.addEventListener('mouseleave', land);
+        b.addEventListener('blur', land);
         const name = document.createElement('h3');
         name.textContent = l.name;
         const pr = document.createElement('div');
@@ -392,7 +417,7 @@ export class Menu {
           `<span><span class="medal-dot gold"></span> ${t.goldSeconds.toFixed(0)} s</span>` +
           `<span><span class="medal-dot silver"></span> ${t.silverSeconds.toFixed(0)} s</span>` +
           `<span><span class="medal-dot bronze"></span> ${t.bronzeSeconds.toFixed(0)} s</span>`;
-        b.append(img, name, pr, detail, targets);
+        b.append(wrap, name, pr, detail, targets);
         b.addEventListener('click', () => {
           this.closeLevels();
           this.handlers.selectLevel(l.id);

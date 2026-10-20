@@ -278,7 +278,10 @@
       }
       #level-list button.level-pick:hover { background: rgba(127, 246, 255, 0.07); }
       #level-list button.level-pick.current { box-shadow: inset 0 0 0 2px #7ff6ff, 0 0 18px rgba(127, 246, 255, 0.25); }
-      .level-pick .preview { width: 100%; aspect-ratio: 16 / 9; border-radius: 9px; object-fit: cover; background: #0b0e24; }
+      .level-pick .preview-wrap { position: relative; aspect-ratio: 16 / 9; border-radius: 9px; overflow: hidden; background: #0b0e24; }
+      .level-pick .preview { display: block; width: 100%; height: 100%; object-fit: cover; }
+      /* The live fly-through, laid over the still picture while hovered. */
+      .level-pick .flythrough { position: absolute; inset: 0; width: 100% !important; height: 100% !important; }
       .level-pick h3 { margin: 4px 2px 0; font-size: 17px; letter-spacing: 0.03em; color: #fff; }
       .level-pick .pr { display: flex; align-items: center; gap: 8px; margin: 0 2px; font-size: 20px; font-weight: 700; font-variant-numeric: tabular-nums; }
       .level-pick .pr.none { font-size: 14px; font-weight: 500; color: var(--muted, #9aa3c4); }
