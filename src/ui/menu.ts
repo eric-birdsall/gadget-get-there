@@ -370,6 +370,11 @@ export class Menu {
     if (device.current === 'pad') el<HTMLElement>('level-list').querySelector<HTMLElement>('.current')?.focus({ preventScroll: true });
   }
 
+  /** Forgets the level previews (the world look changed), so they're drawn again on next open. */
+  resetLevelPreviews(): void {
+    this.previews = null;
+  }
+
   closeLevels(): void {
     el('level-modal').classList.add('hidden');
     // The fly-through's renderer only lives while the picker is open.

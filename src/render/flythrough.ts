@@ -1,7 +1,7 @@
-import { CatmullRomCurve3, type MeshStandardMaterial, PerspectiveCamera, type Scene, Vector3, type WebGLRenderer } from 'three';
+import { CatmullRomCurve3, PerspectiveCamera, type Scene, Vector3, type WebGLRenderer } from 'three';
 import type { CourseDefinition } from '../course/types';
-import type { SurfaceKind } from '../sim/collision';
-import { PREVIEW_HEIGHT, PREVIEW_WIDTH, buildCourseScene, disposeCourseScene, previewRenderer } from './preview';
+import { PREVIEW_HEIGHT, PREVIEW_WIDTH, type PreviewKit, buildCourseScene, disposeCourseScene, disposeKit, previewKit, previewRenderer } from './preview';
+import type { Theme } from './theme';
 
 // The level picker's live preview: a camera flying a course from the start, through each
 // checkpoint, to the finish, on a loop. One small renderer for all courses, kept only while the
@@ -21,7 +21,7 @@ interface Flight {
 export class FlyThrough {
   private readonly gl: WebGLRenderer = previewRenderer();
   private readonly camera = new PerspectiveCamera(60, PREVIEW_WIDTH / PREVIEW_HEIGHT, 0.5, 4000);
-  private readonly materials = new Map<SurfaceKind, MeshStandardMaterial>();
+  private readonly kit: PreviewKit;
   private readonly flights = new Map<string, Flight>();
   private readonly at = new Vector3();
   private readonly ahead = new Vector3();
@@ -30,10 +30,11 @@ export class FlyThrough {
   private frame = 0;
   private started = 0;
 
-  constructor(courses: readonly CourseDefinition[]) {
+  constructor(courses: readonly CourseDefinition[], theme: Theme) {
     this.gl.domElement.className = 'flythrough';
+    this.kit = previewKit(theme);
     for (const course of courses) {
-      const { scene } = buildCourseScene(course, this.materials);
+      const { scene } = buildCourseScene(course, this.kit);
       const points = [course.start.pos, ...course.checkpoints.map((c) => c.respawn.pos), course.finish.center].map(
         ([x, y, z]) => new Vector3(x, y, z),
       );
@@ -61,7 +62,7 @@ export class FlyThrough {
   dispose(): void {
     this.stop();
     for (const f of this.flights.values()) disposeCourseScene(f.scene);
-    for (const m of this.materials.values()) m.dispose();
+    disposeKit(this.kit);
     this.gl.dispose();
     this.gl.forceContextLoss();
   }

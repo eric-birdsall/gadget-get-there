@@ -23,7 +23,7 @@ import type { Pad } from '../gadgets/launchPad';
 import type { GhostPose } from '../game/ghost';
 import { type Box, SurfaceKind, raycast } from '../sim/collision';
 import { ThirdPersonCamera } from './camera';
-import { CityBackdrop, buildingsUnder } from './city';
+import { CityBackdrop, cityCourseDressing } from './city';
 import { gridMaterial } from './materials';
 import { THEMES, type Theme } from './theme';
 import { BlobShadow, PlayerModel, type PlayerPose } from './playerModel';
@@ -83,7 +83,8 @@ export class Renderer {
   private readonly space: SpaceBackdrop;
   private readonly city: CityBackdrop;
   private readonly fill: HemisphereLight;
-  private theme: Theme = 'space';
+  /** The current world look. */
+  theme: Theme = 'space';
   private course: CourseDefinition;
   /** The course's own materials, freed when it's rebuilt. */
   private courseMaterials: { dispose(): void }[] = [];
@@ -211,7 +212,11 @@ export class Renderer {
     }
     this.courseMaterials.push(...materials.values(), ...edgeMaterials.values());
     // In the city, every rooftop has its building under it.
-    if (this.theme === 'city') this.courseGroup.add(buildingsUnder(this.boxes, this.city.facade));
+    if (this.theme === 'city') {
+      const craneTops: Vector3[] = [];
+      this.courseGroup.add(cityCourseDressing(this.course, this.boxes, this.city.facade, craneTops));
+      this.city.setCraneTops(craneTops);
+    }
   }
 
   resize(): void {
@@ -272,7 +277,7 @@ export class Renderer {
     this.sun.position.copy(pose.feet).addScaledVector(SUN_DIRECTION, 100);
 
     this.space.update(dt, this.view.camera.position);
-    this.city.update(this.view.camera.position);
+    this.city.update(dt, this.view.camera.position);
     this.killBoundary.update(dt, pose.feet);
 
     this.gl.render(this.scene, this.view.camera);

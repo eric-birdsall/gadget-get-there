@@ -318,3 +318,10 @@ Replaces the gadget in hand, switching (scroll, F, 1–5 mid-run) and auto-switc
 ### City backdrop calmed further
 - ~220 skyline towers (was ~500), at least 45 m from the course unless far below it. Near the course, towers stay at least 14 m below the nearest rooftop, so the course looks out over open sky; only towers 200 m+ away may rise above it.
 - Windows: background ~1 in 12 lit, dim and grey; the buildings under the course ~1 in 6, softer than before. Haze starts sooner (90–560 m), so distant towers fade into the purple.
+
+### City dressing and life (built, city-reskin)
+- **Tower cranes:** each grapple beam is a crane jib: a yellow lattice mast down to the street at whichever end has nothing of the course below it (neither: the jib floats), an operator's cab with a lit window, and a counter-jib with its weight. Look only.
+- **Helipads:** a yellow-ringed H painted on each checkpoint rooftop, just ahead of the respawn spot.
+- **Flying traffic:** 18 lanes of cars along the street lines, 25–110 m below the streets of the courses' area, white headlights and red tail-lights, 18–40 m/s, wrapping round.
+- **Aircraft lights:** red lights blinking together on the tallest skyline towers and on crane tops.
+- **Level picker:** previews and fly-throughs draw the current world (city: colours, light, haze, dusk sky, buildings, cranes and helipads); changing the world redraws them.

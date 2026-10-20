@@ -1,6 +1,16 @@
 import {
+  AdditiveBlending,
   BackSide,
+  BufferAttribute,
+  BufferGeometry,
+  Points,
+  PointsMaterial,
   BoxGeometry,
+  CanvasTexture,
+  EdgesGeometry,
+  LineBasicMaterial,
+  LineSegments,
+  SRGBColorSpace,
   Color,
   Group,
   InstancedMesh,
@@ -15,7 +25,8 @@ import {
   SphereGeometry,
   Vector3,
 } from 'three';
-import { type Box, SurfaceKind } from '../sim/collision';
+import type { CourseDefinition } from '../course/types';
+import { type Box, SurfaceKind, raycast } from '../sim/collision';
 import { NOISE_GLSL, rng } from './space';
 
 // The city at night: the course is on rooftops high above a city. A dusk sky (deep blue overhead,
@@ -26,7 +37,7 @@ import { NOISE_GLSL, rng } from './space';
 const GROUND_Y = -160;
 
 /** A night sky: near black overhead, violet, then a warm dusk glow at the horizon; faint stars. */
-function nightSky(): Mesh {
+export function nightSky(): Mesh {
   const mat = new ShaderMaterial({
     side: BackSide,
     depthWrite: false,
@@ -138,6 +149,8 @@ class Skyline {
   private readonly crowns: InstancedMesh;
 
   private readonly facade = facadeMaterial(FAR_FACADE);
+  /** The tops of the tallest towers, for blinking aircraft lights. */
+  readonly tallTops: Vector3[] = [];
 
   constructor(boxes: readonly Box[], random: () => number) {
     const unit = new BoxGeometry(1, 1, 1);
@@ -182,6 +195,7 @@ class Skyline {
       const top = Math.min(maxTop, -60 + Math.pow(random(), 1.4) * 140);
       if (dist < 45 && top > y - 35) continue;
       if (top < GROUND_Y + 20) continue;
+      if (top > -25) this.tallTops.push(new Vector3(x, top + 0.8, z));
       size.set(w, top - GROUND_Y, d);
       pos.set(x, (top + GROUND_Y) / 2, z);
       m.compose(pos, q, size);
@@ -263,12 +277,244 @@ export function buildingsUnder(boxes: readonly Box[], facade: MeshStandardMateri
   return g;
 }
 
+const craneSteel = new MeshStandardMaterial({ color: '#d6a51c', roughness: 0.6, metalness: 0.3, emissive: '#3a2a00', emissiveIntensity: 0.5 });
+const craneEdges = new LineBasicMaterial({ color: '#fff07a' });
+const cabMaterial = new MeshStandardMaterial({ color: '#2a2f45', emissive: '#ffb347', emissiveIntensity: 0.35, roughness: 0.5 });
+const counterweight = new MeshStandardMaterial({ color: '#4a4f60', roughness: 0.9 });
+
+/** A yellow steel box with bright edges, for crane parts. */
+function steel(w: number, h: number, d: number, material: MeshStandardMaterial = craneSteel): Mesh {
+  const geo = new BoxGeometry(w, h, d);
+  const mesh = new Mesh(geo, material);
+  if (material === craneSteel) mesh.add(new LineSegments(new EdgesGeometry(geo), craneEdges));
+  return mesh;
+}
+
+const DOWN = new Vector3(0, -1, 0);
+const probe = new Vector3();
+
+/** Nothing of the course in a vertical column of half-width `r` from (x, top, z) down to the street. */
+function columnClear(boxes: readonly Box[], x: number, z: number, top: number, r: number): boolean {
+  for (const [ox, oz] of [[0, 0], [r, r], [-r, r], [r, -r], [-r, -r]]) {
+    probe.set(x + ox, top, z + oz);
+    if (raycast(boxes, probe, DOWN, top - GROUND_Y)) return false;
+  }
+  return true;
+}
+
+/**
+ * Each grapple beam as the jib of a tower crane: a mast down to the street at one end (whichever
+ * end has nothing of the course below it; neither, and the jib floats), the operator's cab and a
+ * counter-jib with its weight. For looks only.
+ */
+function cranes(boxes: readonly Box[], aviation: Vector3[]): Group {
+  const g = new Group();
+  for (const b of boxes) {
+    if (b.kind !== SurfaceKind.Overhead || Math.abs(b.rot.w) < 0.9999) continue;
+    const alongX = b.half.x >= b.half.z;
+    const half = alongX ? b.half.x : b.half.z;
+    const top = b.center.y + b.half.y;
+    const bottom = b.center.y - b.half.y;
+    for (const end of [1, -1]) {
+      const x = b.center.x + (alongX ? end * (half + 1) : 0);
+      const z = b.center.z + (alongX ? 0 : end * (half + 1));
+      if (!columnClear(boxes, x, z, bottom - 0.2, 1)) continue;
+      // The mast, from the street to just above the jib.
+      const mastTop = top + 3;
+      const mast = steel(1.8, mastTop - GROUND_Y, 1.8);
+      mast.position.set(x, (mastTop + GROUND_Y) / 2, z);
+      // The cab under the jib, beside the mast.
+      const cab = steel(2.4, 2.2, 2.4, cabMaterial);
+      cab.position.set(x - (alongX ? end * 2 : 0) * 0.9, bottom - 1.2, z - (alongX ? 0 : end * 2) * 0.9);
+      // The counter-jib reaching back the other way, and its weight.
+      const back = 9;
+      const jib = steel(alongX ? back : 1, 0.8, alongX ? 1 : back);
+      jib.position.set(x + (alongX ? end * back / 2 : 0), top - 0.4, z + (alongX ? 0 : end * back / 2));
+      const weight = steel(alongX ? 2.5 : 2.2, 2, alongX ? 2.2 : 2.5, counterweight);
+      weight.position.set(x + (alongX ? end * (back - 1.5) : 0), top - 1.6, z + (alongX ? 0 : end * (back - 1.5)));
+      g.add(mast, cab, jib, weight);
+      aviation.push(new Vector3(x, mastTop + 0.6, z));
+      break;
+    }
+  }
+  return g;
+}
+
+/** A helipad marking: a dark disc, a yellow ring and a white H, drawn once. */
+let helipadTexture: CanvasTexture | null = null;
+function helipad(): CanvasTexture {
+  if (helipadTexture) return helipadTexture;
+  const c = document.createElement('canvas');
+  c.width = c.height = 256;
+  const g = c.getContext('2d')!;
+  g.fillStyle = 'rgba(20, 24, 40, 0.85)';
+  g.beginPath();
+  g.arc(128, 128, 124, 0, Math.PI * 2);
+  g.fill();
+  g.strokeStyle = '#ffd34d';
+  g.lineWidth = 12;
+  g.beginPath();
+  g.arc(128, 128, 104, 0, Math.PI * 2);
+  g.stroke();
+  g.fillStyle = '#f2f4f8';
+  g.fillRect(80, 70, 22, 116);
+  g.fillRect(154, 70, 22, 116);
+  g.fillRect(80, 117, 96, 22);
+  helipadTexture = new CanvasTexture(c);
+  helipadTexture.colorSpace = SRGBColorSpace;
+  return helipadTexture;
+}
+
+/** Helipads painted on the checkpoint rooftops. */
+function helipads(course: CourseDefinition): Group {
+  const g = new Group();
+  const mat = new MeshBasicMaterial({ map: helipad(), transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, fog: true });
+  for (const cp of course.checkpoints) {
+    const [x, y, z] = cp.respawn.pos;
+    const r = Math.max(3, Math.min(7, Math.min(cp.size[0], cp.size[2]) * 0.3));
+    const mesh = new Mesh(new PlaneGeometry(r * 2, r * 2), mat);
+    mesh.rotation.x = -Math.PI / 2;
+    // A little ahead of the respawn spot, so you don't spawn on the H.
+    mesh.position.set(x, y + 0.03, z - r - 1.5);
+    mesh.renderOrder = 1;
+    g.add(mesh);
+  }
+  return g;
+}
+
+/**
+ * The city dressing for one course, all for looks only: a building under each rooftop, the
+ * grapple beams as tower cranes, helipads on the checkpoint rooftops. Positions for blinking
+ * aircraft lights (crane tops) are added to `aviation`.
+ */
+export function cityCourseDressing(course: CourseDefinition, boxes: readonly Box[], facade: MeshStandardMaterial, aviation: Vector3[] = []): Group {
+  const g = new Group();
+  g.add(buildingsUnder(boxes, facade), cranes(boxes, aviation), helipads(course));
+  return g;
+}
+
+/** Red aircraft-warning lights on tall towers and crane tops, blinking together. */
+class BlinkLights {
+  readonly points: Points;
+  private readonly material: ShaderMaterial;
+
+  constructor() {
+    this.material = new ShaderMaterial({
+      transparent: true,
+      depthWrite: false,
+      blending: AdditiveBlending,
+      uniforms: { uTime: { value: 0 }, uScale: { value: window.innerHeight / 2 } },
+      vertexShader: `uniform float uScale;
+void main() {
+  vec4 mv = modelViewMatrix * vec4(position, 1.0);
+  gl_Position = projectionMatrix * mv;
+  gl_PointSize = clamp(2.2 * uScale / -mv.z, 2.0, 14.0);
+}`,
+      fragmentShader: `uniform float uTime;
+void main() {
+  float d = length(gl_PointCoord - 0.5);
+  float on = step(0.55, fract(uTime / 1.6));
+  float a = smoothstep(0.5, 0.0, d) * (0.15 + 0.85 * on);
+  gl_FragColor = vec4(vec3(1.0, 0.15, 0.12) * a, a);
+}`,
+    });
+    this.points = new Points(new BufferGeometry(), this.material);
+    this.points.frustumCulled = false;
+  }
+
+  setPositions(at: readonly Vector3[]): void {
+    this.points.geometry.dispose();
+    this.points.geometry = new BufferGeometry().setFromPoints([...at]);
+  }
+
+  update(dt: number): void {
+    this.material.uniforms.uTime.value += dt;
+  }
+}
+
+/** One lane of flying traffic: cars in a line along a street, headlights one way, tail-lights the other. */
+interface Lane {
+  /** Fixed across-coordinate and height; the cars move along x (alongX) or z. */
+  alongX: boolean;
+  across: number;
+  y: number;
+  speed: number;
+  offsets: number[];
+}
+
+/** Flying traffic: lanes of cars along the streets below and around the course, lights only. */
+class Traffic {
+  readonly points: Points;
+  private readonly lanes: Lane[] = [];
+  private readonly positions: Float32Array;
+  private readonly colors: Float32Array;
+  private time = 0;
+
+  constructor(random: () => number) {
+    const laneCount = 18;
+    const perLane = 14;
+    for (let i = 0; i < laneCount; i++) {
+      const alongX = random() < 0.5;
+      // On a street line (between the blocks), well below the rooftops.
+      const across = (Math.round((random() - 0.5) * 24) + 0.5) * 46;
+      const dir = random() < 0.5 ? 1 : -1;
+      this.lanes.push({
+        alongX,
+        across,
+        y: -110 + random() * 85,
+        speed: dir * (18 + random() * 22),
+        offsets: Array.from({ length: perLane }, () => random() * TRAFFIC_SPAN),
+      });
+    }
+    const n = laneCount * perLane * 2;
+    this.positions = new Float32Array(n * 3);
+    this.colors = new Float32Array(n * 3);
+    const geo = new BufferGeometry();
+    geo.setAttribute('position', new BufferAttribute(this.positions, 3));
+    geo.setAttribute('color', new BufferAttribute(this.colors, 3));
+    this.points = new Points(geo, new PointsMaterial({ size: 2.6, vertexColors: true, sizeAttenuation: true, transparent: true, depthWrite: false, blending: AdditiveBlending, fog: true }));
+    this.points.frustumCulled = false;
+    this.update(0);
+  }
+
+  update(dt: number): void {
+    this.time += dt;
+    let i = 0;
+    for (const lane of this.lanes) {
+      const dir = Math.sign(lane.speed);
+      for (const off of lane.offsets) {
+        // Wrap round the span, centred on the course area.
+        const t = (((off + lane.speed * this.time) % TRAFFIC_SPAN) + TRAFFIC_SPAN) % TRAFFIC_SPAN - TRAFFIC_SPAN / 2;
+        // Headlights ahead (white), tail-lights behind (red), 3 m apart.
+        for (const [lead, r, gC, bC] of [[1.5, 1, 0.95, 0.85], [-1.5, 1, 0.12, 0.1]]) {
+          const a = t + dir * lead;
+          const x = lane.alongX ? a : lane.across;
+          const z = lane.alongX ? lane.across + TRAFFIC_CENTRE_Z : a + TRAFFIC_CENTRE_Z;
+          this.positions.set([x, lane.y, z], i * 3);
+          this.colors.set([r, gC, bC], i * 3);
+          i++;
+        }
+      }
+    }
+    this.points.geometry.attributes.position.needsUpdate = true;
+    this.points.geometry.attributes.color.needsUpdate = true;
+  }
+}
+
+/** How far a traffic lane runs before its cars wrap round, m; centred on the courses' middle (they run toward −Z). */
+const TRAFFIC_SPAN = 1100;
+const TRAFFIC_CENTRE_Z = -200;
+
 export class CityBackdrop {
   /** Everything at "infinity": follows the camera. */
   private readonly sky = new Group();
   readonly facade = facadeMaterial();
   private readonly ground: Mesh;
   private skyline: Skyline;
+  private readonly lights = new BlinkLights();
+  private readonly traffic = new Traffic(rng(0x7a7f));
+  /** Crane tops on the current course, for the blinking lights. */
+  private craneTops: Vector3[] = [];
 
   constructor(
     private readonly scene: Scene,
@@ -277,7 +523,8 @@ export class CityBackdrop {
     this.sky.add(nightSky());
     this.ground = streets();
     this.skyline = new Skyline(boxes, rng(0xc17e));
-    scene.add(this.sky, this.ground, this.skyline.group);
+    scene.add(this.sky, this.ground, this.skyline.group, this.lights.points, this.traffic.points);
+    this.refreshLights();
   }
 
   setCourse(boxes: readonly Box[]): void {
@@ -287,20 +534,35 @@ export class CityBackdrop {
     this.skyline = new Skyline(boxes, rng(0xc17e));
     this.skyline.group.visible = visible;
     this.scene.add(this.skyline.group);
+    this.refreshLights();
+  }
+
+  /** The current course's crane tops (from its dressing), for the blinking lights. */
+  setCraneTops(tops: Vector3[]): void {
+    this.craneTops = tops;
+    this.refreshLights();
+  }
+
+  private refreshLights(): void {
+    this.lights.setPositions([...this.skyline.tallTops, ...this.craneTops]);
   }
 
   set visible(on: boolean) {
     this.sky.visible = on;
     this.ground.visible = on;
     this.skyline.group.visible = on;
+    this.lights.points.visible = on;
+    this.traffic.points.visible = on;
   }
 
   get visible(): boolean {
     return this.sky.visible;
   }
 
-  update(cameraPos: Vector3): void {
+  update(dt: number, cameraPos: Vector3): void {
     if (!this.sky.visible) return;
     this.sky.position.copy(cameraPos);
+    this.lights.update(dt);
+    this.traffic.update(dt);
   }
 }
