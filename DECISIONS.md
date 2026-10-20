@@ -294,3 +294,6 @@ Replaces the gadget in hand, switching (scroll, F, 1–5 mid-run) and auto-switc
 - Playing with the controller: with nothing to hook under the crosshair, the grapple takes the hook point nearest to it within 7°; with a wall or floor under it, a grapple beam within 4° still wins (beams are almost always what you meant). Searched in rings of directions round the crosshair; the innermost ring with a hit wins, beams counting as a little nearer.
 - The hook marker shows the assisted point, so you see exactly where it will catch.
 - Only the grapple is assisted (its own aim in the session input); the launch pad throws where you point. Mouse and keyboard are unchanged.
+
+## Crouch pressed in the air slides on landing (built)
+- Toggle mode: a crouch press in the air tucks (as before), then stays on through the landing, so you land straight into a slide, if you're at slide speed (12.5 m/s); slower, it lets go and you land standing. Replaces "landing after an in-air tuck lets go". Decided once per press: a later landing (sliding off an edge) doesn't let go.
