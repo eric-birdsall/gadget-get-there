@@ -317,7 +317,7 @@ function handleKeys(): void {
     else session.selectGadget(GADGETS[i].id);
   });
   const wheel = input.consumeWheel();
-  if (wheel !== 0) session.cycleGadget(wheel > 0 ? 1 : -1);
+  for (let i = 0; i < Math.abs(wheel); i++) session.cycleGadget(wheel > 0 ? 1 : -1);
   if (input.consumePress(Action.Retry)) restart();
 }
 

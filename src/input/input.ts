@@ -35,9 +35,14 @@ export const DEFAULT_BINDINGS: Bindings = {
   [Action.ToggleDebug]: ['Backquote'],
 };
 
-/** Scroll needed for one gadget step, px; and the shortest time between steps, ms. */
-const WHEEL_STEP_PX = 40;
-const WHEEL_STEP_MS = 120;
+/**
+ * Scroll-wheel stepping: the first wheel event after a pause is one step straight away, however
+ * small (one notch on a mouse, the start of a trackpad swipe). While events keep coming, another
+ * step needs this much more scrolling, so a fast spin steps several times but a smooth-scrolling
+ * notch (many small events) stays one step.
+ */
+const WHEEL_GESTURE_GAP_MS = 90;
+const WHEEL_REPEAT_PX = 100;
 
 /** Keyboard and pointer-locked mouse. The game reads held state and one-shot presses each frame. */
 export class InputManager {
@@ -57,7 +62,7 @@ export class InputManager {
   /** Scroll-wheel notches since the last read: + down, − up. */
   private wheelSteps = 0;
   private wheelAccum = 0;
-  private lastWheelStep = 0;
+  private lastWheelEvent = -Infinity;
   private pressed = new Set<string>();
   /**
    * Playing without pointer lock: ?nolock, or automatically when the browser refuses the lock
@@ -101,12 +106,19 @@ export class InputManager {
         e.preventDefault();
         // Lines and pages to pixels; then one step per notch, so a trackpad fling isn't a dozen.
         const px = e.deltaMode === 1 ? e.deltaY * 40 : e.deltaMode === 2 ? e.deltaY * 400 : e.deltaY;
-        this.wheelAccum += px;
+        if (px === 0) return;
         const now = performance.now();
-        if (Math.abs(this.wheelAccum) >= WHEEL_STEP_PX && now - this.lastWheelStep > WHEEL_STEP_MS) {
+        const newGesture = now - this.lastWheelEvent > WHEEL_GESTURE_GAP_MS;
+        this.lastWheelEvent = now;
+        if (newGesture || Math.sign(px) !== Math.sign(this.wheelAccum)) {
+          this.wheelSteps += Math.sign(px);
+          this.wheelAccum = px;
+          return;
+        }
+        this.wheelAccum += px;
+        if (Math.abs(this.wheelAccum) >= WHEEL_REPEAT_PX) {
           this.wheelSteps += Math.sign(this.wheelAccum);
           this.wheelAccum = 0;
-          this.lastWheelStep = now;
         }
       },
       { passive: false },
@@ -187,11 +199,11 @@ export class InputManager {
     return hit;
   }
 
-  /** Scroll direction since the last call: 1 (down), −1 (up) or 0. */
+  /** Scroll steps since the last call: positive down, negative up. */
   consumeWheel(): number {
-    const s = Math.sign(this.wheelSteps);
+    const steps = this.wheelSteps;
     this.wheelSteps = 0;
-    return s;
+    return steps;
   }
 
   /** Drops presses nobody consumed this frame, so they don't fire later. */
