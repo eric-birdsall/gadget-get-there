@@ -16,6 +16,7 @@ import { PadButton } from './input/gamepad';
 import { Action, InputManager, USE_ACTIONS, device } from './input/input';
 import { PadNav } from './ui/padNav';
 import { CrouchToggle } from './input/crouchToggle';
+import { renderCoursePreviews } from './render/preview';
 import { Renderer } from './render/renderer';
 import { Stance, burstAvailable } from './sim/player';
 import { RecordStore } from './storage/records';
@@ -89,8 +90,17 @@ function refreshCategory(): void {
   menu.setBest(best?.seconds ?? null);
   menu.setLevels(
     COURSES.map((c) => {
-      const pb = records.best(c.id)?.seconds ?? null;
-      return { id: c.id, name: c.name, best: pb, medal: pb === null ? null : medalFor(pb, c.medalThresholds) };
+      const pb = records.best(c.id);
+      return {
+        id: c.id,
+        name: c.name,
+        best: pb?.seconds ?? null,
+        medal: pb ? medalFor(pb.seconds, c.medalThresholds) : null,
+        thresholds: c.medalThresholds,
+        bestLoadout: pb?.loadout ?? null,
+        bestDate: pb?.date ?? null,
+        bestCheckpoints: pb?.checkpoints ?? null,
+      };
     }),
     course.id,
   );
@@ -291,6 +301,7 @@ const menu = new Menu(settings, bindings, padBindings, {
   tuning: () => tuning.toggle(),
   toggleGadget,
   selectLevel,
+  levelPreviews: () => renderCoursePreviews(COURSES),
   clearGadgets: () => {
     if (session.state !== AttemptState.Ready) restart();
     if (!session.clearGadgets()) return;
@@ -314,6 +325,7 @@ const menu = new Menu(settings, bindings, padBindings, {
 function menuBack(): boolean {
   if (menu.capturing) menu.cancelCapture();
   else if (menu.infoOpen) menu.closeInfo();
+  else if (menu.levelsOpen) menu.closeLevels();
   else if (menu.controlsOpen) menu.showControls(false);
   else if (menu.settingsOpen) menu.showSettings(false);
   else return false;
@@ -339,7 +351,7 @@ document.addEventListener(
 
 // The menus with the controller: D-pad or stick to move, A to press, B to go back.
 const padNav = new PadNav({
-  root: () => document.getElementById(menu.infoOpen ? 'info-modal' : 'overlay')!,
+  root: () => document.getElementById(menu.infoOpen ? 'info-modal' : menu.levelsOpen ? 'level-modal' : 'overlay')!,
   activate: (el) => {
     padActivating = true;
     try {

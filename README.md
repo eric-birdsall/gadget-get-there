@@ -40,7 +40,7 @@ Pick up to three of the five gadgets before a run. Each has a fixed budget on ev
 | Toggle ghost | G |
 | Debug readout (speed, grounded…) | ` |
 | Pause | Esc (a second Esc leaves fullscreen) |
-| Play with | The first dropdown on the menu: Mouse & keyboard or Controller. The other is ignored until you switch (a hint shows if you press a controller button while set to keyboard). |
+| Play with | The toggle at the top of the menu: Mouse & keyboard or Controller. The other is ignored until you switch (a hint shows if you press a controller button while set to keyboard). |
 | Controller (Xbox layout) | Left stick move · right stick look · A jump · B slide/crouch · left stick click sprint · RT / LT / RB use slots 1 / 2 / 3 · Menu pause/resume · View retry. The buttons (not the sticks or Menu) can be rebound in Settings → Key bindings. In the menus: D-pad or left stick to move, A to press, B to go back, Y for a gadget's info (left/right adjusts sliders). With the controller chosen, on-screen labels show its buttons. Click Play once for fullscreen (the mouse isn't captured); starting from the controller plays on in the window. |
 | Settings | Settings button on the menu (Esc or Back returns); Tuning is in there |
 
@@ -82,7 +82,7 @@ Runs carry up to three gadgets with fixed budgets, one use key per slot, with ga
 
 Character abilities (slide, crouch-walk, mantle) work with every gadget. The Crossing has two optional ability spots: blocks across the central gap that only a mantle reaches, and a barrier on the final platform with a slide-under slot.
 
-Three levels, picked in the menu (each with its own personal best, medal and ghost): **The Crossing** (downhill, every gadget has a line), **Ascent** (uphill: two cliffs to mantle, grapple or jetpack up) and **Gauntlet** (fast and flat: slide under barriers, cross gaps by gadget or slide-jump, wall-run a corridor). `src/course/ascent.test.ts` and `gauntlet.test.ts` prove each one the same way: every gadget can finish on foot, and each faster line beats it. Bot running times: Ascent ≈ 30 s, Gauntlet ≈ 30 s.
+Three levels, picked from the menu's Level button (a picker with a preview of each level, your record and the medal times; each level has its own personal best, medal and ghost): **The Crossing** (downhill, every gadget has a line), **Ascent** (uphill: two cliffs to mantle, grapple or jetpack up) and **Gauntlet** (fast and flat: slide under barriers, cross gaps by gadget or slide-jump, wall-run a corridor). `src/course/ascent.test.ts` and `gauntlet.test.ts` prove each one the same way: every gadget can finish on foot, and each faster line beats it. Bot running times: Ascent ≈ 30 s, Gauntlet ≈ 30 s.
 
 The route-bot tests in `src/course/crossing.test.ts` finish The Crossing without falling on the plain running line with each gadget, on each gadget's own faster line, and on an ability line (mantle + slide). Rough bot times: running ≈ 46 s, grapple ≈ 36 s, rollerblades ≈ 36 s, launch pad ≈ 40 s, abilities ≈ 43 s. Medal thresholds (gold 32 s / silver 40 s / bronze 55 s) are placeholders until real playtests.
 

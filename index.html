@@ -205,7 +205,16 @@
       /* Loadout picker: click gadgets to fill the numbered slots in order. */
       /* The menu's two dropdowns: what to play with, and the level. */
       .menu-fields { display: grid; grid-template-columns: auto 1fr; gap: 10px 14px; align-items: center; margin: 0 0 20px; text-align: left; }
-      .menu-fields label { font-size: 12px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #7ff6ff; opacity: 0.85; }
+      /* Play with: two buttons, one lit. */
+      .segmented { display: flex; gap: 0; padding: 3px; border-radius: 12px; background: var(--panel-2); box-shadow: inset 0 0 0 1px var(--line); }
+      #card .segmented button { margin: 0; padding: 9px 12px; font-size: 15px; border: none; border-radius: 9px; background: transparent; color: var(--muted); }
+      #card .segmented button[aria-checked='true'] { background: rgba(127, 246, 255, 0.16); color: #fff; box-shadow: inset 0 0 0 1px rgba(127, 246, 255, 0.6); }
+      /* Level: the current level and best; opens the picker. */
+      #card .level-button { display: flex; align-items: center; gap: 12px; margin: 0; padding: 10px 14px; text-align: left; }
+      .level-button .lv-name { font-family: var(--font-display); font-size: 15px; font-weight: 700; color: #fff; }
+      .level-button .lv-best { flex: 1; font-size: 14px; color: var(--muted); font-variant-numeric: tabular-nums; }
+      .level-button .lv-chev { font-size: 22px; line-height: 1; color: #7ff6ff; }
+      .menu-fields .field-label, .menu-fields label { font-size: 12px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #7ff6ff; opacity: 0.85; }
       #card select {
         width: 100%; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--line);
         background: var(--panel-2); color: var(--text); font-size: 16px; font-family: inherit;
@@ -244,20 +253,41 @@
       .info-button:hover { background: #262b55; color: #fff; }
 
       /* Gadget info modal, over the menu. */
-      #info-modal {
+      #info-modal, #level-modal {
         position: fixed; inset: 0; z-index: 12; display: flex; align-items: center; justify-content: center;
         background: rgba(4, 5, 14, 0.6);
       }
-      #info-modal .card {
+      #info-modal .card, #level-modal .card {
         position: relative; width: min(420px, calc(100vw - 48px)); box-sizing: border-box; padding: 26px 26px 22px;
         border-radius: 16px; text-align: left; color: #e8ecf8;
         background: linear-gradient(160deg, #1d2246, #10132b); box-shadow: 0 0 0 1px rgba(127, 246, 255, 0.25), 0 24px 60px rgba(0, 0, 0, 0.6);
       }
-      #info-close {
+      #info-close, #level-close {
         position: absolute; top: 12px; right: 12px; flex: none; width: 32px; height: 32px; padding: 0;
         border-radius: 50%; font-size: 20px; line-height: 1;
       }
       #info-body .icon-square { width: 72px; height: 72px; margin-bottom: 12px; }
+
+      /* Level picker: a card per level with its preview, your record, and the medal times. */
+      #level-modal .card { width: min(980px, calc(100vw - 48px)); max-height: calc(100vh - 48px); overflow-y: auto; }
+      #level-modal h2 { margin: 0 0 16px; font-size: 24px; }
+      #level-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; }
+      #level-list button.level-pick {
+        display: flex; flex-direction: column; align-items: stretch; gap: 8px; padding: 10px 10px 14px; text-align: left;
+        border-radius: 14px; background: rgba(255, 255, 255, 0.03); box-shadow: inset 0 0 0 1px rgba(127, 246, 255, 0.12);
+      }
+      #level-list button.level-pick:hover { background: rgba(127, 246, 255, 0.07); }
+      #level-list button.level-pick.current { box-shadow: inset 0 0 0 2px #7ff6ff, 0 0 18px rgba(127, 246, 255, 0.25); }
+      .level-pick .preview { width: 100%; aspect-ratio: 16 / 9; border-radius: 9px; object-fit: cover; background: #0b0e24; }
+      .level-pick h3 { margin: 4px 2px 0; font-size: 17px; letter-spacing: 0.03em; color: #fff; }
+      .level-pick .pr { display: flex; align-items: center; gap: 8px; margin: 0 2px; font-size: 20px; font-weight: 700; font-variant-numeric: tabular-nums; }
+      .level-pick .pr.none { font-size: 14px; font-weight: 500; color: var(--muted, #9aa3c4); }
+      .level-pick .detail { margin: 0 2px; font-size: 13px; color: var(--muted, #9aa3c4); line-height: 1.5; }
+      .level-pick .targets { display: flex; gap: 12px; margin: 2px 2px 0; font-size: 12px; font-variant-numeric: tabular-nums; color: var(--muted, #9aa3c4); }
+      .medal-dot { display: inline-block; width: 11px; height: 11px; border-radius: 50%; background: var(--muted, #9aa3c4); flex: none; }
+      .medal-dot.gold { background: var(--gold); }
+      .medal-dot.silver { background: var(--silver); }
+      .medal-dot.bronze { background: var(--bronze); }
       #info-body h2 { margin: 0; font-size: 26px; }
       #info-body .meta { margin: 2px 0 12px; font-size: 12px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #7ff6ff; }
       #info-body p { margin: 0 0 14px; line-height: 1.5; font-size: 15px; }
@@ -338,6 +368,14 @@
       <div id="result-retry">R to go again · Esc to change gadgets</div>
     </div>
 
+    <div id="level-modal" class="hidden" role="dialog" aria-modal="true" aria-labelledby="level-title">
+      <div class="card">
+        <button id="level-close" aria-label="Close">×</button>
+        <h2 id="level-title">Choose a level</h2>
+        <div id="level-list"></div>
+      </div>
+    </div>
+
     <div id="info-modal" class="hidden" role="dialog" aria-modal="true" aria-labelledby="info-body">
       <div class="card">
         <button id="info-close" aria-label="Close">×</button>
@@ -352,13 +390,15 @@
         <p class="sub">Pick a level and up to three gadgets · combine them · beat your best</p>
         <p id="menu-note"></p>
         <div class="menu-fields">
-          <label for="set-input">Play with</label>
-          <select id="set-input">
-            <option value="keys">Mouse &amp; keyboard</option>
-            <option value="pad">Controller</option>
-          </select>
-          <label for="menu-level">Level</label>
-          <select id="menu-level"></select>
+          <span class="field-label">Play with</span>
+          <div id="input-toggle" class="segmented" role="radiogroup" aria-label="Play with">
+            <button data-mode="keys" role="radio">Mouse &amp; keyboard</button>
+            <button data-mode="pad" role="radio">Controller</button>
+          </div>
+          <span class="field-label">Level</span>
+          <button id="menu-level" class="level-button" aria-haspopup="dialog">
+            <span class="lv-name"></span><span class="lv-best"></span><span class="lv-chev" aria-hidden="true">›</span>
+          </button>
         </div>
         <!-- Gadgets on the left; the three slots, top to bottom, on the right. -->
         <div class="menu-loadout">

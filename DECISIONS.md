@@ -281,3 +281,7 @@ Replaces the gadget in hand, switching (scroll, F, 1–5 mid-run) and auto-switc
 ## Menu layout (built)
 - Top to bottom: **Play with** dropdown (Mouse & keyboard / Controller, moved out of Settings), **Level** dropdown (each option shows the level's best and medal; replaces the level cards), then the loadout: the five gadgets in a panel on the left (about three quarters of the width) and the three slots stacked on the right with Clear slots under them (one column on narrow screens). Then the hint, the personal best, Play, and Settings.
 - Controller moves: among controls about as near as the nearest in that direction (within 90 px, the next row or column), the one most directly in line wins, so moves land sensibly across the two-column layout.
+
+## Play-with toggle; level picker with previews (built)
+- Play with is a two-button toggle (Mouse & keyboard | Controller), the active one lit.
+- Level is a button showing the current level and best; it opens a picker with a card per level: a rendered preview (drawn once on first open, in a throwaway renderer, from up behind the start looking down the course, with the finish gate), your record (time, medal, date, gadgets, checkpoints off if so) and the gold/silver/bronze times. Pick a card to switch; ×, the backdrop, Esc or B closes. Controller: the picker is navigated like any menu.

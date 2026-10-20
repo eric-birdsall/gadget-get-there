@@ -6,8 +6,9 @@ import { Action, type Bindings, MAX_KEYS_PER_ACTION, USE_ACTIONS, device, keyNam
 import { keyLabel } from '../input/keyNames';
 import { PAD_BINDABLE, PAD_BUTTON_NAMES, PAD_RESERVED, type PadBindings, type PadButton } from '../input/gamepad';
 import { bindKey, bindPadButton, clearKey, clearPadButton, defaultBindings, defaultPadBindings, saveBindings, savePadBindings } from '../storage/bindings';
+import type { MedalThresholds } from '../course/types';
 import type { Medal } from '../game/medals';
-import { formatTime } from './hud';
+import { formatTime, loadoutIcons } from './hud';
 import { GADGET_ICONS } from './icons';
 
 const el = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
@@ -24,6 +25,8 @@ export interface MenuHandlers {
   bindingsChanged: () => void;
   /** Switch to another level (mid-run this abandons the run). */
   selectLevel: (id: string) => void;
+  /** A preview picture of each level, by id (drawn on first use). */
+  levelPreviews: () => Map<string, string>;
 }
 
 /** A level in the selector. */
@@ -32,6 +35,11 @@ export interface LevelEntry {
   name: string;
   best: number | null;
   medal: Medal | null;
+  thresholds: MedalThresholds;
+  /** The personal best's gadgets, date (epoch ms) and checkpoint setting, when there is one. */
+  bestLoadout: readonly GadgetId[] | null;
+  bestDate: number | null;
+  bestCheckpoints: boolean | null;
 }
 
 /** The Controls page, in groups. Debug keys stay off it. */
@@ -99,6 +107,9 @@ export class Menu {
   private readonly note = el('menu-note');
   private readonly playButton = el<HTMLButtonElement>('play');
   private readonly slotEls: HTMLButtonElement[] = [];
+  private levels: LevelEntry[] = [];
+  private currentLevel = '';
+  private previews: Map<string, string> | null = null;
   /** Each gadget's pick button in the palette. */
   private readonly tileEls = new Map<GadgetId, HTMLButtonElement>();
   private loadout: GadgetId[] = [];
@@ -121,7 +132,11 @@ export class Menu {
     el('restart').addEventListener('click', handlers.restart);
     el('tuning').addEventListener('click', handlers.tuning);
     el('open-settings').addEventListener('click', () => this.showSettings(true));
-    el<HTMLSelectElement>('menu-level').addEventListener('change', (e) => handlers.selectLevel((e.target as HTMLSelectElement).value));
+    el('menu-level').addEventListener('click', () => this.openLevels());
+    el('level-close').addEventListener('click', () => this.closeLevels());
+    el('level-modal').addEventListener('click', (e) => {
+      if (e.target === e.currentTarget) this.closeLevels();
+    });
     el('close-settings').addEventListener('click', () => this.showSettings(false));
     el('open-controls').addEventListener('click', () => this.showControls(true));
     el('close-controls').addEventListener('click', () => this.showControls(false));
@@ -145,12 +160,16 @@ export class Menu {
       this.settings.crouchMode = crouchMode.value;
       this.changed();
     });
-    const inputMode = el<HTMLSelectElement>('set-input');
-    inputMode.value = settings.inputMode;
-    inputMode.addEventListener('change', () => {
-      this.settings.inputMode = inputMode.value;
-      this.changed();
-    });
+    // Play with: two buttons, one lit.
+    for (const b of el('input-toggle').querySelectorAll<HTMLButtonElement>('button')) {
+      b.addEventListener('click', () => {
+        if (this.settings.inputMode === b.dataset.mode) return;
+        this.settings.inputMode = b.dataset.mode!;
+        this.syncInputToggle();
+        this.changed();
+      });
+    }
+    this.syncInputToggle();
   }
 
   private changed(): void {
@@ -303,17 +322,84 @@ export class Menu {
         : `Click gadgets to fill the slots · ${useKeysName(this.bindings)} use them in the run`;
   }
 
-  /** The level dropdown: each level with its best time and medal, the current one chosen. */
+  private syncInputToggle(): void {
+    for (const b of el('input-toggle').querySelectorAll<HTMLButtonElement>('button')) {
+      b.setAttribute('aria-checked', String(b.dataset.mode === this.settings.inputMode));
+    }
+  }
+
+  /** The levels, each with its record, and which is being played: the Level button and the picker. */
   setLevels(levels: readonly LevelEntry[], current: string): void {
-    const select = el<HTMLSelectElement>('menu-level');
-    select.replaceChildren(
-      ...levels.map((l) => {
-        const best = l.best === null ? 'not finished yet' : `best ${formatTime(l.best)}`;
-        const medal = l.medal && l.medal !== 'none' ? ` · ${l.medal[0].toUpperCase()}${l.medal.slice(1)}` : '';
-        return new Option(`${l.name} — ${best}${medal}`, l.id, false, l.id === current);
+    this.levels = [...levels];
+    this.currentLevel = current;
+    const l = levels.find((x) => x.id === current);
+    const button = el('menu-level');
+    button.querySelector('.lv-name')!.textContent = l?.name ?? '';
+    button.querySelector('.lv-best')!.textContent = l?.best != null ? `Best ${formatTime(l.best)}` : 'Not finished yet';
+    if (this.levelsOpen) this.renderLevels();
+  }
+
+  get levelsOpen(): boolean {
+    return !el('level-modal').classList.contains('hidden');
+  }
+
+  /** The level picker: a card per level with its preview, your record and the medal times. */
+  openLevels(): void {
+    this.previews ??= this.handlers.levelPreviews();
+    this.renderLevels();
+    el('level-modal').classList.remove('hidden');
+    el<HTMLElement>('level-list').querySelector<HTMLElement>('.current')?.focus({ preventScroll: true });
+  }
+
+  closeLevels(): void {
+    el('level-modal').classList.add('hidden');
+  }
+
+  private renderLevels(): void {
+    const list = el('level-list');
+    list.replaceChildren(
+      ...this.levels.map((l) => {
+        const b = document.createElement('button');
+        b.className = 'level-pick';
+        b.classList.toggle('current', l.id === this.currentLevel);
+        const img = document.createElement('img');
+        img.className = 'preview';
+        img.alt = `${l.name} preview`;
+        const src = this.previews?.get(l.id);
+        if (src) img.src = src;
+        const name = document.createElement('h3');
+        name.textContent = l.name;
+        const pr = document.createElement('div');
+        pr.className = 'pr';
+        const detail = document.createElement('div');
+        detail.className = 'detail';
+        if (l.best === null) {
+          pr.classList.add('none');
+          pr.textContent = 'No record yet';
+        } else {
+          const dot = document.createElement('span');
+          dot.className = `medal-dot ${l.medal ?? 'none'}`;
+          pr.append(dot, formatTime(l.best));
+          const medal = l.medal && l.medal !== 'none' ? `${l.medal[0].toUpperCase()}${l.medal.slice(1)}` : 'No medal';
+          const date = l.bestDate ? new Date(l.bestDate).toLocaleDateString() : '';
+          const cp = l.bestCheckpoints === false ? ' · no checkpoints' : '';
+          detail.innerHTML = `${medal}${cp}${date ? ` · ${date}` : ''}<br />Gadgets: ${l.bestLoadout && l.bestLoadout.length > 0 ? loadoutIcons(l.bestLoadout) : 'none'}`;
+        }
+        const targets = document.createElement('div');
+        targets.className = 'targets';
+        const t = l.thresholds;
+        targets.innerHTML =
+          `<span><span class="medal-dot gold"></span> ${t.goldSeconds.toFixed(0)} s</span>` +
+          `<span><span class="medal-dot silver"></span> ${t.silverSeconds.toFixed(0)} s</span>` +
+          `<span><span class="medal-dot bronze"></span> ${t.bronzeSeconds.toFixed(0)} s</span>`;
+        b.append(img, name, pr, detail, targets);
+        b.addEventListener('click', () => {
+          this.closeLevels();
+          this.handlers.selectLevel(l.id);
+        });
+        return b;
       }),
     );
-    select.value = current;
   }
 
   setBest(seconds: number | null): void {
@@ -564,6 +650,7 @@ export class Menu {
 
   hide(): void {
     this.showSettings(false, false);
+    this.closeLevels();
     this.setControlsNote('');
     this.closeInfo();
     // Don't leave a menu button focused, or Space during play would press it.
