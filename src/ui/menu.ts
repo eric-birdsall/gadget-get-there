@@ -5,6 +5,7 @@ import { MAX_SLOTS } from '../game/session';
 import { Action, type Bindings, MAX_KEYS_PER_ACTION, USE_ACTIONS, keyName, useKeysName } from '../input/input';
 import { keyLabel } from '../input/keyNames';
 import { bindKey, clearKey, defaultBindings, saveBindings } from '../storage/bindings';
+import type { Medal } from '../game/medals';
 import { formatTime } from './hud';
 import { GADGET_ICONS } from './icons';
 
@@ -20,6 +21,16 @@ export interface MenuHandlers {
   clearGadgets: () => void;
   settingsChanged: () => void;
   bindingsChanged: () => void;
+  /** Switch to another level (mid-run this abandons the run). */
+  selectLevel: (id: string) => void;
+}
+
+/** A level in the selector. */
+export interface LevelEntry {
+  id: string;
+  name: string;
+  best: number | null;
+  medal: Medal | null;
 }
 
 /** The Controls page, in groups. Debug keys stay off it. */
@@ -258,6 +269,33 @@ export class Menu {
     el('menu-gadgets-hint').textContent = running
       ? 'Changing gadgets restarts the run'
       : `Click gadgets to fill the slots · ${useKeysName(this.bindings)} use them in the run`;
+  }
+
+  /** The level row: each level's name and best, the current one highlighted. */
+  setLevels(levels: readonly LevelEntry[], current: string): void {
+    const row = el('menu-levels');
+    row.replaceChildren();
+    for (const l of levels) {
+      const b = document.createElement('button');
+      b.className = 'level-card';
+      b.classList.toggle('current', l.id === current);
+      b.setAttribute('aria-pressed', String(l.id === current));
+      const name = document.createElement('span');
+      name.className = 'level-name';
+      name.textContent = l.name;
+      const best = document.createElement('span');
+      best.className = 'level-best';
+      best.textContent = l.best === null ? 'Not finished yet' : formatTime(l.best);
+      if (l.medal) {
+        const dot = document.createElement('span');
+        dot.className = `medal-dot ${l.medal}`;
+        dot.title = l.medal === 'none' ? 'Finished' : `${l.medal[0].toUpperCase()}${l.medal.slice(1)} medal`;
+        best.prepend(dot);
+      }
+      b.append(name, best);
+      b.addEventListener('click', () => this.handlers.selectLevel(l.id));
+      row.append(b);
+    }
   }
 
   setBest(seconds: number | null): void {

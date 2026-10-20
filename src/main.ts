@@ -1,7 +1,7 @@
 import { Vector3 } from 'three';
 import { GameAudio, Sfx } from './audio/audio';
 import { ABILITY_CONFIG, CAMERA_CONFIG, DT, MAX_FRAME_SECONDS } from './config';
-import { crossing } from './course/crossing';
+import { COURSES, courseById } from './course/courses';
 import { GrappleGadget, findGrappleTarget } from './gadgets/grapple';
 import { LaunchPadGadget, padPlacement } from './gadgets/launchPad';
 import { DEFAULT_LOADOUT, isGadgetId } from './gadgets/registry';
@@ -24,8 +24,8 @@ import { Fullscreen } from './ui/fullscreen';
 import { TuningPanel, loadTuning } from './ui/tuning';
 
 loadTuning();
-const course = crossing;
 const settings = loadSettings();
+let course = courseById(settings.level);
 const bindings = loadBindings();
 const records = new RecordStore();
 /** The saved gadget order (possibly empty). Gadgets that no longer exist drop out. */
@@ -35,7 +35,7 @@ function savedLoadout(): GadgetId[] {
   return ids.length > 0 ? ids : [...DEFAULT_LOADOUT];
 }
 
-const session = new RunSession(course, {
+let session = new RunSession(course, {
   loadout: savedLoadout(),
   checkpointsEnabled: settings.checkpoints,
 });
@@ -75,12 +75,35 @@ function applySettings(): void {
   refreshCategory();
 }
 
-/** PB line, menu best and ghost for this level. */
+/** PB line, menu best and ghost for this level, and every level's best for the selector. */
 function refreshCategory(): void {
   const best = records.best(course.id);
   hud.setPersonalBest(best?.seconds ?? null);
   menu.setBest(best?.seconds ?? null);
+  menu.setLevels(
+    COURSES.map((c) => {
+      const pb = records.best(c.id)?.seconds ?? null;
+      return { id: c.id, name: c.name, best: pb, medal: pb === null ? null : medalFor(pb, c.medalThresholds) };
+    }),
+    course.id,
+  );
   ghost = best?.ghost ? new GhostPlayer(best.ghost) : null;
+}
+
+/** Switches to another level, at its start line with the same gadgets. */
+function selectLevel(id: string): void {
+  const next = courseById(id);
+  if (next.id === course.id) return;
+  course = next;
+  settings.level = course.id;
+  saveSettings(settings);
+  session = new RunSession(course, { loadout: [...session.loadout], checkpointsEnabled: settings.checkpoints });
+  renderer.setCourse(session.boxes, course);
+  hud.showResult(null);
+  refreshCategory();
+  refreshGadget();
+  onSpawned();
+  audio.play(Sfx.Select);
 }
 
 function refreshGadget(): void {
@@ -243,6 +266,7 @@ const menu = new Menu(settings, bindings, {
   },
   tuning: () => tuning.toggle(),
   toggleGadget,
+  selectLevel,
   clearGadgets: () => {
     if (session.state !== AttemptState.Ready) restart();
     if (!session.clearGadgets()) return;
@@ -444,4 +468,14 @@ menu.show(false);
 requestAnimationFrame(frame);
 
 // ?dev exposes the game to the console, for poking at positions while tuning.
-if (new URLSearchParams(location.search).has('dev')) Object.assign(window, { game: { session, input, renderer, records } });
+if (new URLSearchParams(location.search).has('dev')) Object.assign(window, {
+    game: {
+      // A getter: switching levels replaces the session.
+      get session() {
+        return session;
+      },
+      input,
+      renderer,
+      records,
+    },
+  });

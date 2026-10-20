@@ -21,6 +21,8 @@ export interface Settings {
   shadows: boolean;
   /** Last gadget order, comma-separated, restored next visit. */
   loadout: string;
+  /** Last level played, by id. */
+  level: string;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -36,6 +38,7 @@ export const DEFAULT_SETTINGS: Settings = {
   ghost: true,
   shadows: true,
   loadout: 'grapple,jetpack,dash',
+  level: 'the-crossing',
 };
 
 export function readJson(key: string): unknown {

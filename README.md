@@ -61,7 +61,10 @@ src/
   game/session.ts      attempt state machine, clock, checkpoints, finish, falls/respawn
   game/ghost.ts        PB ghost recording (20 Hz) and interpolated playback
   game/medals.ts       medal thresholds
-  course/crossing.ts   "The Crossing", the course
+  course/crossing.ts   "The Crossing" (downhill)
+  course/ascent.ts     "Ascent" (uphill: cliffs to climb)
+  course/gauntlet.ts   "Gauntlet" (fast and flat: barriers, gaps, a wall corridor)
+  course/courses.ts    the level list for the selector
   course/routeBot.ts   scripted player used by tests to prove every gadget can finish
   render/              Three.js scene, capsule-bot, camera, anchors/rope/pads/ghost/gate
   audio/audio.ts       procedural Web Audio SFX and music loop
@@ -76,11 +79,12 @@ Runs carry up to three gadgets with fixed budgets, one use key per slot, with ga
 
 Character abilities (slide, crouch-walk, mantle) work with every gadget. The Crossing has two optional ability spots: blocks across the central gap that only a mantle reaches, and a barrier on the final platform with a slide-under slot.
 
+Three levels, picked in the menu (each with its own personal best, medal and ghost): **The Crossing** (downhill, every gadget has a line), **Ascent** (uphill: two cliffs to mantle, grapple or jetpack up) and **Gauntlet** (fast and flat: slide under barriers, cross gaps by gadget or slide-jump, wall-run a corridor). `src/course/ascent.test.ts` and `gauntlet.test.ts` prove each one the same way: every gadget can finish on foot, and each faster line beats it. Bot running times: Ascent ≈ 30 s, Gauntlet ≈ 30 s.
+
 The route-bot tests in `src/course/crossing.test.ts` finish The Crossing without falling on the plain running line with each gadget, on each gadget's own faster line, and on an ability line (mantle + slide). Rough bot times: running ≈ 46 s, grapple ≈ 36 s, rollerblades ≈ 36 s, launch pad ≈ 40 s, abilities ≈ 43 s. Medal thresholds (gold 32 s / silver 40 s / bronze 55 s) are placeholders until real playtests.
 
 ## Future ideas
 
-- **Main mode: gadget loadouts.** A level selector where you pick 1–5 gadgets in a set order before the round starts. Each gadget has a limited usage (budgets and per-slot use keys are already in; this adds a level selector). This replaces the spec's one-gadget-per-run rule as the main way to play.
 - **Training mode:** today's free play, one gadget with unlimited use, for practising and testing each gadget.
 - **Platform gadget (idea):** creates a temporary platform directly in front of the character that you can run, slide and jump on.
 - **Rail boots (idea, name TBD):** boots that let you grind thin rails you couldn't otherwise stand on.

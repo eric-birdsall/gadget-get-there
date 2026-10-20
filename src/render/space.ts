@@ -295,6 +295,13 @@ class AsteroidField {
     this.update();
   }
 
+  dispose(): void {
+    for (const mesh of this.meshes) {
+      mesh.geometry.dispose();
+      (mesh.material as MeshStandardMaterial).dispose();
+    }
+  }
+
   /** Turns every rock a little; call once per frame. */
   update(): void {
     this.meshes.forEach((mesh, v) => {
@@ -384,18 +391,29 @@ export class SpaceBackdrop {
   /** Everything at "infinity": follows the camera so it never gets closer. */
   private readonly sky = new Group();
   private readonly starMaterial: ShaderMaterial;
-  private readonly asteroids: AsteroidField;
+  private asteroids: AsteroidField;
   private readonly meteors: Meteors;
   private time = 0;
 
-  constructor(scene: Scene, boxes: readonly Box[]) {
+  constructor(
+    private readonly scene: Scene,
+    boxes: readonly Box[],
+  ) {
     const random = rng(0x5ace);
     const { points, material } = stars(6000, random);
     this.starMaterial = material;
     this.meteors = new Meteors(random);
     this.sky.add(skyDome(), points, planetAndMoon(random), this.meteors.group);
-    this.asteroids = new AsteroidField(boxes, random);
+    this.asteroids = new AsteroidField(boxes, rng(0xa57e));
     scene.add(this.sky, this.asteroids.group);
+  }
+
+  /** A new course: a new asteroid field that keeps clear of it. */
+  setCourse(boxes: readonly Box[]): void {
+    this.scene.remove(this.asteroids.group);
+    this.asteroids.dispose();
+    this.asteroids = new AsteroidField(boxes, rng(0xa57e));
+    this.scene.add(this.asteroids.group);
   }
 
   update(dt: number, cameraPos: Vector3): void {

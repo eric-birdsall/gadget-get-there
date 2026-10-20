@@ -5,6 +5,7 @@ import {
   DirectionalLight,
   EdgesGeometry,
   Fog,
+  Group,
   HemisphereLight,
   LineBasicMaterial,
   LineSegments,
@@ -75,14 +76,16 @@ export class Renderer {
   private readonly down = new Vector3(0, -1, 0);
   private readonly probe = new Vector3();
   private readonly hand = new Vector3();
-  private readonly flags: CheckpointFlags;
+  private flags!: CheckpointFlags;
+  /** The course's pieces, checkpoint flags and finish gate: swapped out when the level changes. */
+  private courseGroup = new Group();
   private readonly grappleMarker = new GrappleMarker();
   private readonly rope = new RopeView(MARKER_COLORS.rope);
   private readonly pads = new PadViews();
   private readonly ghost = new GhostView();
 
   constructor(
-    private readonly boxes: readonly Box[],
+    private boxes: readonly Box[],
     course: CourseDefinition,
   ) {
     this.gl = new WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
@@ -110,10 +113,9 @@ export class Renderer {
     this.sun.shadow.normalBias = 0.04;
     this.scene.add(this.sun, this.sun.target);
 
-    this.buildCourse();
     this.space = new SpaceBackdrop(this.scene, this.boxes);
-    this.flags = new CheckpointFlags(course.checkpoints);
-    this.scene.add(this.flags.group, finishGate(course.finish), this.grappleMarker.group);
+    this.setCourse(boxes, course, false);
+    this.scene.add(this.grappleMarker.group);
     this.scene.add(this.player.root, this.shadow.mesh, this.rope.mesh, this.pads.group, this.ghost.group);
 
     window.addEventListener('resize', () => this.resize());
@@ -122,6 +124,22 @@ export class Renderer {
 
   get canvas(): HTMLCanvasElement {
     return this.gl.domElement;
+  }
+
+  /** Draws a different course (the level selector). */
+  setCourse(boxes: readonly Box[], course: CourseDefinition, newAsteroids = true): void {
+    this.scene.remove(this.courseGroup);
+    this.courseGroup.traverse((o) => {
+      const m = o as Mesh;
+      m.geometry?.dispose();
+    });
+    this.boxes = boxes;
+    this.courseGroup = new Group();
+    this.buildCourse();
+    this.flags = new CheckpointFlags(course.checkpoints);
+    this.courseGroup.add(this.flags.group, finishGate(course.finish));
+    this.scene.add(this.courseGroup);
+    if (newAsteroids) this.space.setCourse(boxes);
   }
 
   private buildCourse(): void {
@@ -142,7 +160,7 @@ export class Renderer {
       mesh.castShadow = true;
       mesh.receiveShadow = true;
       mesh.add(new LineSegments(new EdgesGeometry(geo), edgeMat));
-      this.scene.add(mesh);
+      this.courseGroup.add(mesh);
     }
   }
 

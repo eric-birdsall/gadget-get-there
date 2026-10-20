@@ -19,8 +19,8 @@ export interface Waypoint {
   jump?: boolean;
   /** Press jump on becoming the target even in the air (a wall jump off the wall being run). */
   kick?: boolean;
-  /** On becoming the target: hook this point and hold until `releaseZ` is passed. */
-  grapple?: { at: [number, number, number]; releaseZ: number };
+  /** On becoming the target: hook this point and hold until `releaseZ` is passed (or, climbing, `releaseY`). */
+  grapple?: { at: [number, number, number]; releaseZ: number; releaseY?: number };
   /** On becoming the target: throw a pad at this point. */
   pad?: [number, number, number];
   /** From here on, press and hold this gadget's slot key (slot 1's until a route says otherwise). */
@@ -31,7 +31,7 @@ export interface Waypoint {
   hold?: boolean;
   /** Hold slide/crouch while heading here. */
   crouch?: boolean;
-  /** Keep jump held in the air while heading here, to mantle a ledge. */
+  /** Keep jump held in the air while heading here, to mantle a ledge; on the ground, jump at a wall ahead. */
   holdJump?: boolean;
 }
 
@@ -48,6 +48,7 @@ export interface BotRun {
 
 const down = new Vector3(0, -1, 0);
 const probe = new Vector3();
+const ahead = new Vector3();
 const hand = new Vector3();
 
 /** Drives `session` along `route` until it finishes or `maxSeconds` pass. */
@@ -55,7 +56,7 @@ export function runRoute(session: RunSession, route: Waypoint[], maxSeconds = 12
   const p = session.player;
   let target = 0;
   let falls = 0;
-  let holding: { releaseZ: number; slot: number } | null = null;
+  let holding: { releaseZ: number; releaseY: number; slot: number } | null = null;
   /** The slot whose key the route is using. */
   let slot = 0;
   const use = (input: SessionInput, i: number, pressed: boolean) => {
@@ -102,11 +103,11 @@ export function runRoute(session: RunSession, route: Waypoint[], maxSeconds = 12
         input.aimOrigin = hand.clone();
         input.aimDir = aimAt.clone().sub(hand).normalize();
         use(input, slot, true);
-        if (wp.grapple) holding = { releaseZ: wp.grapple.releaseZ, slot };
+        if (wp.grapple) holding = { releaseZ: wp.grapple.releaseZ, releaseY: wp.grapple.releaseY ?? Infinity, slot };
       }
     }
     if (holding) {
-      if (p.pos.z > holding.releaseZ) use(input, holding.slot, false);
+      if (p.pos.z > holding.releaseZ && p.pos.y < holding.releaseY) use(input, holding.slot, false);
       else {
         // Let go: on to the next waypoint.
         holding = null;
@@ -116,6 +117,12 @@ export function runRoute(session: RunSession, route: Waypoint[], maxSeconds = 12
     if (wp.hold) use(input, slot, false);
     if (wp.crouch) input.crouch = true;
     if (wp.holdJump && !p.grounded) input.jump = true;
+    // Climbing: a ledge right ahead, on the ground. Pulse jump (it fires on the press), then hold.
+    if (wp.holdJump && p.grounded && speed > 1) {
+      probe.set(p.pos.x, p.pos.y + 0.5, p.pos.z);
+      ahead.set(p.vel.x / speed, 0, p.vel.z / speed);
+      if (raycast(session.boxes, probe, ahead, 1.6)) input.jump = !p.jumpHeld;
+    }
 
     // Jump at the edge of whatever we're running on.
     if (!wp.noJump && !holding && p.grounded && speed > 1) {

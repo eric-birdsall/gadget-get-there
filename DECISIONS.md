@@ -217,3 +217,10 @@ Replaces the gadget in hand, switching (scroll, F, 1–5 mid-run) and auto-switc
 ## Gadgets are chosen in the menu only (built)
 - The 1–5 add/remove keys at the start line are gone, with their hint and Controls rows. Pick gadgets in the menu (Esc).
 - Start-line hint: "E / Q / F use your gadgets"; with none chosen, "No gadgets · Esc to pick some". The info modal shows just the budget.
+
+## Three levels and a level selector (built)
+- **The Crossing** (downhill), **Ascent** (uphill) and **Gauntlet** (fast and flat). Each favours different gadgets; every level has a plain line any loadout can finish.
+- **Ascent:** stair hops; an 8 m cliff (ramp round the right, three ledges to mantle, jetpack, or swing from a beam hung just out from the face so the rope clears the edge); a 12 m cliff (long ramp with a wall to run, or jetpack, or the grapple hauling you up the face); a last ramp to the finish. No wingsuit or pad shortcut: it's uphill.
+- **Gauntlet:** two slide barriers (or round the ends); a 14 m gap down to an island (stones round the right, or dash/glide/pad/swing/wall-run); the plunge, a 14 m gap after a short kicker (ramp round the left, or a slide down the kicker into a slide-jump, or any gadget); a 24 m corridor between two walls (narrow bridge, or wall-run and kick across, swing, jetpack).
+- **Selector:** a row of level cards above the gadgets in the menu, each with its best time and medal dot. Switching keeps the gadgets and puts you at the new start line (mid-run, it abandons the run). The last level played is remembered.
+- Medal times scale from the bot's running time as on The Crossing (gold ≈ 0.69×, silver ≈ 0.86×, bronze ≈ 1.18×); placeholders until playtests.
