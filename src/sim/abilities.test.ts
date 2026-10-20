@@ -41,11 +41,35 @@ describe('slide', () => {
     expect(horizontalSpeed(p)).toBeCloseTo(A.crouchSpeed, 1);
   });
 
-  it('gains speed down a slope', () => {
+  it('gains a little speed down a slope, and keeps most of it on the flat', () => {
     const hill = [makeBox(ramp([0, 30, 0], [0, 0, -150], 10))];
     const p = running(hill, new Vector3(0, 29.9, -1));
+    const start = horizontalSpeed(p);
     run(p, { forward: 1, crouch: true }, 3, hill);
-    expect(horizontalSpeed(p)).toBeGreaterThan(M.groundSpeed + 3);
+    expect(p.stance).toBe(Stance.Slide);
+    // About 11° down: a slight gain, not a rush.
+    expect(horizontalSpeed(p)).toBeGreaterThan(start + 1);
+    expect(horizontalSpeed(p)).toBeLessThan(start + 4);
+    const flat = running();
+    run(flat, { forward: 1, crouch: true }, 2);
+    expect(horizontalSpeed(flat)).toBeGreaterThan(M.groundSpeed - 2 * A.slideFriction - 0.3);
+  });
+
+  it('will not slide uphill: crouch held there is a crouch-walk, and a slide that hits a climb ends', () => {
+    // Up a slope from the start.
+    const climb = [makeBox(slab(0, 0, 10, 40, 20)), makeBox(ramp([0, 0, 0], [0, 15, -100], 10))];
+    const p = running(climb, new Vector3(0, 0, 8));
+    run(p, { forward: 1 }, 1, climb);
+    expect(p.pos.y).toBeGreaterThan(0.5);
+    stepPlayer(p, { ...NO_INPUT, forward: 1, crouch: true }, climb);
+    expect(p.stance).toBe(Stance.Crouch);
+    // Sliding on the flat into the foot of the slope: the slide ends there.
+    const q = running(climb, new Vector3(0, 0, 15));
+    run(q, { forward: 1, crouch: true }, 0.3, climb);
+    expect(q.stance).toBe(Stance.Slide);
+    run(q, { forward: 1, crouch: true }, 1.5, climb);
+    expect(q.pos.y).toBeGreaterThan(0.5);
+    expect(q.stance).toBe(Stance.Crouch);
   });
 
   it('jumping out keeps the slide speed and stands up', () => {

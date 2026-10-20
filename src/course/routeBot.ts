@@ -31,6 +31,8 @@ export interface Waypoint {
   hold?: boolean;
   /** Hold slide/crouch while heading here. */
   crouch?: boolean;
+  /** Press sprint (it toggles) on becoming the target. */
+  sprint?: boolean;
   /** Keep jump held in the air while heading here, to mantle a ledge; on the ground, jump at a wall ahead. */
   holdJump?: boolean;
 }
@@ -96,6 +98,7 @@ export function runRoute(session: RunSession, route: Waypoint[], maxSeconds = 12
       if (wp.select) slot = Math.max(0, session.loadout.indexOf(wp.select));
       if (wp.jump && p.grounded) input.jump = true;
       if (wp.kick) input.jump = true;
+      if (wp.sprint) input.sprint = true;
       if (wp.press) use(input, slot, true);
       if (wp.grapple || wp.pad) {
         const aimAt = new Vector3(...(wp.grapple ? wp.grapple.at : wp.pad!));

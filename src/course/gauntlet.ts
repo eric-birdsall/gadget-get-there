@@ -20,7 +20,8 @@ function barrier(z: number, top: number) {
  * 2. A 14 m gap down to a lower island: stepping stones round the right; or dash, glide,
  *    launch, swing or wall-run straight across.
  * 3. The plunge: a steep downhill kicker, then a 4 m drop over a 14 m gap. A ramp down the left; or
- *    slide down the kicker and slide-jump (the burst carries you), dash, glide, launch or swing.
+ *    sprint in, slide down the kicker and slide-jump (the burst carries you), dash, glide, launch
+ *    or swing. A running jump, even sprinting, falls short.
  * 4. The corridor: a 24 m gap between two tall walls. A narrow bridge on the right; or wall-run
  *    and kick across, or swing.
  */

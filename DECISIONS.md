@@ -246,3 +246,9 @@ Replaces the gadget in hand, switching (scroll, F, 1–5 mid-run) and auto-switc
 - **Stamina:** 4 s of sprinting when full, drained only while sprint-running on the ground; refills from 0.6 s after sprint stops, empty to full in 3 s. A thin bar above the gadgets shows it while sprinting or refilling (cyan while sprinting, red below 20%).
 - **Defaults:** Shift sprints and C crouches/slides on the keyboard; clicking the left stick sprints on the controller. A saved crouch still on the old Shift default moves to C; one the player changed stays. A controller save from before sprint gets L3 for it if that's free.
 - A sprint press waits for the next sim tick, so on fast displays a toggle is never dropped.
+
+## Slides: flat or downhill only (built)
+- A slide only starts on flat or downhill ground; heading up anything steeper than about 2° along your travel, crouch is a crouch-walk. A slide that runs onto a climb ends in a crouch. Banked curves count as flat (their tilt is sideways).
+- Flat: friction 1.2 m/s² (was 2.5), so a slide keeps most of its speed (10 m/s is still ~8.8 after a second).
+- Downhill: a slide gets 0.35 of gravity along the slope (was 0.9): a slight gain, about +0.6 m/s² on 12°.
+- Gauntlet's plunge is now crossed by sprinting in, sliding the kicker and slide-jumping (the route bot learned to sprint); a running jump, even sprinting, still falls short.

@@ -48,8 +48,10 @@ const SLIDE_LINE: Waypoint[] = [
   { x: 0, z: -72 },
   { x: 0, z: -86, crouch: true },
   ...STONES,
+  // Sprint across the island, then slide (sprinting ends) down the kicker, still sliding at the
+  // edge, so the jump is a slide-jump.
+  { x: 0, z: -122, sprint: true },
   { x: 0, z: -128 },
-  // Slide down the kicker, still sliding at the edge, so the jump is a slide-jump.
   { x: 0, z: -150, crouch: true },
   { x: 0, z: -170 },
   ...LOWER_TRACK,
@@ -169,7 +171,7 @@ describe('Gauntlet', () => {
     for (const [name, seconds] of results) if (name !== 'running line') expect(seconds, name).toBeLessThan(base);
   });
 
-  it('a plain running jump does not clear the plunge (it takes a slide-jump or a gadget)', () => {
+  it('a running jump, even sprinting, does not clear the plunge (it takes a slide-jump or a gadget)', () => {
     const upToKicker = SLIDE_LINE.findIndex((w) => w.z === -128);
     expect(upToKicker).toBeGreaterThan(0);
     const route: Waypoint[] = [...SLIDE_LINE.slice(0, upToKicker + 1), { x: 0, z: -170 }];

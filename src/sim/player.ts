@@ -438,7 +438,8 @@ function updateStance(p: PlayerState, input: PlayerInput, boxes: readonly Box[])
   const speed = Math.hypot(p.vel.x, p.vel.z);
   const wantLow = input.crouch && !p.tethered;
   let next: Stance;
-  if (p.grounded && wantLow) next = speed >= c.slideMinSpeed ? Stance.Slide : Stance.Crouch;
+  // A slide needs flat or downhill ground: heading uphill, crouch held is a crouch-walk.
+  if (p.grounded && wantLow) next = speed >= c.slideMinSpeed && !headingUphill(p, speed) ? Stance.Slide : Stance.Crouch;
   else if (!p.grounded && wantLow) next = Stance.Tuck;
   else next = Stance.Stand;
 
@@ -498,6 +499,15 @@ function sprintConfig(cfg: MovementConfig): MovementConfig {
   Object.assign(sprintCfg, cfg);
   sprintCfg.groundSpeed = Math.max(cfg.groundSpeed, ABILITY_CONFIG.sprintSpeed);
   return sprintCfg;
+}
+
+/** On the ground and travelling up a slope steeper than a slide copes with. */
+function headingUphill(p: PlayerState, speed: number): boolean {
+  if (!p.grounded || speed < 1e-3) return false;
+  const n = p.groundNormal;
+  // The normal leans downhill, so travelling against its lean is climbing: rise per metre of travel.
+  const rise = -(p.vel.x * n.x + p.vel.z * n.z) / speed / Math.max(n.y, 1e-3);
+  return rise > ABILITY_CONFIG.slideMaxRise;
 }
 
 /** Movement numbers for the current stance, on top of whatever the gadget set. */

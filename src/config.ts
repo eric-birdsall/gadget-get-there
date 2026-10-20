@@ -77,9 +77,12 @@ export const ABILITY_CONFIG = {
   tuckLift: 0.5,
   /** Slower than this, crouch held is a crouch-walk instead of a slide, m/s. */
   slideMinSpeed: 6,
-  /** Drag while sliding, m/s². */
-  slideFriction: 2.5,
-  slideSlopeInfluence: 0.9,
+  /** Drag while sliding on the flat: low, so a slide keeps most of its speed, m/s². */
+  slideFriction: 1.2,
+  /** Share of gravity that pulls a slide down a slope: downhill adds a little speed. */
+  slideSlopeInfluence: 0.35,
+  /** Steepest rise along your travel a slide copes with (tangent, ≈2°): any steeper uphill and you crouch instead. */
+  slideMaxRise: 0.035,
   slideTurnGrip: 0.35,
   crouchSpeed: 4,
   /** Jumping out of a slide at least this long… s */
