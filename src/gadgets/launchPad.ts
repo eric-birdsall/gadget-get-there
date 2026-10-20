@@ -37,10 +37,11 @@ export class LaunchPadGadget implements GadgetRuntime {
   limited = true;
   pad: Pad | null = null;
   private cooldown = 0;
-  private launches = 0;
+  /** Swings, launches, seconds or dashes used so far. */
+  used = 0;
 
   get usageLabel(): string {
-    return this.limited ? `x${Math.max(0, USAGE_CONFIG.padLaunches - this.launches)}` : '∞';
+    return this.limited ? `x${Math.max(0, USAGE_CONFIG.padLaunches - this.used)}` : '∞';
   }
 
   /** A thrown pad stays and still works after switching away. */
@@ -48,7 +49,7 @@ export class LaunchPadGadget implements GadgetRuntime {
 
   /** Re-throwing is free: only launches count. */
   get remaining(): number {
-    return this.limited ? Math.max(0, 1 - this.launches / USAGE_CONFIG.padLaunches) : 1;
+    return this.limited ? Math.max(0, 1 - this.used / USAGE_CONFIG.padLaunches) : 1;
   }
 
   movement(base: MovementConfig): MovementConfig {
@@ -91,7 +92,7 @@ export class LaunchPadGadget implements GadgetRuntime {
     launch.y = c.launchVertical;
     launchPlayer(p, launch);
     pad.rearm = c.rearmSeconds;
-    this.launches++;
+    this.used++;
     // Out of launches: the pad is done.
     if (this.remaining <= 0) this.pad = null;
     ctx.emit(GadgetEvent.PadLaunched);

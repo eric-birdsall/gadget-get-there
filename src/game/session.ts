@@ -171,6 +171,13 @@ export class RunSession {
   }
 
   /** Fresh runtimes (full budgets) for every chosen gadget, slot 1 in hand. */
+  /** Gadget use and the gadget in hand as of the latest checkpoint (or the start). */
+  private saved = { used: [] as number[], slot: 0 };
+
+  private saveGadgets(): void {
+    this.saved = { used: this.gadgets.map((g) => g.used), slot: this.slot };
+  }
+
   private refill(): void {
     for (const g of this.gadgets) g.resetTransientState(this.player);
     this.gadgets = this.loadout.map((id) => {
@@ -179,6 +186,7 @@ export class RunSession {
       return g;
     });
     this.slot = 0;
+    this.saveGadgets();
   }
 
   /** Switch the gadget in hand, any time before the finish. Returns false if nothing changed. */
@@ -268,8 +276,13 @@ export class RunSession {
 
   /** Back to the latest checkpoint (or the start) with the clock still running. */
   private respawn(): void {
-    // Budgets and the gadget in hand stay as they were; ropes and thrown pads are cleared.
-    for (const g of this.gadgets) g.resetTransientState(this.player);
+    // Gadgets go back to how they were at that checkpoint (or the start): budgets and the one in hand.
+    this.gadget?.unequip(this.player);
+    this.gadgets.forEach((g, i) => {
+      g.resetTransientState(this.player);
+      g.used = this.saved.used[i] ?? 0;
+    });
+    this.slot = this.saved.slot;
     const cp = this.checkpoint >= 0 ? this.course.checkpoints[this.checkpoint].respawn : null;
     const pos = cp ? new Vector3(...cp.pos) : this.startPos;
     resetPlayer(this.player, pos);
@@ -364,6 +377,7 @@ export class RunSession {
       for (let i = this.checkpoint + 1; i < this.course.checkpoints.length; i++) {
         if (inVolume(p, this.course.checkpoints[i])) {
           this.checkpoint = i;
+          this.saveGadgets();
           this.events.push(SessionEvent.CheckpointReached);
         }
       }

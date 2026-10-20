@@ -53,10 +53,11 @@ export class GrappleGadget implements GadgetRuntime {
   /** Where the rope is fixed while attached, else null. */
   point: Vector3 | null = null;
   private length = 0;
-  private swings = 0;
+  /** Swings, launches, seconds or dashes used so far. */
+  used = 0;
 
   get usageLabel(): string {
-    return this.limited ? `x${Math.max(0, USAGE_CONFIG.grappleSwings - this.swings)}` : '∞';
+    return this.limited ? `x${Math.max(0, USAGE_CONFIG.grappleSwings - this.used)}` : '∞';
   }
 
   /** Switching away lets go of the rope; the swing counts. */
@@ -66,7 +67,7 @@ export class GrappleGadget implements GadgetRuntime {
 
   /** Misses are free: only finished swings count. */
   get remaining(): number {
-    return this.limited ? Math.max(0, 1 - this.swings / USAGE_CONFIG.grappleSwings) : 1;
+    return this.limited ? Math.max(0, 1 - this.used / USAGE_CONFIG.grappleSwings) : 1;
   }
 
   get attached(): boolean {
@@ -130,7 +131,7 @@ export class GrappleGadget implements GadgetRuntime {
 
   private release(p: PlayerState, boost = true): void {
     this.point = null;
-    this.swings++;
+    this.used++;
     p.tethered = false;
     if (!boost) return;
     const speed = p.vel.length();
@@ -142,7 +143,7 @@ export class GrappleGadget implements GadgetRuntime {
 
   resetTransientState(p: PlayerState): void {
     // Losing the rope mid-swing (a respawn, a mantle) still used the swing.
-    if (this.attached) this.swings++;
+    if (this.attached) this.used++;
     this.point = null;
     this.length = 0;
     p.tethered = false;

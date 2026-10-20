@@ -59,6 +59,8 @@ export interface GadgetRuntime {
   resetTransientState(player: PlayerState): void;
   /** The player switched to another gadget: let go of whatever this one was doing. */
   unequip(player: PlayerState): void;
+  /** How much has been used (swings, launches, seconds…): saved at checkpoints, restored on respawn. */
+  used: number;
 }
 
 export interface GadgetDefinition {

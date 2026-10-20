@@ -11,15 +11,16 @@ export class JetpackGadget implements GadgetRuntime {
   limited = true;
   thrusting = false;
   /** Seconds of fuel burned. */
-  private burned = 0;
+  /** Swings, launches, seconds or dashes used so far. */
+  used = 0;
 
   get remaining(): number {
-    return this.limited ? Math.max(0, 1 - this.burned / USAGE_CONFIG.jetpackSeconds) : 1;
+    return this.limited ? Math.max(0, 1 - this.used / USAGE_CONFIG.jetpackSeconds) : 1;
   }
 
   get usageLabel(): string {
     if (!this.limited) return '∞';
-    return `${Math.max(0, USAGE_CONFIG.jetpackSeconds - this.burned).toFixed(1)}s`;
+    return `${Math.max(0, USAGE_CONFIG.jetpackSeconds - this.used).toFixed(1)}s`;
   }
 
   movement(base: MovementConfig): MovementConfig {
@@ -43,7 +44,7 @@ export class JetpackGadget implements GadgetRuntime {
     }
     // Thrust against gravity (which the move applies afterwards), up to a top climbing speed.
     p.vel.y = Math.min(c.maxRiseSpeed, p.vel.y + c.thrust * DT);
-    this.burned += DT;
+    this.used += DT;
   }
 
   afterMove(): void {}

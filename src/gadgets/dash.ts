@@ -14,15 +14,16 @@ export class DashGadget implements GadgetRuntime {
   limited = true;
   /** Seconds since the last dash, for the trail effect; large when none. */
   sinceDash = Infinity;
-  private dashes = 0;
+  /** Swings, launches, seconds or dashes used so far. */
+  used = 0;
   private cooldown = 0;
 
   get remaining(): number {
-    return this.limited ? Math.max(0, 1 - this.dashes / USAGE_CONFIG.dashes) : 1;
+    return this.limited ? Math.max(0, 1 - this.used / USAGE_CONFIG.dashes) : 1;
   }
 
   get usageLabel(): string {
-    return this.limited ? `x${Math.max(0, USAGE_CONFIG.dashes - this.dashes)}` : '∞';
+    return this.limited ? `x${Math.max(0, USAGE_CONFIG.dashes - this.used)}` : '∞';
   }
 
   movement(base: MovementConfig): MovementConfig {
@@ -44,7 +45,7 @@ export class DashGadget implements GadgetRuntime {
     p.vel.z = dir.z * burst;
     // Level out: a dash never starts by dropping.
     p.vel.y = Math.max(p.vel.y, c.minLift);
-    this.dashes++;
+    this.used++;
     this.cooldown = c.cooldown;
     this.sinceDash = 0;
     ctx.emit(GadgetEvent.Dashed);

@@ -20,7 +20,7 @@ Pushing to `main` runs the tests, builds, and deploys to GitHub Pages (`.github/
 
 Click **Play** to go fullscreen and capture the mouse. Esc pauses (the run clock freezes too) and a second Esc leaves fullscreen; Resume goes back in. In Chrome/Edge holding Esc also exits; Safari and Firefox exit fullscreen on the first Esc.
 
-Pick up to three of the four gadgets before a run. Each has a fixed budget on every level: Grapple x2 swings, Jetpack 3 s of thrust, Launch Pad x1 launch, Dash Thruster x3 dashes. Switch between them any time with the scroll wheel (or 1 2 3 4); when one is used up, the next gadget with budget left takes over automatically, and used-up gadgets can't be picked again. Slot 1 is in hand at the start.
+Pick up to three of the four gadgets before a run. Each has a fixed budget on every level: Grapple x2 swings, Jetpack 3 s of thrust, Launch Pad x1 launch, Dash Thruster x3 dashes. Switch between them any time with the scroll wheel (or 1 2 3 4); when one is used up, the next gadget with budget left takes over automatically, and used-up gadgets can't be picked again. Slot 1 is in hand at the start. With checkpoints on, a respawn puts your gadgets back as they were when you reached that checkpoint.
 
 | Action | Keys |
 |---|---|

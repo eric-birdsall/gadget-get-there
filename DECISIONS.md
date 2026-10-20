@@ -159,3 +159,7 @@ Replaces "one use each, auto-switch in order".
   - Press E for a burst the way you're going (or looking, if standing still): 22 m/s, or your speed plus 8 if that's faster.
   - A dash never starts by dropping. There's a 0.35 s cooldown between dashes, and the flames flash blue.
 - **Keys:** 1 Grapple, 2 Jetpack, 3 Launch Pad, 4 Dash; still up to 3 per run. Default loadout: Grapple, Jetpack, Dash.
+
+## Checkpoint respawns restore gadgets (built)
+- Reaching a checkpoint saves each gadget's use and which gadget is in hand. A respawn there restores exactly that (replacing "spent stays spent").
+- A respawn before any checkpoint restores the full starting loadout, with the clock still running.
