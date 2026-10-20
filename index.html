@@ -4,11 +4,19 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Gadget Get There</title>
+    <!-- Exo 2 for text, Orbitron for titles and the clock. System fonts stand in offline. -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Exo+2:ital,wght@0,400;0,500;0,600;0,700;0,800;1,600&family=Orbitron:wght@500;700;800&display=swap" rel="stylesheet" />
     <style>
-      :root { --accent: #ff5d8f; --ink: #1c1f3a; --glow: #7ff6ff; --good: #2fd47a; --bad: #ff6a6a;
+      :root { --font-text: 'Exo 2', system-ui, -apple-system, sans-serif; --font-display: 'Orbitron', 'Exo 2', system-ui, sans-serif;
+        --accent: #ff5d8f; --ink: #1c1f3a; --glow: #7ff6ff; --good: #2fd47a; --bad: #ff6a6a;
         --gold: #ffcf3f; --silver: #cfd8e6; --bronze: #e39a5b; }
       html, body { margin: 0; height: 100%; overflow: hidden; background: #070918; }
-      body { font-family: system-ui, -apple-system, sans-serif; color: #fff; user-select: none; }
+      body { font-family: var(--font-text); color: #fff; user-select: none; }
+      button, input, select { font-family: inherit; }
+      /* Display face: titles, section labels, the clock, key badges. */
+      h1, h2, h3, #timer, #result-time, #result-medal, .slot .key, .loadout-slot .n, .info-button { font-family: var(--font-display); }
       canvas { display: block; }
       .hud { position: fixed; pointer-events: none; text-shadow: 0 1px 3px rgba(20, 24, 60, 0.55); }
       .hidden { display: none !important; }
@@ -17,7 +25,10 @@
       .tabular { font-variant-numeric: tabular-nums; }
 
       #clock { left: 0; right: 0; top: 14px; text-align: center; }
-      #timer { font-size: 34px; font-weight: 800; letter-spacing: 0.02em; }
+      #timer { font-size: 32px; font-weight: 700; }
+      /* Clock digits in fixed cells (see setClockText). */
+      .cd { display: inline-block; width: 0.82em; text-align: center; }
+      .cs { display: inline-block; width: 0.36em; text-align: center; }
       #pb-line { margin-top: 2px; font-size: 14px; opacity: 0.85; }
       #hint {
         left: 0; right: 0; top: 84px; text-align: center; font-size: 15px; opacity: 0; transition: opacity 0.25s;
@@ -191,7 +202,7 @@
       .info-button {
         position: absolute; top: -7px; left: calc(50% + 34px - 11px); flex: none; width: 20px; height: 20px; padding: 0;
         display: flex; align-items: center; justify-content: center; border-radius: 50%;
-        font: italic 700 12px/1 Georgia, serif; color: #7ff6ff; background: #12152e;
+        font-size: 11px; font-weight: 800; line-height: 1; color: #7ff6ff; background: #12152e;
         border: 1px solid rgba(127, 246, 255, 0.5);
       }
       .info-button:hover { background: #262b55; color: #fff; }

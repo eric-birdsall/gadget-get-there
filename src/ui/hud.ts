@@ -17,6 +17,15 @@ export function formatTime(seconds: number): string {
   return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}.${String(rest).padStart(3, '0')}`;
 }
 
+/**
+ * Shows a time in the display face. Its digits differ in width, so each sits in a fixed-width
+ * cell and a running clock doesn't wobble.
+ */
+export function setClockText(el: HTMLElement, text: string): void {
+  el.innerHTML = [...text].map((c) => `<span class="${/\d/.test(c) ? 'cd' : 'cs'}">${c}</span>`).join('');
+  el.setAttribute('aria-label', text);
+}
+
 /** +1.234 / −0.512 */
 export function formatDelta(seconds: number): string {
   const sign = seconds < 0 ? '−' : '+';
@@ -103,7 +112,7 @@ export class Hud {
   update(state: AttemptState, elapsed: number): void {
     const text = formatTime(elapsed);
     if (text !== this.lastTimer) {
-      this.timer.textContent = text;
+      setClockText(this.timer, text);
       this.lastTimer = text;
     }
     this.hint.classList.toggle('show', state === AttemptState.Ready);
@@ -175,7 +184,7 @@ export class Hud {
   showResult(info: FinishInfo | null): void {
     this.result.classList.toggle('hidden', !info);
     if (!info) return;
-    el('result-time').textContent = formatTime(info.seconds);
+    setClockText(el('result-time'), formatTime(info.seconds));
     const medal = el('result-medal');
     medal.className = info.medal;
     medal.textContent = MEDAL_LABELS[info.medal];
