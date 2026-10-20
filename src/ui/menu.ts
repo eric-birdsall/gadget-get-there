@@ -10,7 +10,7 @@ export interface MenuHandlers {
   play: () => void;
   restart: () => void;
   tuning: () => void;
-  /** Put gadget `id` in slot `slot` (swapping). */
+  /** Put gadget `id` in slot `slot` (swapping). Mid-run this restarts the run. */
   placeGadget: (id: GadgetId, slot: number) => void;
   settingsChanged: () => void;
 }
@@ -25,7 +25,7 @@ export class Menu {
   private readonly overlay = el('overlay');
   private readonly note = el('menu-note');
   private readonly playButton = el<HTMLButtonElement>('play');
-  private readonly slotButtons: HTMLButtonElement[] = [];
+  private readonly slotEls: HTMLElement[] = [];
   private loadout: GadgetId[] = [];
   private loadoutKey = '';
 
@@ -37,18 +37,7 @@ export class Menu {
     el('restart').addEventListener('click', handlers.restart);
     el('tuning').addEventListener('click', handlers.tuning);
 
-    // One button per slot; clicking swaps the next gadget into it.
-    const row = el('menu-gadgets');
-    for (let i = 0; i < GADGETS.length; i++) {
-      const b = document.createElement('button');
-      b.className = 'slot-button';
-      b.addEventListener('click', () => {
-        const id = this.loadout[i];
-        if (id) handlers.placeGadget(cycleGadget(id, 1), i);
-      });
-      this.slotButtons.push(b);
-      row.append(b);
-    }
+    this.buildLoadoutPicker();
 
     this.slider('set-sensitivity', 'sensitivity', (v) => v.toFixed(2));
     this.slider('set-fov', 'fov', (v) => `${v}°`);
@@ -91,18 +80,88 @@ export class Menu {
     el<HTMLInputElement>(`set-${key === 'invertY' ? 'invert' : key}`).checked = this.settings[key];
   }
 
-  /** Shows the gadget order; `locked` mid-run, when it can't change. */
-  setLoadout(loadout: readonly GadgetId[], locked: boolean): void {
-    const key = `${loadout.join()}|${locked}`;
+  /**
+   * The gadget order: drag a gadget from the palette (or from another slot) onto a numbered
+   * slot to put it there; whatever was there swaps places. Clicking a slot cycles it, as a
+   * fallback for anyone who'd rather not drag.
+   */
+  private buildLoadoutPicker(): void {
+    const palette = el('menu-palette');
+    for (const g of GADGETS) {
+      const tile = document.createElement('div');
+      tile.className = 'gadget-tile';
+      tile.draggable = true;
+      tile.dataset.gadget = g.id;
+      tile.title = `Drag ${g.displayName} onto a slot`;
+      tile.innerHTML = `${GADGET_ICONS[g.id]}<span class="name"></span>`;
+      tile.querySelector('.name')!.textContent = g.displayName;
+      this.dragSource(tile, () => g.id);
+      palette.append(tile);
+    }
+
+    const row = el('menu-gadgets');
+    for (let i = 0; i < GADGETS.length; i++) {
+      const slot = document.createElement('div');
+      slot.className = 'loadout-slot';
+      slot.draggable = true;
+      slot.tabIndex = 0;
+      slot.setAttribute('role', 'button');
+      this.dragSource(slot, () => this.loadout[i]);
+      slot.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        if (e.dataTransfer) e.dataTransfer.dropEffect = 'move';
+        slot.classList.add('drop-target');
+      });
+      slot.addEventListener('dragleave', () => slot.classList.remove('drop-target'));
+      slot.addEventListener('drop', (e) => {
+        e.preventDefault();
+        slot.classList.remove('drop-target');
+        const id = e.dataTransfer?.getData('text/plain');
+        if (id && GADGETS.some((g) => g.id === id)) this.handlers.placeGadget(id as GadgetId, i);
+      });
+      const cycle = () => {
+        const id = this.loadout[i];
+        if (id) this.handlers.placeGadget(cycleGadget(id, 1), i);
+      };
+      slot.addEventListener('click', cycle);
+      slot.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          cycle();
+        }
+      });
+      this.slotEls.push(slot);
+      row.append(slot);
+    }
+  }
+
+  private dragSource(node: HTMLElement, id: () => GadgetId | undefined): void {
+    node.addEventListener('dragstart', (e) => {
+      const g = id();
+      if (!g || !e.dataTransfer) return;
+      e.dataTransfer.setData('text/plain', g);
+      e.dataTransfer.effectAllowed = 'move';
+      document.body.classList.add('dragging-gadget');
+    });
+    node.addEventListener('dragend', () => document.body.classList.remove('dragging-gadget'));
+  }
+
+  /** Shows the gadget order. Mid-run (`running`), changing it restarts the run. */
+  setLoadout(loadout: readonly GadgetId[], running: boolean): void {
+    const key = `${loadout.join()}|${running}`;
     if (key === this.loadoutKey) return;
     this.loadoutKey = key;
     this.loadout = [...loadout];
-    this.slotButtons.forEach((b, i) => {
+    this.slotEls.forEach((slot, i) => {
       const id = loadout[i];
-      b.innerHTML = `<span class="n">${i + 1}</span>${GADGET_ICONS[id]}<span>${gadgetDefinition(id).displayName}</span>`;
-      b.disabled = locked;
-      b.title = locked ? 'The order is set for this run · Restart to change it' : 'Click to swap in another gadget';
+      slot.dataset.gadget = id;
+      slot.innerHTML = `<span class="n">${i + 1}</span>${GADGET_ICONS[id]}<span class="name"></span>`;
+      slot.querySelector('.name')!.textContent = gadgetDefinition(id).displayName;
+      slot.title = `Slot ${i + 1}: ${gadgetDefinition(id).displayName} · drop a gadget here, or click to cycle`;
     });
+    el('menu-gadgets-hint').textContent = running
+      ? 'Changing the order restarts the run'
+      : 'Drag gadgets into the slots · each is used once, in order';
   }
 
   setBest(seconds: number | null): void {

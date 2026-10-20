@@ -82,9 +82,13 @@ function refreshGadget(): void {
   menu.setLoadout(session.loadout, !ready);
 }
 
-/** At the start line: put `id` in `slot` (first by default), swapping places. */
-function placeGadget(id: GadgetId, slot = 0): void {
-  if (session.state !== AttemptState.Ready || session.loadout[slot] === id) return;
+/** Put `id` in `slot` (first by default), swapping places. From the menu mid-run, this restarts. */
+function placeGadget(id: GadgetId, slot = 0, fromMenu = false): void {
+  if (session.loadout[slot] === id) return;
+  if (session.state !== AttemptState.Ready) {
+    if (!fromMenu) return;
+    restart();
+  }
   session.placeGadget(id, slot);
   settings.loadout = session.loadout.join(',');
   saveSettings(settings);
@@ -214,7 +218,7 @@ const menu = new Menu(settings, {
     enterPlay();
   },
   tuning: () => tuning.toggle(),
-  placeGadget,
+  placeGadget: (id, slot) => placeGadget(id, slot, true),
   settingsChanged: applySettings,
 });
 

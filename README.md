@@ -30,7 +30,7 @@ Each run uses all three gadgets in the order you choose, once each: one grapple 
 | Slide (at speed) / crouch-walk (when slow) | Hold Shift; jump out of a slide keeps its speed |
 | Mantle a ledge | Hold Space in the air while moving into a ledge up to ~1 m above your head |
 | Use gadget | Left click (grapple: hold · rollerblades: hold to tuck · launch pad: click to throw) |
-| Choose the first gadget | 1 2 3, or Q / E, at the start line (the menu's slots set the full order) |
+| Gadget order | Drag gadgets onto the numbered slots in the menu (or click a slot to cycle it). Changing it mid-run restarts. At the start line, 1 2 3 or Q / E choose the first gadget. Retries keep the order. |
 | Retry from start | R (or Enter) |
 | Toggle ghost | G |
 | Debug readout (speed, grounded…) | ` |
@@ -77,4 +77,3 @@ The route-bot tests in `src/course/crossing.test.ts` finish The Crossing without
 
 - **Main mode: gadget loadouts.** A level selector where you pick 1–5 gadgets in a set order before the round starts. Each gadget has a limited usage (for example 5 seconds of rollerblades, 2 grapple shots, 1 launch pad). When it runs out you switch to the next gadget automatically, and the HUD always shows what's next. This replaces the spec's one-gadget-per-run rule as the main way to play.
 - **Training mode:** today's free play, one gadget with unlimited use, for practising and testing each gadget.
-- **Drag-and-drop loadout:** drag gadget icons into numbered slots (e.g. Grapple to slot 1, Rollerblades to slot 3). Retries keep the same gadgets and slots. The order can be changed from the pause menu, which restarts the run.
