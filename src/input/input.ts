@@ -1,4 +1,5 @@
 import { CAMERA_CONFIG } from '../config';
+import { type KeyLookState, newKeyLookState, stepKeyLook } from './keyLook';
 import { keyLabel, keyRangeLabel } from './keyNames';
 
 export enum Action {
@@ -12,6 +13,10 @@ export enum Action {
   UseSlot1 = 'use-slot-1',
   UseSlot2 = 'use-slot-2',
   UseSlot3 = 'use-slot-3',
+  LookLeft = 'look-left',
+  LookRight = 'look-right',
+  LookUp = 'look-up',
+  LookDown = 'look-down',
   Retry = 'retry',
   /** At the start line: add or remove gadget N (palette order). */
   PickGadget1 = 'slot-1',
@@ -37,6 +42,10 @@ export const DEFAULT_BINDINGS: Bindings = {
   [Action.UseSlot1]: ['KeyE'],
   [Action.UseSlot2]: ['KeyQ'],
   [Action.UseSlot3]: ['KeyF'],
+  [Action.LookLeft]: ['KeyJ'],
+  [Action.LookRight]: ['KeyL'],
+  [Action.LookUp]: ['KeyI'],
+  [Action.LookDown]: ['KeyK'],
   [Action.Retry]: ['KeyR', 'Enter'],
   [Action.PickGadget1]: ['Digit1', 'Numpad1'],
   [Action.PickGadget2]: ['Digit2', 'Numpad2'],
@@ -75,6 +84,10 @@ export class InputManager {
   pitch: number = CAMERA_CONFIG.defaultPitch;
   sensitivity = 1;
   invertY = false;
+  /** Keyboard look: turn-speed multiplier, and easing back to level after looking up/down. */
+  keyLookSpeed = 1;
+  autoLevel = true;
+  private keyLook: KeyLookState = newKeyLookState();
   bindings: Bindings = DEFAULT_BINDINGS;
   private bound = new Set<string>();
   /**
@@ -119,6 +132,8 @@ export class InputManager {
       if (!this.locked) return;
       this.yaw -= e.movementX * CAMERA_CONFIG.horizontalSensitivity * this.sensitivity;
       const dy = e.movementY * CAMERA_CONFIG.verticalSensitivity * this.sensitivity * (this.invertY ? -1 : 1);
+      // The mouse set the tilt: leave it where it is.
+      if (e.movementY !== 0) this.keyLook.keyTilted = false;
       this.pitch = Math.min(CAMERA_CONFIG.maxPitch, Math.max(CAMERA_CONFIG.minPitch, this.pitch + dy));
     });
     document.addEventListener('contextmenu', (e) => e.preventDefault());
@@ -169,8 +184,17 @@ export class InputManager {
     this.lock();
   }
 
-  /** Free-cursor edge turning; call once per frame while playing. */
+  /** Keyboard look and free-cursor edge turning; call once per frame while playing. */
   update(dt: number): void {
+    const view = stepKeyLook(
+      this.keyLook,
+      { turn: this.axis(Action.LookRight, Action.LookLeft), tilt: this.axis(Action.LookUp, Action.LookDown) },
+      this,
+      dt,
+      { speed: this.keyLookSpeed, invertY: this.invertY, autoLevel: this.autoLevel },
+    );
+    this.yaw = view.yaw;
+    this.pitch = view.pitch;
     if (!this.freeCursor || !this.fakeLocked || this.cursorX === null) return;
     const zone = CAMERA_CONFIG.freeCursorEdgeZone;
     const push = this.cursorX < zone ? (this.cursorX - zone) / zone : this.cursorX > 1 - zone ? (this.cursorX - (1 - zone)) / zone : 0;

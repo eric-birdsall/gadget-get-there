@@ -65,6 +65,8 @@ const ghostPose: GhostPose = { pos: new Vector3(), yaw: 0, rope: null };
 function applySettings(): void {
   input.sensitivity = settings.sensitivity;
   input.invertY = settings.invertY;
+  input.keyLookSpeed = settings.keyLookSpeed;
+  input.autoLevel = settings.autoLevel;
   renderer.view.baseFov = settings.fov;
   renderer.setShadows(settings.shadows);
   hud.setDebugVisible(settings.showDebug);

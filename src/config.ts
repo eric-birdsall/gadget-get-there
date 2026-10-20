@@ -147,6 +147,22 @@ export const CAMERA_CONFIG = {
   collisionAvoidanceDistance: 0.3,
 };
 
+/** Looking around with keys (I J K L by default) instead of, or as well as, the mouse. */
+export const KEY_LOOK_CONFIG = {
+  /** Full turn rate left/right once held, radians/s (about 180°/s). */
+  turnSpeed: 3.2,
+  /** Full tilt rate up/down, radians/s. */
+  tiltSpeed: 1.8,
+  /** Seconds of holding to reach the full rate. */
+  rampSeconds: 0.35,
+  /** A fresh press starts at this share of the full rate, for fine aim. */
+  startFraction: 0.25,
+  /** After letting go of up/down, wait this long before easing back to level, s. */
+  levelDelay: 0.6,
+  /** How quickly it eases back to level, 1/s. */
+  levelRate: 2.5,
+};
+
 export const WORLD_CONFIG = {
   /** Falling this far below the course's lowest platform always counts as a fall. */
   killDepth: 25,

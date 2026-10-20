@@ -36,6 +36,15 @@ const CONTROL_GROUPS: { title: string; rows: [Action, string][] }[] = [
     ],
   },
   {
+    title: 'Look (keyboard)',
+    rows: [
+      [Action.LookLeft, 'Look left'],
+      [Action.LookRight, 'Look right'],
+      [Action.LookUp, 'Look up'],
+      [Action.LookDown, 'Look down'],
+    ],
+  },
+  {
     title: 'Gadgets',
     rows: [
       [Action.UseSlot1, 'Use slot 1'],
@@ -58,8 +67,8 @@ const CONTROL_GROUPS: { title: string; rows: [Action, string][] }[] = [
 
 const actionLabel = (a: Action) => CONTROL_GROUPS.flatMap((g) => g.rows).find(([x]) => x === a)?.[1] ?? a;
 
-type NumberKey = 'sensitivity' | 'fov' | 'musicVolume' | 'sfxVolume';
-type BoolKey = 'invertY' | 'checkpoints' | 'ghost' | 'shadows';
+type NumberKey = 'sensitivity' | 'keyLookSpeed' | 'fov' | 'musicVolume' | 'sfxVolume';
+type BoolKey = 'invertY' | 'autoLevel' | 'checkpoints' | 'ghost' | 'shadows';
 
 const percent = (v: number) => `${Math.round(v * 100)}%`;
 
@@ -96,6 +105,8 @@ export class Menu {
     this.buildLoadoutPicker();
 
     this.slider('set-sensitivity', 'sensitivity', (v) => v.toFixed(2));
+    this.slider('set-key-look', 'keyLookSpeed', (v) => `${v.toFixed(2)}×`);
+    this.checkbox('set-auto-level', 'autoLevel');
     this.slider('set-fov', 'fov', (v) => `${v}°`);
     this.slider('set-music', 'musicVolume', percent);
     this.slider('set-sfx', 'sfxVolume', percent);
@@ -133,7 +144,8 @@ export class Menu {
 
   /** Reflects a setting changed elsewhere (e.g. the G key). */
   syncCheckbox(key: BoolKey): void {
-    el<HTMLInputElement>(`set-${key === 'invertY' ? 'invert' : key}`).checked = this.settings[key];
+    const ids: Partial<Record<BoolKey, string>> = { invertY: 'invert', autoLevel: 'auto-level' };
+    el<HTMLInputElement>(`set-${ids[key] ?? key}`).checked = this.settings[key];
   }
 
   /**

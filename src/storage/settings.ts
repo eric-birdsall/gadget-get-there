@@ -7,6 +7,10 @@ const SETTINGS_VERSION = 1;
 export interface Settings {
   sensitivity: number;
   invertY: boolean;
+  /** Keyboard look turn speed, ×. */
+  keyLookSpeed: number;
+  /** After looking up/down with keys, ease back to level. */
+  autoLevel: boolean;
   /** Base field of view, degrees; it still widens with speed. */
   fov: number;
   musicVolume: number;
@@ -22,6 +26,8 @@ export interface Settings {
 export const DEFAULT_SETTINGS: Settings = {
   sensitivity: 1,
   invertY: false,
+  keyLookSpeed: 1,
+  autoLevel: true,
   fov: 75,
   musicVolume: 0.5,
   sfxVolume: 0.8,

@@ -25,7 +25,7 @@ Pick up to three of the five gadgets before a run. Each has a fixed budget on ev
 | Action | Keys |
 |---|---|
 | Move | W A S D (or arrows) |
-| Look | Mouse |
+| Look | Mouse, or I J K L (a tap nudges, holding turns faster; after looking up/down with keys the view eases back to level, which Settings can turn off) |
 | Jump | Space |
 | Slide (at speed) / crouch-walk (when slow) | Hold Shift; jump out of a slide keeps its speed, and after 1 s of sliding (the crosshair ring glows) the jump adds a burst |
 | Wall run | Jump at a wall beside you while moving fast along it; you run along it for up to 1.4 s |

@@ -197,3 +197,10 @@ Replaces the gadget in hand, switching (scroll, F, 1–5 mid-run) and auto-switc
 - **Aim previews** (hook marker, pad ghost) show for every gadget with budget left.
 - **HUD:** each slot always shows its use key; a slot glows while its gadget works (hooked, thrusting, gliding, or just dashed/thrown). The start-line hint reads "1–5 add or remove gadgets · E / Q / F use them"; no hint mid-run. Menu slot cards are labelled E / Q / F.
 - Saved bindings: an old custom "use gadget" key moves to slot 1; a key the player put elsewhere stays there, even if it's now a default.
+
+## Keyboard look (built)
+- **I J K L look up, left, down, right** (rebindable), alongside the mouse, so the game plays without a mouse.
+- **Ramped:** a fresh press starts at a quarter of the full rate for fine aim and reaches the full rate (about 180°/s turning, 100°/s tilting) after 0.35 s.
+- **Auto-level (on by default):** 0.6 s after letting go of up/down, the view eases back to the usual slight downward tilt. It never touches a tilt the mouse set.
+- **Settings:** keyboard look speed (0.4–2×) and the auto-level toggle; invert look applies to keys too.
+- Grapple aim assist only if playtesting shows keyboard aiming is too hard.
