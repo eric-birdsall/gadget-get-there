@@ -38,6 +38,7 @@ export interface RenderFrame {
   /** Jetpack burn 0…1 and dash flash 0…1, for the thruster flames. */
   thrust: number;
   dashFlash: number;
+  gliding: boolean;
   sliding: boolean;
   crouching: boolean;
   /** Mantle progress 0 … 1, or -1. */
@@ -175,6 +176,7 @@ export class Renderer {
     this.player.setStance(f.sliding, f.crouching, f.mantle, dt);
     this.player.setWallRun(f.wallRunNormal, dt);
     this.player.setThrusters(f.thrust, f.dashFlash, dt);
+    this.player.setGlide(f.gliding, dt);
     this.player.update(dt, pose, f.landed, f.jumped);
     const camDist = this.view.camera.position.distanceTo(this.probe.set(pose.feet.x, pose.feet.y + 1, pose.feet.z));
     this.player.setOpacity(Math.min(1, Math.max(0.15, camDist / FADE_DISTANCE)));

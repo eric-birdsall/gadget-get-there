@@ -1,6 +1,6 @@
 import { Vector3 } from 'three';
 import { describe, expect, it } from 'vitest';
-import { DASH_CONFIG, DT, GRAPPLE_CONFIG, JETPACK_CONFIG, LAUNCH_PAD_CONFIG, USAGE_CONFIG } from '../config';
+import { DASH_CONFIG, DT, GRAPPLE_CONFIG, JETPACK_CONFIG, LAUNCH_PAD_CONFIG, USAGE_CONFIG, WINGSUIT_CONFIG } from '../config';
 import { slab } from '../course/build';
 import type { CourseDefinition } from '../course/types';
 import { crossing } from '../course/crossing';
@@ -174,6 +174,55 @@ describe('dash thruster', () => {
     // All used: the grapple takes over.
     expect(s.gadgets[0].usageLabel).toBe('x0');
     expect(s.gadget?.id).toBe(GadgetId.Grapple);
+  });
+});
+
+describe('wingsuit', () => {
+  const floor = slab(0, 0, 0, 4000, 4000);
+  /** In the air 60 m up, moving forward, looking along `pitchDir` (y < 0 looks down). */
+  function falling(lookDown = 0): { s: RunSession; input: SessionInput } {
+    const s = new RunSession(course([floor]), { gadget: GadgetId.Wingsuit, unlimited: true });
+    s.player.pos.set(0, 60, 0);
+    s.player.vel.set(0, 0, -10);
+    const input = { ...idleInput(), action: true, aimDir: new Vector3(0, -lookDown, -1).normalize() };
+    return { s, input };
+  }
+
+  it('gliding falls far slower than free fall and carries you forward', () => {
+    const { s, input } = falling();
+    const ev = run(s, input, 2);
+    expect(ev).toContain(GadgetEvent.GlideStarted);
+    expect(-s.player.vel.y).toBeLessThan(WINGSUIT_CONFIG.sink + 1);
+    expect(60 - s.player.pos.y).toBeLessThan(8);
+    expect(-s.player.pos.z).toBeGreaterThan(25);
+  });
+
+  it('looking down dives faster and builds speed; looking up floats', () => {
+    const dive = falling(0.7);
+    run(dive.s, dive.input, 2);
+    const flare = falling(-0.3);
+    run(flare.s, flare.input, 2);
+    expect(Math.hypot(dive.s.player.vel.x, dive.s.player.vel.z)).toBeGreaterThan(Math.hypot(flare.s.player.vel.x, flare.s.player.vel.z) + 5);
+    expect(dive.s.player.pos.y).toBeLessThan(flare.s.player.pos.y - 5);
+  });
+
+  it('turns toward where you look', () => {
+    const { s, input } = falling();
+    run(s, { ...input, yaw: Math.PI / 2 }, 2);
+    // Yaw 90° faces −X.
+    expect(s.player.vel.x).toBeLessThan(-8);
+  });
+
+  it('does nothing on the ground; glide time only counts in the air; runs out', () => {
+    const s = new RunSession(course([floor]), { loadout: [GadgetId.Wingsuit, GadgetId.Dash] });
+    run(s, idleInput(), 0.1);
+    run(s, { ...idleInput(), action: true, forward: 1 }, 1);
+    expect(s.gadget!.used).toBe(0);
+    s.player.pos.y = 200;
+    s.player.grounded = false;
+    run(s, { ...idleInput(), action: true }, USAGE_CONFIG.wingsuitSeconds + 0.2);
+    expect(s.gadgets[0].usageLabel).toBe('0.0s');
+    expect(s.gadget?.id).toBe(GadgetId.Dash);
   });
 });
 

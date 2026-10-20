@@ -31,7 +31,7 @@ export const crossing: CourseDefinition = {
   environmentTheme: 'day',
   start: { pos: [0, 40, 4], yaw: 0 },
   medalThresholds: { goldSeconds: 32, silverSeconds: 40, bronzeSeconds: 55 },
-  availableGadgetIds: [GadgetId.Grapple, GadgetId.Jetpack, GadgetId.LaunchPad, GadgetId.Dash],
+  availableGadgetIds: [GadgetId.Grapple, GadgetId.Jetpack, GadgetId.LaunchPad, GadgetId.Dash, GadgetId.Wingsuit],
   referenceTargetDurationSeconds: 45,
 
   pieces: [

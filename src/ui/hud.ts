@@ -133,9 +133,9 @@ export class Hud {
     });
     const current = loadout[inHand];
     this.gadgetHint.textContent = !current
-      ? 'No gadgets · 1 2 3 4 to add some'
+      ? 'No gadgets · 1–5 to add some'
       : ready
-        ? '1 2 3 4 add or remove gadgets · scroll to switch during the run'
+        ? '1–5 add or remove gadgets · scroll to switch during the run'
         : (remaining[inHand] ?? 1) <= 0
           ? 'Gadgets used up · finish on foot'
           : `${gadgetDefinition(current).actionHint} · scroll to switch`;

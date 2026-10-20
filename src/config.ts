@@ -179,6 +179,26 @@ export const JETPACK_CONFIG = {
   liftoffSpeed: 4,
 };
 
+export const WINGSUIT_CONFIG = {
+  /** Gentle sink while gliding level, m/s… */
+  sink: 2.2,
+  /** …plus this much per unit of dive (looking down), m/s. */
+  diveSink: 13,
+  /** How hard the wings arrest a fall, m/s². */
+  lift: 30,
+  /** Glide speed level, m/s; extra per unit of dive; never slower than minSpeed. */
+  speed: 15,
+  diveSpeed: 14,
+  minSpeed: 8,
+  /** How fast speed changes toward the glide speed, m/s². */
+  acceleration: 9,
+  /** Turn rate toward where you look, radians/s. */
+  turnRate: 1.8,
+  /** Limits on looking down (dive) and up (flare). */
+  maxDive: 0.8,
+  maxFlare: 0.35,
+};
+
 export const DASH_CONFIG = {
   /** Horizontal speed a dash sets, m/s… */
   speed: 22,
@@ -215,6 +235,8 @@ export const USAGE_CONFIG = {
   /** Seconds of jetpack thrust. */
   jetpackSeconds: 3,
   dashes: 3,
+  /** Seconds of wingsuit glide. */
+  wingsuitSeconds: 6,
 };
 
 export const GHOST_CONFIG = {

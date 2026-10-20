@@ -1,6 +1,9 @@
 import {
   AdditiveBlending,
   BoxGeometry,
+  BufferGeometry,
+  DoubleSide,
+  Float32BufferAttribute,
   ConeGeometry,
   CapsuleGeometry,
   CircleGeometry,
@@ -47,6 +50,9 @@ export class PlayerModel {
 
   private readonly materials: MeshStandardMaterial[];
   private readonly flames = new Group();
+  private readonly wings = new Group();
+  /** 0 … 1: how far into the belly-down glide pose. */
+  private glide = 0;
   private readonly flameMat = new MeshBasicMaterial({ color: '#ffb347', transparent: true, opacity: 0.9, blending: AdditiveBlending, depthWrite: false });
   private flicker = 0;
   /** 0 standing … 1 fully low (slide or crouch). */
@@ -128,6 +134,24 @@ export class PlayerModel {
     this.flames.visible = false;
     this.body.add(this.flames);
 
+    // Wingsuit membranes, wrist to hip on each side; spread only while gliding.
+    const wingMat = new MeshStandardMaterial({
+      color: ghost ? '#bdf3ff' : '#ff7a2f',
+      side: DoubleSide,
+      transparent: true,
+      opacity: ghost ? 0.25 : 0.85,
+      depthWrite: !ghost,
+      roughness: 0.6,
+    });
+    for (const side of [-1, 1]) {
+      const g = new BufferGeometry();
+      g.setAttribute('position', new Float32BufferAttribute([side * 0.32, 1.3, 0, side * 1.15, 0.95, 0.02, side * 0.24, 0.3, 0], 3));
+      g.computeVertexNormals();
+      this.wings.add(new Mesh(g, wingMat));
+    }
+    this.wings.visible = false;
+    this.body.add(this.wings);
+
     this.root.add(this.body);
   }
 
@@ -183,6 +207,13 @@ export class PlayerModel {
     this.wallLean += (target - this.wallLean) * follow(14, dt);
   }
 
+  /** Wingsuit glide: wings out, body belly-down. */
+  setGlide(on: boolean, dt: number): void {
+    this.glide += ((on ? 1 : 0) - this.glide) * follow(8, dt);
+    this.wings.visible = this.glide > 0.05;
+    this.wings.scale.set(this.glide, 1, 1);
+  }
+
   /** Puts the model at a recorded pose with no dynamics: for the ghost. */
   place(feet: Vector3, yaw: number): void {
     this.root.position.copy(feet);
@@ -220,7 +251,11 @@ export class PlayerModel {
     this.root.rotation.set(0, this.yaw, 0);
     // Mantle: reach forward over the lip early, straighten as you pull up.
     const reachLean = this.reach >= 0 ? 0.7 * Math.sin(Math.PI * Math.min(1, this.reach)) : 0;
-    this.body.rotation.set(-this.lean + this.slideLean * 0.9 - reachLean, 0, this.bank + this.wallLean);
+    const pitch = -this.lean + this.slideLean * 0.9 - reachLean - this.glide * 1.35;
+    this.body.rotation.set(pitch, 0, this.bank + this.wallLean);
+    // Gliding pitches the body about its middle rather than its feet, so it stays over the player.
+    const mid = PLAYER_SHAPE.height / 2;
+    this.body.position.set(0, this.glide * mid * (1 - Math.cos(pitch)), -this.glide * mid * Math.sin(pitch));
     const sy = 1 + this.squash - this.low * 0.45;
     const sxz = 1 / Math.sqrt(sy);
     this.body.scale.set(sxz, sy, sxz);

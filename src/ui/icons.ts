@@ -31,6 +31,14 @@ export const GADGET_ICONS: Record<GadgetId, string> = {
       '<path d="M1.5 8.5h5M1 12h6M1.5 15.5h5"/>' +
       '<circle cx="9" cy="12" r="0.9" fill="currentColor" stroke="none"/>',
   ),
+  // A figure spread-eagled, with wing membranes from wrists to hips and wind lines.
+  [GadgetId.Wingsuit]: svg(
+    '<circle cx="12" cy="5" r="1.7"/>' +
+      '<path d="M12 7v7"/>' +
+      '<path d="M12 8L2.5 11.5 12 14.5z" fill="currentColor" fill-opacity="0.3"/><path d="M12 8l9.5 3.5-9.5 3z" fill="currentColor" fill-opacity="0.3"/>' +
+      '<path d="M12 14.5l-2.5 5.5M12 14.5l2.5 5.5"/>' +
+      '<path d="M3 18h3M18 18h3M5 21h2.5M16.5 21H19" opacity="0.6"/>',
+  ),
   // A hexagonal launch plate with an energy ring and stacked thrust chevrons.
   [GadgetId.LaunchPad]: svg(
     '<path d="M4 18.5l3-2.5h10l3 2.5-3 2.5H7z"/>' +

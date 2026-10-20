@@ -7,6 +7,7 @@ import { LaunchPadGadget, padPlacement } from './gadgets/launchPad';
 import { DEFAULT_LOADOUT, GADGETS, isGadgetId } from './gadgets/registry';
 import { DashGadget } from './gadgets/dash';
 import { JetpackGadget } from './gadgets/jetpack';
+import { WingsuitGadget } from './gadgets/wingsuit';
 import { GadgetEvent, type GadgetId } from './gadgets/types';
 import { type GhostPose, GhostPlayer } from './game/ghost';
 import { medalFor } from './game/medals';
@@ -202,6 +203,9 @@ function handle(events: AnyEvent[]): void {
       case GadgetEvent.GrappleReleased:
         audio.play(Sfx.GrappleRelease);
         break;
+      case GadgetEvent.GlideStarted:
+        audio.play(Sfx.Glide);
+        break;
       case GadgetEvent.Dashed:
         audio.play(Sfx.Dash);
         break;
@@ -325,9 +329,9 @@ function handleKeys(): void {
     menu.syncCheckbox('ghost');
     hud.showToast(settings.ghost ? 'Ghost on' : 'Ghost off', 0.8);
   }
-  // 1 2 3 4: at the start line, add that gadget to the next free slot or take it out; mid-run,
+  // 1–5: at the start line, add that gadget to the next free slot or take it out; mid-run,
   // take it in hand. The scroll wheel steps through the slots, skipping used-up gadgets.
-  const slots = [Action.Slot1, Action.Slot2, Action.Slot3, Action.Slot4];
+  const slots = [Action.Slot1, Action.Slot2, Action.Slot3, Action.Slot4, Action.Slot5];
   slots.forEach((a, i) => {
     if (!input.consumePress(a) || !GADGETS[i]) return;
     if (session.state === AttemptState.Ready) toggleGadget(GADGETS[i].id);
@@ -387,6 +391,7 @@ function frame(now: number): void {
     jumped,
     thrust: g instanceof JetpackGadget && g.thrusting ? 1 : 0,
     dashFlash: g instanceof DashGadget ? Math.max(0, 1 - g.sinceDash / 0.3) : 0,
+    gliding: g instanceof WingsuitGadget && g.gliding,
     sliding: p.stance === Stance.Slide,
     crouching: p.stance === Stance.Crouch,
     mantle: p.mantle ? p.mantle.t / ABILITY_CONFIG.mantleDuration : -1,

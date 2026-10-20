@@ -3,6 +3,7 @@ import { GrappleGadget } from './grapple';
 import { LaunchPadGadget } from './launchPad';
 import { DashGadget } from './dash';
 import { JetpackGadget } from './jetpack';
+import { WingsuitGadget } from './wingsuit';
 import { type GadgetDefinition, GadgetId } from './types';
 
 export const GADGETS: readonly GadgetDefinition[] = [
@@ -37,6 +38,14 @@ export const GADGETS: readonly GadgetDefinition[] = [
     slot: 4,
     budgetLabel: `x${USAGE_CONFIG.dashes}`,
     create: () => new DashGadget(),
+  },
+  {
+    id: GadgetId.Wingsuit,
+    displayName: 'Wingsuit',
+    actionHint: 'Hold E in the air to glide · look down to dive, up to float',
+    slot: 5,
+    budgetLabel: `${USAGE_CONFIG.wingsuitSeconds}s`,
+    create: () => new WingsuitGadget(),
   },
 ];
 

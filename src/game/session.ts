@@ -2,6 +2,7 @@ import { Vector3 } from 'three';
 import { CAMERA_CONFIG, DT, MOVEMENT_CONFIG, PLAYER_SHAPE, WORLD_CONFIG } from '../config';
 import type { CourseDefinition, TriggerVolume } from '../course/types';
 import { GrappleGadget } from '../gadgets/grapple';
+import { WingsuitGadget } from '../gadgets/wingsuit';
 import { DEFAULT_LOADOUT, gadgetDefinition } from '../gadgets/registry';
 import { type GadgetContext, GadgetEvent, type GadgetId, type GadgetRuntime } from '../gadgets/types';
 import { type Box, makeBox, raycast } from '../sim/collision';
@@ -404,6 +405,8 @@ export class RunSession {
     const { pos, vel } = this.player;
     if (pos.y < this.killY) return true;
     if (this.player.grounded || this.player.tethered || this.player.wallRun || vel.y >= 0) return false;
+    // Gliding is a controlled descent, not a fall.
+    if (this.gadget instanceof WingsuitGadget && this.gadget.gliding) return false;
     if (pos.y > this.lastGroundY - WORLD_CONFIG.voidFallDepth) return false;
     if (raycast(this.boxes, pos, DOWN, pos.y - this.killY)) return false;
     return !this.arcHitsAnything();

@@ -18,6 +18,7 @@ export enum Sfx {
   Slide = 'slide',
   Mantle = 'mantle',
   Dash = 'dash',
+  Glide = 'glide',
   SlideJump = 'slide-jump',
   SlideReady = 'slide-ready',
   WallRun = 'wall-run',
@@ -275,6 +276,9 @@ export class GameAudio {
       case Sfx.SlideJump:
         this.tone(440, t, 0.18, 'sawtooth', 0.05, undefined, 0.003, 0.12, 880);
         this.burst(t, 0.25, 'bandpass', 1500, 0.12, undefined, 4000);
+        break;
+      case Sfx.Glide:
+        this.burst(t, 0.5, 'bandpass', 500, 0.18, undefined, 1600);
         break;
       case Sfx.Dash:
         this.burst(t, 0.3, 'bandpass', 900, 0.22, undefined, 4200);

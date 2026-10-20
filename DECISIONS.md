@@ -163,3 +163,14 @@ Replaces "one use each, auto-switch in order".
 ## Checkpoint respawns restore gadgets (built)
 - Reaching a checkpoint saves each gadget's use and which gadget is in hand. A respawn there restores exactly that (replacing "spent stays spent").
 - A respawn before any checkpoint restores the full starting loadout, with the clock still running.
+
+## Wingsuit (built): the fifth and final gadget
+- **Budget: 6 s of glide**, counted only while gliding. Key 5.
+- **Controls:** hold E in the air to glide. It does nothing on the ground: jump first, or hold it as you run off an edge.
+- **Steering:** you glide where you look.
+  - Level: sink 2.2 m/s at 15 m/s.
+  - Looking down dives: up to about 13 m/s more sink and 11 m/s more speed.
+  - Looking up flares: slower and floatier. It turns toward the camera heading at 1.8 rad/s.
+- Gliding never counts as a fall.
+- **Look:** orange wing membranes spread wrist to hip, and the body pitches belly-down about its middle, with a whoosh.
+- **Gadget set:** Grapple, Jetpack, Launch Pad, Dash Thruster, Wingsuit. You pick 3 of 5.

@@ -124,6 +124,19 @@ export const JETPACK_LINE: Waypoint[] = [
   ...FINAL,
 ];
 
+/** Glide across the central gap from hub A to hub B. */
+export const WINGSUIT_LINE: Waypoint[] = [
+  ...START,
+  ...HOPS,
+  ...STONES,
+  ...TO_HUB_A,
+  // To the right of the mantle blocks, which sit in the middle of the gap.
+  { x: 5, z: -157 },
+  { x: 5, z: -195, hold: true },
+  ...BYPASS,
+  ...FINAL,
+];
+
 /** The running line, with dashes on the long straights. */
 export const DASH_LINE: Waypoint[] = [
   ...START,
@@ -171,6 +184,7 @@ describe('The Crossing', () => {
     ['grapple line', GadgetId.Grapple, GRAPPLE_LINE],
     ['jetpack line', GadgetId.Jetpack, JETPACK_LINE],
     ['dash line', GadgetId.Dash, DASH_LINE],
+    ['wingsuit line', GadgetId.Wingsuit, WINGSUIT_LINE],
     ['launch pad line', GadgetId.LaunchPad, PAD_LINE],
     ['ability line (mantle + slide)', GadgetId.Grapple, ABILITY_LINE],
   ])('%s finishes without falling', (name, gadget, route) => {
@@ -226,6 +240,7 @@ describe('The Crossing', () => {
     expect(results.get('grapple line')!).toBeLessThan(base);
     expect(results.get('jetpack line')!).toBeLessThan(base);
     expect(results.get('dash line')!).toBeLessThan(base);
+    expect(results.get('wingsuit line')!).toBeLessThan(base);
     expect(results.get('launch pad line')!).toBeLessThan(base);
     expect(results.get('ability line (mantle + slide)')!).toBeLessThan(base);
   });

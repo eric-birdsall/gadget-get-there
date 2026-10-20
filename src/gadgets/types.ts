@@ -6,6 +6,7 @@ export enum GadgetId {
   Grapple = 'grapple',
   Jetpack = 'jetpack',
   Dash = 'dash',
+  Wingsuit = 'wingsuit',
   LaunchPad = 'launch-pad',
 }
 
@@ -19,6 +20,8 @@ export enum GadgetEvent {
   JetpackOn = 'jetpack-on',
   JetpackOff = 'jetpack-off',
   Dashed = 'dashed',
+  GlideStarted = 'glide-started',
+  GlideEnded = 'glide-ended',
 }
 
 /** The gadget button and the crosshair ray for one tick. */

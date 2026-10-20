@@ -1,5 +1,5 @@
 import GUI from 'lil-gui';
-import { CAMERA_CONFIG, DASH_CONFIG, GRAPPLE_CONFIG, JETPACK_CONFIG, LAUNCH_PAD_CONFIG, MOVEMENT_CONFIG } from '../config';
+import { CAMERA_CONFIG, DASH_CONFIG, GRAPPLE_CONFIG, JETPACK_CONFIG, LAUNCH_PAD_CONFIG, MOVEMENT_CONFIG, WINGSUIT_CONFIG } from '../config';
 import { mergeKnown, readJson, writeJson } from '../storage/settings';
 
 // Live editing of the config objects for feel reviews. Edits persist locally, and
@@ -59,6 +59,7 @@ const TUNABLES: Tunable[] = [
   tunable('GRAPPLE_CONFIG', 'Grappling hook', GRAPPLE_CONFIG),
   tunable('JETPACK_CONFIG', 'Jetpack', JETPACK_CONFIG),
   tunable('DASH_CONFIG', 'Dash thruster', DASH_CONFIG),
+  tunable('WINGSUIT_CONFIG', 'Wingsuit', WINGSUIT_CONFIG),
   tunable('LAUNCH_PAD_CONFIG', 'Launch pad', LAUNCH_PAD_CONFIG),
   tunable('CAMERA_CONFIG', 'Camera', CAMERA_CONFIG, {
     distance: [2, 14, 0.1],
