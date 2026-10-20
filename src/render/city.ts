@@ -69,9 +69,9 @@ interface FacadeLook {
 }
 
 /** The buildings under the course: lively. */
-const NEAR_FACADE: FacadeLook = { wall: '#171a2c', litShare: 0.34, glow: 0.9, saturation: 1, darkGlass: 1 };
+const NEAR_FACADE: FacadeLook = { wall: '#151827', litShare: 0.16, glow: 0.42, saturation: 0.7, darkGlass: 0.6 };
 /** The skyline beyond: muted, so it sits back and doesn't fizz. */
-const FAR_FACADE: FacadeLook = { wall: '#12142a', litShare: 0.14, glow: 0.32, saturation: 0.45, darkGlass: 0.35 };
+const FAR_FACADE: FacadeLook = { wall: '#141329', litShare: 0.08, glow: 0.2, saturation: 0.35, darkGlass: 0.2 };
 
 /**
  * Building walls with windows: a grid of floors and bays in world space, some windows lit (warm
@@ -141,7 +141,7 @@ class Skyline {
 
   constructor(boxes: readonly Box[], random: () => number) {
     const unit = new BoxGeometry(1, 1, 1);
-    const count = 520;
+    const count = 220;
     this.towers = new InstancedMesh(unit, this.facade, count);
     this.crowns = new InstancedMesh(unit, new MeshBasicMaterial({ color: '#ffffff', fog: true }), count);
     const m = new Matrix4();
@@ -149,18 +149,25 @@ class Skyline {
     const pos = new Vector3();
     const size = new Vector3();
     const near = new Vector3();
-    // Keep a tower's box at least this far (horizontally) from any course piece.
-    const clear = (x: number, z: number, w: number, d: number, top: number) =>
-      boxes.every((b) => {
+    // How far (horizontally) a tower's footprint is from the course, and the height of the
+    // course piece nearest it.
+    const nearest = (x: number, z: number, w: number, d: number): { dist: number; y: number } => {
+      let dist = Infinity;
+      let y = 0;
+      for (const b of boxes) {
         const dx = Math.max(0, Math.abs(b.center.x - x) - w / 2 - b.bound);
         const dz = Math.max(0, Math.abs(b.center.z - z) - d / 2 - b.bound);
-        // Towers that stay well below a piece can sit under it; they're far down.
-        const below = top < b.center.y - b.bound - 30;
-        return below || Math.hypot(dx, dz) > 24;
-      });
+        const h = Math.hypot(dx, dz);
+        if (h < dist) {
+          dist = h;
+          y = b.center.y;
+        }
+      }
+      return { dist, y };
+    };
     let n = 0;
     let crowns = 0;
-    for (let tries = 0; n < count && tries < count * 6; tries++) {
+    for (let tries = 0; n < count && tries < count * 8; tries++) {
       // A rough street grid: towers in blocks, 46 m apart, jittered a little.
       const gx = Math.round((random() - 0.5) * 30);
       const gz = Math.round(random() * 30 - 22);
@@ -168,9 +175,13 @@ class Skyline {
       const d = 14 + random() * 20;
       const x = gx * 46 + (random() - 0.5) * 8;
       const z = gz * 46 + (random() - 0.5) * 8;
-      // Mostly a little below the rooftops, some well above them.
-      const top = -40 + Math.pow(random(), 1.6) * 150;
-      if (!clear(x, z, w, d, top)) continue;
+      // Near the course, towers stay well below its rooftops (open sky above the course); only
+      // far off can one rise above them. Close in, only low ones (far below) are allowed at all.
+      const { dist, y } = nearest(x, z, w, d);
+      const maxTop = dist > 200 ? y + 45 : y - 14;
+      const top = Math.min(maxTop, -60 + Math.pow(random(), 1.4) * 140);
+      if (dist < 45 && top > y - 35) continue;
+      if (top < GROUND_Y + 20) continue;
       size.set(w, top - GROUND_Y, d);
       pos.set(x, (top + GROUND_Y) / 2, z);
       m.compose(pos, q, size);

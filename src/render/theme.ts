@@ -46,7 +46,7 @@ export const THEMES: Record<Theme, ThemeLook> = {
     lineGlow: 0.6,
     edgeBrightness: 1,
     background: '#0b0820',
-    fog: { color: '#160e2e', near: 160, far: 760 },
+    fog: { color: '#160e2e', near: 90, far: 560 },
     fill: { sky: '#7d84e8', ground: '#3a1f4d', intensity: 1.1 },
     sun: { color: '#c8d6ff', intensity: 1.9 },
   },

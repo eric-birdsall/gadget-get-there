@@ -314,3 +314,7 @@ Replaces the gadget in hand, switching (scroll, F, 1–5 mid-run) and auto-switc
 - **Falls:** the hidden early check (8 m below your last footing over nothing) is gone; the only fall is the kill boundary, 25 m below the course's lowest point (now its true lowest point, not a bounding sphere). So you can dip far below platforms and recover (jetpack, zip, glide).
 - **Kill boundary drawn:** a red hazard grid at that height, following the player, faint from high up and brighter as you near it, pulsing slightly, fading out at its edges.
 - The Crossing's second bypass beam moved up and on (y 47, z −268) so a zip to it, let go just before, carries onto the next platform. Route tests retuned.
+
+### City backdrop calmed further
+- ~220 skyline towers (was ~500), at least 45 m from the course unless far below it. Near the course, towers stay at least 14 m below the nearest rooftop, so the course looks out over open sky; only towers 200 m+ away may rise above it.
+- Windows: background ~1 in 12 lit, dim and grey; the buildings under the course ~1 in 6, softer than before. Haze starts sooner (90–560 m), so distant towers fade into the purple.
