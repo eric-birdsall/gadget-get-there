@@ -94,4 +94,21 @@ describe('key bindings', () => {
     expect(loaded[Action.UseSlot1]).toBe(PadButton.X);
     expect(loaded[Action.UseSlot2]).toBeUndefined();
   });
+
+  it('sprint: Shift sprints, C crouches; an old saved Shift-crouch moves over, a changed one stays', () => {
+    expect(defaultBindings()[Action.Sprint]).toEqual(['ShiftLeft', 'ShiftRight']);
+    const old = { ...defaultBindings(), crouch: ['ShiftLeft', 'ShiftRight'] } as Record<string, string[]>;
+    delete old[Action.Sprint];
+    store.set('gadget-get-there.bindings', JSON.stringify({ version: 1, data: old }));
+    expect(loadBindings()[Action.Crouch]).toEqual(['KeyC']);
+    expect(loadBindings()[Action.Sprint]).toEqual(['ShiftLeft', 'ShiftRight']);
+    // A crouch the player had moved to V stays on V, and Shift is still free for sprint.
+    old[Action.Crouch] = ['KeyV'];
+    store.set('gadget-get-there.bindings', JSON.stringify({ version: 1, data: old }));
+    expect(loadBindings()[Action.Crouch]).toEqual(['KeyV']);
+    expect(loadBindings()[Action.Sprint]).toEqual(['ShiftLeft', 'ShiftRight']);
+    // A controller save from before sprint gets L3 for it.
+    store.set('gadget-get-there.pad-bindings', JSON.stringify({ version: 1, data: { jump: PadButton.A } }));
+    expect(loadPadBindings()[Action.Sprint]).toBe(PadButton.LeftStick);
+  });
 });

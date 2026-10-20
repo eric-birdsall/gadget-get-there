@@ -63,6 +63,16 @@ export const MOVEMENT_CONFIG = {
 export const ABILITY_CONFIG = {
   /** Capsule height while sliding or crouching, m. */
   lowHeight: 0.9,
+  /** Sprint (toggled): top running speed while sprinting, m/s. */
+  sprintSpeed: 13,
+  /** Seconds of sprinting a full stamina bar gives (it drains only while sprint-running on the ground). */
+  sprintStaminaSeconds: 4,
+  /** After sprinting stops, stamina starts refilling after this long, s… */
+  sprintRegenDelay: 0.6,
+  /** …and refills from empty to full in this long, s. */
+  sprintRegenSeconds: 3,
+  /** Sprint can only be switched on with at least this share of stamina. */
+  sprintMinToStart: 0.2,
   /** Crouch held in the air tucks the legs up this far (the head stays put), so you clear this much more, m. */
   tuckLift: 0.5,
   /** Slower than this, crouch held is a crouch-walk instead of a slide, m/s. */

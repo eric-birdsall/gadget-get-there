@@ -31,6 +31,7 @@ export type PadBindings = Partial<Record<Action, PadButton>>;
 export const PAD_BINDABLE: readonly Action[] = [
   Action.Jump,
   Action.Crouch,
+  Action.Sprint,
   Action.UseSlot1,
   Action.UseSlot2,
   Action.UseSlot3,
@@ -41,6 +42,7 @@ export const PAD_BINDABLE: readonly Action[] = [
 export const DEFAULT_PAD_BINDINGS: Readonly<PadBindings> = {
   [Action.Jump]: PadButton.A,
   [Action.Crouch]: PadButton.B,
+  [Action.Sprint]: PadButton.LeftStick,
   [Action.UseSlot1]: PadButton.RT,
   [Action.UseSlot2]: PadButton.LT,
   [Action.UseSlot3]: PadButton.RB,

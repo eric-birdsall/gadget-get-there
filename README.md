@@ -27,8 +27,9 @@ Pick up to three of the five gadgets before a run. Each has a fixed budget on ev
 | Move | W A S D (or arrows) |
 | Look | Mouse, or I J K L (a tap nudges, holding turns faster; after looking up/down with keys the view eases back to level, which Settings can turn off) |
 | Jump | Space |
-| Slide (at speed) / crouch-walk (when slow) | Hold Shift; jump out of a slide keeps its speed. Sliding 1 s stores a burst (the crosshair ring glows) that only a jump out of the slide uses; stop sliding and it's gone |
-| Tuck | Hold Shift in the air: legs up, head where it was, so you clear 0.5 m more than a plain jump; land still holding it and you're crouched |
+| Sprint | Shift toggles it (controller: click the left stick): 13 m/s instead of 10. A stamina bar above the gadgets drains while you sprint-run (4 s full) and refills after you stop; sprint ends when it's empty, when you stop moving, or when you crouch or slide |
+| Slide (at speed) / crouch-walk (when slow) | Hold C; jump out of a slide keeps its speed. Sliding 1 s stores a burst (the crosshair ring glows) that only a jump out of the slide uses; stop sliding and it's gone |
+| Tuck | Hold C in the air: legs up, head where it was, so you clear 0.5 m more than a plain jump; land still holding it and you're crouched |
 | Wall run | Jump at a wall beside you while moving fast along it; you run along it for up to 1.4 s |
 | Wall jump | Space while wall running (or touching a wall at your side in the air): kick off away and up |
 | Mantle a ledge | Hold Space in the air while moving into a ledge up to ~1 m above your head |
@@ -40,7 +41,7 @@ Pick up to three of the five gadgets before a run. Each has a fixed budget on ev
 | Debug readout (speed, grounded…) | ` |
 | Pause | Esc (a second Esc leaves fullscreen) |
 | Play with | Settings → Controls → Play with: Mouse & keyboard or Controller. The other is ignored until you switch (a hint shows if you press a controller button while set to keyboard). |
-| Controller (Xbox layout) | Left stick move · right stick look · A jump · B slide/crouch · RT / LT / RB use slots 1 / 2 / 3 · Menu pause/resume · View retry. The buttons (not the sticks or Menu) can be rebound in Settings → Key bindings. In the menus: D-pad or left stick to move, A to press, B to go back, Y for a gadget's info (left/right adjusts sliders). With the controller chosen, on-screen labels show its buttons. Click Play once for fullscreen (the mouse isn't captured); starting from the controller plays on in the window. |
+| Controller (Xbox layout) | Left stick move · right stick look · A jump · B slide/crouch · left stick click sprint · RT / LT / RB use slots 1 / 2 / 3 · Menu pause/resume · View retry. The buttons (not the sticks or Menu) can be rebound in Settings → Key bindings. In the menus: D-pad or left stick to move, A to press, B to go back, Y for a gadget's info (left/right adjusts sliders). With the controller chosen, on-screen labels show its buttons. Click Play once for fullscreen (the mouse isn't captured); starting from the controller plays on in the window. |
 | Settings | Settings button on the menu (Esc or Back returns); Tuning is in there |
 
 If the browser refuses to capture the mouse (embedded panes do), the game plays with a visible cursor instead: mouse look works inside the window, and holding the cursor at or past the left/right edge keeps turning. A normal browser tab gives full mouse look.

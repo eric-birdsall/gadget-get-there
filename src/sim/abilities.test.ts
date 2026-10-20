@@ -129,6 +129,57 @@ describe('slide', () => {
   });
 });
 
+describe('sprint', () => {
+  /** One press of sprint (it toggles), running forward. */
+  const toggle = (p: PlayerState) => stepPlayer(p, { ...NO_INPUT, forward: 1, sprint: true }, [FLOOR]);
+
+  it('a press switches it on: faster running; another press switches it off', () => {
+    const p = running();
+    toggle(p);
+    expect(p.sprinting).toBe(true);
+    run(p, { forward: 1 }, 1);
+    expect(horizontalSpeed(p)).toBeCloseTo(A.sprintSpeed, 1);
+    toggle(p);
+    expect(p.sprinting).toBe(false);
+    run(p, { forward: 1 }, 1.5);
+    expect(horizontalSpeed(p)).toBeCloseTo(M.groundSpeed, 1);
+  });
+
+  it('drains stamina while running and stops when it runs out; it refills after a pause', () => {
+    const p = running();
+    toggle(p);
+    run(p, { forward: 1 }, A.sprintStaminaSeconds / 2);
+    expect(p.stamina).toBeCloseTo(0.5, 1);
+    run(p, { forward: 1 }, A.sprintStaminaSeconds / 2 + 0.1);
+    expect(p.stamina).toBe(0);
+    expect(p.sprinting).toBe(false);
+    // Too little to start again.
+    toggle(p);
+    expect(p.sprinting).toBe(false);
+    run(p, { forward: 1 }, A.sprintRegenDelay + A.sprintRegenSeconds + 0.1);
+    expect(p.stamina).toBe(1);
+  });
+
+  it('stops when you stop moving or slide; no drain in the air', () => {
+    const p = running();
+    toggle(p);
+    run(p, {}, 0.1);
+    expect(p.sprinting).toBe(false);
+    const q = running();
+    toggle(q);
+    run(q, { forward: 1, crouch: true }, 0.1);
+    expect(q.sprinting).toBe(false);
+    const r = running();
+    toggle(r);
+    stepPlayer(r, { ...NO_INPUT, forward: 1, jump: true }, [FLOOR]);
+    const before = r.stamina;
+    run(r, { forward: 1, jump: true }, 0.3);
+    expect(r.grounded).toBe(false);
+    expect(r.sprinting).toBe(true);
+    expect(r.stamina).toBe(before);
+  });
+});
+
 describe('tuck', () => {
   /** Jumps from a standstill, crouch held in the air or not; returns the highest the feet and head reach. */
   function jump(tuck: boolean): { feet: number; head: number; p: PlayerState } {

@@ -7,6 +7,8 @@ export enum Action {
   Right = 'right',
   Jump = 'jump',
   Crouch = 'crouch',
+  /** Toggles sprint. */
+  Sprint = 'sprint',
   /** Use the gadget in slot 1, 2 or 3. */
   UseSlot1 = 'use-slot-1',
   UseSlot2 = 'use-slot-2',

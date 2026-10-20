@@ -45,6 +45,7 @@ const CONTROL_GROUPS: { title: string; rows: [Action, string][] }[] = [
       [Action.Right, 'Right'],
       [Action.Jump, 'Jump · mantle · wall run'],
       [Action.Crouch, 'Slide / crouch'],
+      [Action.Sprint, 'Sprint (on / off)'],
     ],
   },
   {

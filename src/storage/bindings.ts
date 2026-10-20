@@ -21,6 +21,9 @@ export function loadBindings(): Bindings {
   const data = { ...(saved.data as Record<string, unknown>) };
   // Before per-slot use keys there was one "use gadget" key: it becomes slot 1's.
   if (!(Action.UseSlot1 in data) && 'gadget' in data) data[Action.UseSlot1] = data.gadget;
+  // Before sprint, Shift crouched. A crouch still on that old default moves to the new layout
+  // (Shift sprints, C crouches); one the player changed stays.
+  if (!(Action.Sprint in data) && sameKeys(data[Action.Crouch], ['ShiftLeft', 'ShiftRight'])) delete data[Action.Crouch];
   const fromSave = new Set<Action>();
   for (const a of Object.values(Action)) {
     const keys = data[a];
@@ -33,6 +36,10 @@ export function loadBindings(): Bindings {
   const taken = new Set([...fromSave].flatMap((a) => out[a]));
   for (const a of Object.values(Action)) if (!fromSave.has(a)) out[a] = out[a].filter((k) => !taken.has(k));
   return out;
+}
+
+function sameKeys(a: unknown, b: readonly string[]): boolean {
+  return Array.isArray(a) && a.length === b.length && a.every((k, i) => k === b[i]);
 }
 
 export function saveBindings(bindings: Bindings): void {
@@ -69,7 +76,8 @@ export function clearKey(bindings: Bindings, action: Action, index: number): voi
 // Controller buttons: one per action, saved apart from the keys.
 
 const PAD_BINDINGS_KEY = 'gadget-get-there.pad-bindings';
-const PAD_BINDINGS_VERSION = 1;
+/** 2 added sprint; a version 1 save gets sprint's default button if it's free. */
+const PAD_BINDINGS_VERSION = 2;
 
 export function defaultPadBindings(): PadBindings {
   return { ...DEFAULT_PAD_BINDINGS };
@@ -78,7 +86,9 @@ export function defaultPadBindings(): PadBindings {
 /** Saved controller bindings, or the defaults. A save is taken whole: it lists every bound action. */
 export function loadPadBindings(): PadBindings {
   const saved = readJson(PAD_BINDINGS_KEY) as { version?: number; data?: unknown } | null;
-  if (!saved || saved.version !== PAD_BINDINGS_VERSION || !saved.data || typeof saved.data !== 'object') return defaultPadBindings();
+  if (!saved || (saved.version !== 1 && saved.version !== PAD_BINDINGS_VERSION) || !saved.data || typeof saved.data !== 'object') {
+    return defaultPadBindings();
+  }
   const out: PadBindings = {};
   const used = new Set<PadButton>();
   for (const a of PAD_BINDABLE) {
@@ -88,6 +98,8 @@ export function loadPadBindings(): PadBindings {
       used.add(b);
     }
   }
+  const sprintButton = DEFAULT_PAD_BINDINGS[Action.Sprint];
+  if (saved.version === 1 && sprintButton !== undefined && !used.has(sprintButton)) out[Action.Sprint] = sprintButton;
   return out;
 }
 

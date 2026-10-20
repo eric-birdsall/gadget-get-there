@@ -240,3 +240,9 @@ Replaces the gadget in hand, switching (scroll, F, 1–5 mid-run) and auto-switc
 - **Tuck:** crouch held in the air pulls the legs up 0.5 m with the head where it was, so you clear 0.5 m more than a plain jump (the jump itself is no stronger). Letting go drops the legs back if there's room. Landing still holding crouch goes straight into a crouch or slide. Holding slide through a slide-jump tucks automatically. No mantle, wall run or wall jump while tucked.
 - **Slide burst:** a slide no longer adds speed when it starts. Sliding 1 s stores a burst (+2.5 m/s, ring glows) used only by jumping out of that slide; standing up or dropping to a crouch loses it.
 - Gauntlet's kicker before the plunge is steeper (18°, 4 m down over 12 m) so a slide down it carries a slide-jump across; a plain running jump still falls short (tested).
+
+## Sprint (built): an ability, not a gadget
+- **Toggle:** a press switches it on (with at least 20% stamina) and another switches it off. Top running speed 13 m/s instead of 10. It also switches off when stamina runs out, when you stop moving on the ground, and when you crouch or slide. It stays on through jumps.
+- **Stamina:** 4 s of sprinting when full, drained only while sprint-running on the ground; refills from 0.6 s after sprint stops, empty to full in 3 s. A thin bar above the gadgets shows it while sprinting or refilling (cyan while sprinting, red below 20%).
+- **Defaults:** Shift sprints and C crouches/slides on the keyboard; clicking the left stick sprints on the controller. A saved crouch still on the old Shift default moves to C; one the player changed stays. A controller save from before sprint gets L3 for it if that's free.
+- A sprint press waits for the next sim tick, so on fast displays a toggle is never dropped.

@@ -13,6 +13,8 @@ export interface PlayerInput {
   jump: boolean;
   /** Slide / crouch held. */
   crouch: boolean;
+  /** Sprint pressed this tick (it toggles). */
+  sprint?: boolean;
 }
 
 export const NO_INPUT: PlayerInput = { forward: 0, right: 0, yaw: 0, jump: false, crouch: false };
@@ -44,6 +46,11 @@ export interface PlayerState {
   groundNormal: Vector3;
   /** Seconds since last grounded, for coyote time. */
   airTime: number;
+  /** Sprint switched on. */
+  sprinting: boolean;
+  /** Sprint stamina, 0 … 1, and the seconds until it starts refilling. */
+  stamina: number;
+  staminaDelay: number;
   /** Seconds since jump was pressed, for jump buffering; Infinity when no press is pending. */
   jumpQueued: number;
   jumpHeld: boolean;
@@ -86,6 +93,9 @@ export function createPlayer(pos: Vector3): PlayerState {
     grounded: false,
     groundNormal: new Vector3(0, 1, 0),
     airTime: 0,
+    sprinting: false,
+    stamina: 1,
+    staminaDelay: 0,
     jumpQueued: Infinity,
     jumpHeld: false,
     justJumped: false,
@@ -116,6 +126,9 @@ export function resetPlayer(p: PlayerState, pos: Vector3): void {
   p.grounded = false;
   p.groundNormal.set(0, 1, 0);
   p.airTime = 0;
+  p.sprinting = false;
+  p.stamina = 1;
+  p.staminaDelay = 0;
   p.jumpQueued = Infinity;
   p.justJumped = false;
   p.justLanded = false;
@@ -456,6 +469,37 @@ function updateStance(p: PlayerState, input: PlayerInput, boxes: readonly Box[])
   p.stance = next;
 }
 
+/**
+ * Sprint: a press toggles it (on only with enough stamina). It drains stamina while running on
+ * the ground and switches off when stamina runs out, you stop moving, or you crouch or slide.
+ * Off, stamina refills after a short wait.
+ */
+function updateSprint(p: PlayerState, input: PlayerInput): void {
+  const c = ABILITY_CONFIG;
+  if (input.sprint) p.sprinting = !p.sprinting && p.stamina >= c.sprintMinToStart;
+  const moving = wish.lengthSq() > 0;
+  const low = p.stance === Stance.Slide || p.stance === Stance.Crouch;
+  if (p.sprinting && (low || (p.grounded && !moving) || p.stamina <= 0)) p.sprinting = false;
+  if (p.sprinting) {
+    if (p.grounded && moving) p.stamina = Math.max(0, p.stamina - DT / c.sprintStaminaSeconds);
+    p.staminaDelay = c.sprintRegenDelay;
+    if (p.stamina <= 0) p.sprinting = false;
+  } else if (p.staminaDelay > 0) {
+    p.staminaDelay = Math.max(0, p.staminaDelay - DT);
+  } else {
+    p.stamina = Math.min(1, p.stamina + DT / c.sprintRegenSeconds);
+  }
+}
+
+const sprintCfg = { ...MOVEMENT_CONFIG };
+
+/** Running numbers while sprinting: a higher top speed, on top of whatever the gadget set. */
+function sprintConfig(cfg: MovementConfig): MovementConfig {
+  Object.assign(sprintCfg, cfg);
+  sprintCfg.groundSpeed = Math.max(cfg.groundSpeed, ABILITY_CONFIG.sprintSpeed);
+  return sprintCfg;
+}
+
 /** Movement numbers for the current stance, on top of whatever the gadget set. */
 function stanceConfig(p: PlayerState, cfg: MovementConfig): MovementConfig {
   if (p.stance === Stance.Stand || p.stance === Stance.Tuck) return cfg;
@@ -694,7 +738,9 @@ export function stepPlayer(p: PlayerState, input: PlayerInput, boxes: readonly B
 
   wishDirection(input, wish);
   updateStance(p, input, boxes);
+  updateSprint(p, input);
   cfg = stanceConfig(p, cfg);
+  if (p.sprinting) cfg = sprintConfig(cfg);
   capsuleHeight = stanceHeight(p.stance);
 
   const canJump = p.grounded || p.airTime <= cfg.coyoteTime;

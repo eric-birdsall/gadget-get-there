@@ -390,12 +390,16 @@ input.onLockError = (switchedToFreeCursor) => {
   if (!switchedToFreeCursor) menu.show(started, "The browser didn't capture the mouse. Click again in a moment.");
 };
 
+/** A sprint press waiting for the next sim tick (frames can be shorter than a tick). */
+let sprintPending = false;
+
 function readInput(jumpPressed: boolean, usePressed: boolean[]): SessionInput {
   return {
     forward: input.moveForward,
     right: input.moveRight,
     yaw: input.yaw,
     jump: input.isHeld(Action.Jump) || jumpPressed,
+    sprint: sprintPending,
     crouch: input.isHeld(Action.Crouch),
     use: USE_ACTIONS.map((a, i) => input.isHeld(a) || usePressed[i]),
     usePressed,
@@ -457,10 +461,13 @@ function frame(now: number): void {
     // Taps shorter than a tick still count, on the first tick of this frame.
     let jumpPressed = input.consumePress(Action.Jump);
     let usePressed = USE_ACTIONS.map((a) => input.consumePress(a));
+    // A toggle: one press is one switch, so it waits for a tick rather than being dropped.
+    if (input.consumePress(Action.Sprint)) sprintPending = true;
     accumulator += dt;
     while (accumulator >= DT) {
       prevFeet.copy(session.player.pos);
       handle(session.step(readInput(jumpPressed, usePressed)));
+      sprintPending = false;
       jumpPressed = false;
       usePressed = USE_ACTIONS.map(() => false);
       accumulator -= DT;
@@ -506,6 +513,7 @@ function frame(now: number): void {
   hud.setCrosshairLocked(grappleTarget !== null);
   // Slide charge: fills over the slide time that earns the jump burst.
   hud.setSlideCharge(p.stance === Stance.Slide ? Math.min(1, p.slideTime / ABILITY_CONFIG.slideJumpMinSeconds) : -1);
+  hud.setStamina(p.stamina, p.sprinting);
   hud.update(session.state, session.elapsed);
   refreshGadget();
   hud.updateDebug({

@@ -2,6 +2,7 @@ import type { MedalThresholds } from '../course/types';
 import { GADGETS, gadgetDefinition } from '../gadgets/registry';
 import type { GadgetId } from '../gadgets/types';
 import { Medal } from '../game/medals';
+import { ABILITY_CONFIG } from '../config';
 import { AttemptState } from '../game/session';
 import { Action, type Bindings, USE_ACTIONS, device, keyName, useKeysName } from '../input/input';
 import { GADGET_ICONS } from './icons';
@@ -75,6 +76,9 @@ export class Hud {
   private readonly slideRing = el('slide-ring');
   private readonly slideArc = document.querySelector<SVGCircleElement>('#slide-ring .arc')!;
   private lastSlideKey = -2;
+  private readonly stamina = el('stamina');
+  private readonly staminaFill = document.querySelector<HTMLElement>('#stamina .fill')!;
+  private lastStaminaKey = -1;
   private readonly slots = el('slots');
   private readonly gadgetHint = el('gadget-hint');
   private readonly debug = el('debug');
@@ -162,6 +166,17 @@ export class Hud {
         : loadout.length === 1
           ? `${useKeysName(b, 1)} uses your gadget`
           : `${useKeysName(b, loadout.length)} use your gadgets`;
+  }
+
+  /** Sprint stamina above the gadgets: shown while sprinting or refilling, hidden when full. */
+  setStamina(stamina: number, sprinting: boolean): void {
+    const key = Math.round(stamina * 200) * 2 + (sprinting ? 1 : 0);
+    if (key === this.lastStaminaKey) return;
+    this.lastStaminaKey = key;
+    this.stamina.classList.toggle('show', sprinting || stamina < 0.999);
+    this.stamina.classList.toggle('sprinting', sprinting);
+    this.stamina.classList.toggle('low', stamina < ABILITY_CONFIG.sprintMinToStart);
+    this.staminaFill.style.transform = `scaleX(${stamina})`;
   }
 
   /** Ring round the crosshair while sliding: 0…1 fills, 1 glows (jump now for a burst), −1 hides. */
