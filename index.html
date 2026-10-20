@@ -127,18 +127,18 @@
       }
       #card {
         --panel: #12152e; --panel-2: #1b1f40; --line: rgba(127, 246, 255, 0.18); --text: #e8ecf8; --muted: #9aa3c4;
-        width: min(1100px, calc(100vw - 48px)); max-height: calc(100vh - 48px); overflow-y: auto; box-sizing: border-box;
+        width: min(720px, calc(100vw - 48px)); max-height: calc(100vh - 48px); overflow-y: auto; box-sizing: border-box;
         display: grid; grid-template-columns: 1fr; gap: 8px 40px; padding: 32px 36px 26px;
         border-radius: 18px; text-align: center; color: var(--text);
         background: linear-gradient(160deg, rgba(27, 31, 64, 0.97), rgba(12, 14, 32, 0.97));
         box-shadow: 0 0 0 1px var(--line), 0 24px 60px rgba(0, 0, 0, 0.55);
       }
-      @media (min-width: 820px) {
-        #card { grid-template-columns: 1.1fr 1fr; align-items: start; min-height: min(620px, calc(100vh - 48px)); }
-        #card-main { position: sticky; top: 0; }
-        #settings { margin-top: 0 !important; padding-top: 0 !important; border-top: none !important;
-          padding-left: 36px !important; border-left: 1px solid var(--line); }
-      }
+      /* Settings is its own view in the same panel, opened from the main menu. */
+      #card.settings-open #card-main { display: none; }
+      .settings-head { display: grid; grid-template-columns: auto 1fr auto; align-items: center; margin-bottom: 18px; }
+      .settings-head h2 { margin: 0; font-size: 28px; text-align: center; }
+      .settings-head::after { content: ''; width: 80px; }
+      .settings-head button.small { margin: 0; width: 80px; }
       #card h1 { margin: 0 0 6px; font-size: 40px; letter-spacing: 0.01em; }
       #card .sub { margin: 0 0 22px; color: var(--muted); font-size: 15px; }
       #menu-note { margin: 0 0 12px; font-size: 13px; color: #ff8fb0; }
@@ -192,7 +192,8 @@
       .mini-icon { display: inline-block; width: 18px; height: 18px; margin: 0 2px; vertical-align: -4px; }
       #result-meta span { margin-left: 6px; }
       #pbs { margin: 6px 0 16px; font-size: 15px; color: var(--muted); line-height: 1.6; }
-      #settings { margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--line); }
+      #settings { text-align: left; }
+      #settings .row { margin-top: 14px; }
       #settings h3 { margin: 10px 0 10px; font-size: 12px; letter-spacing: 0.12em; text-transform: uppercase; color: #7ff6ff; opacity: 0.8; text-align: left; }
       #settings h3:first-child { margin-top: 0; }
       #settings label {
@@ -254,10 +255,14 @@
         <div class="row"><button id="play" class="primary">Play</button></div>
         <div class="row">
           <button id="restart" class="hidden">Restart run</button>
-          <button id="tuning">Tuning</button>
+          <button id="open-settings">Settings</button>
         </div>
         </div>
-        <div id="settings">
+        <div id="settings" class="hidden">
+          <div class="settings-head">
+            <button id="close-settings" class="small" aria-label="Back to the menu">← Back</button>
+            <h2>Settings</h2>
+          </div>
           <h3>Run</h3>
           <label class="check">Checkpoints (respawn there, clock keeps running, gadgets stay used) <input id="set-checkpoints" type="checkbox" /></label>
           <label class="check">Show personal-best ghost <input id="set-ghost" type="checkbox" /></label>
@@ -275,6 +280,7 @@
             1 2 3 add / remove gadgets (at the start) · R retry · G ghost · ` debug<br />
             Esc pause · Esc again to leave fullscreen
           </p>
+          <div class="row"><button id="tuning" class="small">Tuning (developer)</button></div>
         </div>
       </div>
     </div>

@@ -252,6 +252,10 @@ document.addEventListener(
     if (!paused) {
       e.preventDefault();
       input.unlock();
+    } else if (menu.settingsOpen) {
+      // Esc in settings goes back to the menu rather than leaving fullscreen.
+      e.preventDefault();
+      menu.showSettings(false);
     } else if (performance.now() - pausedAt > 250) {
       fullscreen.exit();
     }

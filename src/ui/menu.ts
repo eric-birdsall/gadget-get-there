@@ -39,6 +39,8 @@ export class Menu {
     this.playButton.addEventListener('click', handlers.play);
     el('restart').addEventListener('click', handlers.restart);
     el('tuning').addEventListener('click', handlers.tuning);
+    el('open-settings').addEventListener('click', () => this.showSettings(true));
+    el('close-settings').addEventListener('click', () => this.showSettings(false));
 
     this.buildLoadoutPicker();
 
@@ -153,6 +155,18 @@ export class Menu {
     el('pbs').textContent = seconds === null ? 'No personal best yet' : `Personal best ${formatTime(seconds)}`;
   }
 
+  get settingsOpen(): boolean {
+    return el('card').classList.contains('settings-open');
+  }
+
+  /** Switches the panel between the main menu and the settings view. */
+  showSettings(open: boolean, focus = true): void {
+    el('card').classList.toggle('settings-open', open);
+    el('settings').classList.toggle('hidden', !open);
+    el('card').scrollTop = 0;
+    if (focus) (open ? el('close-settings') : el('open-settings')).focus({ preventScroll: true });
+  }
+
   /** `started` switches the button between "Play" and "Resume". */
   show(started: boolean, note = ''): void {
     this.overlay.classList.remove('hidden');
@@ -162,6 +176,9 @@ export class Menu {
   }
 
   hide(): void {
+    this.showSettings(false, false);
+    // Don't leave a menu button focused, or Space during play would press it.
+    (document.activeElement as HTMLElement | null)?.blur();
     this.overlay.classList.add('hidden');
   }
 }

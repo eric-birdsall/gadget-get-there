@@ -35,7 +35,8 @@ Pick up to three gadgets before a run. Each has a fixed budget on every level: G
 | Retry from start | R (or Enter) |
 | Toggle ghost | G |
 | Debug readout (speed, grounded…) | ` |
-| Pause / settings / tuning | Esc (a second Esc leaves fullscreen) |
+| Pause | Esc (a second Esc leaves fullscreen) |
+| Settings | Settings button on the menu (Esc or Back returns); Tuning is in there |
 
 If the browser refuses to capture the mouse (embedded panes do), the game plays with a visible cursor instead: mouse look works inside the window, and holding the cursor at or past the left/right edge keeps turning. A normal browser tab gives full mouse look.
 
@@ -43,7 +44,7 @@ URL flags: `?nolock` forces that free-cursor mode; `?dev` exposes `window.game` 
 
 ## Tuning
 
-Esc → **Tuning** opens a live panel over the movement, gadget and camera configs in [src/config.ts](src/config.ts). Changes are kept in this browser's local storage. **Copy changed values** puts the edits on the clipboard so they can go back into `config.ts`. **Reset to defaults** clears them.
+Esc → **Settings** → **Tuning** opens a live panel over the movement, gadget and camera configs in [src/config.ts](src/config.ts). Changes are kept in this browser's local storage. **Copy changed values** puts the edits on the clipboard so they can go back into `config.ts`. **Reset to defaults** clears them.
 
 ## Layout
 
