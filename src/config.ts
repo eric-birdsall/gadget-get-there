@@ -189,8 +189,6 @@ export const KEY_LOOK_CONFIG = {
 export const WORLD_CONFIG = {
   /** Falling this far below the course's lowest platform always counts as a fall. */
   killDepth: 25,
-  /** Falling this far below where you last stood, with only void beneath, counts as a fall sooner. */
-  voidFallDepth: 8,
 };
 
 export const GRAPPLE_CONFIG = {
@@ -200,11 +198,14 @@ export const GRAPPLE_CONFIG = {
   aimAssistBeamDegrees: 4,
   /** Farthest surface the hook can reach, measured from the player, m. */
   range: 42,
-  /** Rope shortens at this rate while held, m/s. */
-  reelSpeed: 9,
-  minLength: 3,
-  /** Constant pull toward where the rope is fixed, m/s². */
-  pullAcceleration: 13,
+  /** Zipline: while held, you're pulled straight at the hook point at up to this speed, m/s… */
+  zipSpeed: 22,
+  /** …reaching it this quickly, m/s²; gravity is held off on the line. */
+  zipAcceleration: 70,
+  /** Arriving this close to the hook point ends the zip, your speed carrying on, m. */
+  arriveDistance: 2.2,
+  /** Hook points nearer than this are skipped (the floor at your feet), m. */
+  minHookDistance: 3,
   /** Upward kick when latching from the ground, so you leave it, m/s. */
   attachHop: 4,
   /** Speed added along your direction of travel on release, m/s. */

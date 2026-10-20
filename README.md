@@ -20,7 +20,7 @@ Pushing to `main` runs the tests, builds, and deploys to GitHub Pages (`.github/
 
 Click **Play** to go fullscreen and capture the mouse. Esc pauses (the run clock freezes too) and a second Esc leaves fullscreen; Resume goes back in. In Chrome/Edge holding Esc also exits; Safari and Firefox exit fullscreen on the first Esc.
 
-Pick up to three of the five gadgets before a run. Each has a fixed budget on every level: Grapple x2 swings, Jetpack 3 s of thrust, Launch Pad x1 launch, Dash Thruster x3 dashes, Wingsuit 6 s of glide. Each slot has its own use key: E for slot 1, Q for slot 2, F for slot 3, so there's no switching and gadgets can be combined (another gadget's press cuts the grapple rope; the jetpack beats the wingsuit when both are held). With checkpoints on, a respawn puts your gadgets back as they were when you reached that checkpoint.
+Pick up to three of the five gadgets before a run. Each has a fixed budget on every level: Grapple x2 zips, Jetpack 3 s of thrust, Launch Pad x1 launch, Dash Thruster x3 dashes, Wingsuit 6 s of glide. Each slot has its own use key: E for slot 1, Q for slot 2, F for slot 3, so there's no switching and gadgets can be combined (another gadget's press cuts the grapple rope; the jetpack beats the wingsuit when both are held). With checkpoints on, a respawn puts your gadgets back as they were when you reached that checkpoint.
 
 | Action | Keys |
 |---|---|
@@ -33,12 +33,13 @@ Pick up to three of the five gadgets before a run. Each has a fixed budget on ev
 | Wall run | Jump at a wall beside you while moving fast along it; you run along it for up to 1.4 s |
 | Wall jump | Space while wall running (or touching a wall at your side in the air): kick off away and up |
 | Mantle a ledge | Hold Space in the air while moving into a ledge up to ~1 m above your head |
-| Use gadgets | E (slot 1), Q (slot 2), F (slot 3). Grapple: hold to hook any surface under the crosshair · jetpack: hold to thrust up · launch pad: press to throw · dash thruster: press to dash · wingsuit: hold in the air to glide |
+| Use gadgets | E (slot 1), Q (slot 2), F (slot 3). Grapple: hold to zip straight to any surface under the crosshair (above, level or below; let go any time to fly on) · jetpack: hold to thrust up · launch pad: press to throw · dash thruster: press to dash · wingsuit: hold in the air to glide |
 | Choose gadgets | In the menu, click a gadget to put it in the next free slot; click it again (or its slot) to take it out. Changing gadgets from the menu mid-run restarts. Retries keep them. |
 | Rebind keys | Settings → Key bindings |
 | Retry from start | R (or Enter) |
 | Toggle ghost | G |
 | Debug readout (speed, grounded…) | ` |
+| Falling | A red hazard grid under each course marks where a fall ends the attempt; above it you can dip as low as you like |
 | Pause | Esc (a second Esc leaves fullscreen) |
 | Play with | The toggle at the top of the menu: Mouse & keyboard or Controller. In the menus both work, and using one switches to it (a controller button picks Controller, a keyboard key picks Mouse & keyboard; mouse clicks don't switch). In play, the other is ignored. |
 | Controller (Xbox layout) | Left stick move · right stick look · A jump · B slide/crouch · left stick click sprint · RT / LT / RB use slots 1 / 2 / 3 · Menu pause/resume · View retry. The buttons (not the sticks or Menu) can be rebound in Settings → Key bindings. The grapple has aim assist: it catches the nearest hook point within a few degrees of the crosshair (the marker shows where). In the menus: D-pad or left stick to move, A to press, B to go back, Y for a gadget's info (left/right adjusts sliders). With the controller chosen, on-screen labels show its buttons. Click Play once for fullscreen (the mouse isn't captured); starting from the controller plays on in the window. |

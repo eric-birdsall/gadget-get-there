@@ -301,3 +301,9 @@ Replaces the gadget in hand, switching (scroll, F, 1–5 mid-run) and auto-switc
 ## Menus take both devices (built)
 - In the menus the controller always works (navigate, A, B, Y), whatever Play with says, and so does the mouse. Using one picks it: a controller button switches to Controller, a keyboard key (not Esc, not one being captured for rebinding) to Mouse & keyboard; mouse clicks don't switch, so a controller player can still click Play for fullscreen. The toggle shows the result and it's saved.
 - In play, the device not chosen is still ignored. Replaces the "Controller detected" hint.
+
+## Grapple is a zipline; one visible kill boundary (built)
+- **Zipline, any direction:** hooking any surface (above, level or below) pulls you straight at it while held: up to 22 m/s, reaching it quickly (70 m/s²), gravity held off. Let go any time to fly on with your speed plus the release boost; arriving (within 2.2 m) or being blocked for 0.15 s ends the zip with your speed carrying on. The zip aims 1.2 m out from the surface (under a beam you arrive below it; at a wall, just short; on a floor, onto it). Hook points nearer than 3 m (the floor at your feet) are looked past. Replaces the reeling pendulum swing.
+- **Falls:** the hidden early check (8 m below your last footing over nothing) is gone; the only fall is the kill boundary, 25 m below the course's lowest point (now its true lowest point, not a bounding sphere). So you can dip far below platforms and recover (jetpack, zip, glide).
+- **Kill boundary drawn:** a red hazard grid at that height, following the player, faint from high up and brighter as you near it, pulsing slightly, fading out at its edges.
+- The Crossing's second bypass beam moved up and on (y 47, z −268) so a zip to it, let go just before, carries onto the next platform. Route tests retuned.

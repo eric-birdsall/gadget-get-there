@@ -25,7 +25,9 @@ import { type Box, SurfaceKind, raycast } from '../sim/collision';
 import { ThirdPersonCamera } from './camera';
 import { SURFACE_COLORS, gridMaterial } from './materials';
 import { BlobShadow, PlayerModel, type PlayerPose } from './playerModel';
+import { KillBoundary } from './killBoundary';
 import { SPACE_COLOR, SpaceBackdrop } from './space';
+import { killPlaneY } from '../game/session';
 import { CheckpointFlags, GhostView, GrappleMarker, MARKER_COLORS, PadViews, RopeView, finishGate } from './worldViews';
 
 /** Everything the renderer needs to draw one frame. */
@@ -87,6 +89,7 @@ export class Renderer {
   private readonly rope = new RopeView(MARKER_COLORS.rope);
   private readonly pads = new PadViews();
   private readonly ghost = new GhostView();
+  private readonly killBoundary = new KillBoundary();
 
   constructor(
     private boxes: readonly Box[],
@@ -119,7 +122,7 @@ export class Renderer {
 
     this.space = new SpaceBackdrop(this.scene, this.boxes);
     this.setCourse(boxes, course, false);
-    this.scene.add(this.grappleMarker.group);
+    this.scene.add(this.grappleMarker.group, this.killBoundary.mesh);
     this.scene.add(this.player.root, this.shadow.mesh, this.rope.mesh, this.pads.group, this.ghost.group);
 
     window.addEventListener('resize', () => this.resize());
@@ -143,6 +146,7 @@ export class Renderer {
     this.flags = new CheckpointFlags(course.checkpoints);
     this.courseGroup.add(this.flags.group, finishGate(course.finish));
     this.scene.add(this.courseGroup);
+    this.killBoundary.setHeight(killPlaneY(boxes));
     if (newAsteroids) this.space.setCourse(boxes);
   }
 
@@ -226,6 +230,7 @@ export class Renderer {
     this.sun.position.copy(pose.feet).addScaledVector(SUN_DIRECTION, 100);
 
     this.space.update(dt, this.view.camera.position);
+    this.killBoundary.update(dt, pose.feet);
 
     this.gl.render(this.scene, this.view.camera);
   }

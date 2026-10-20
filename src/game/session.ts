@@ -3,10 +3,9 @@ import { CAMERA_CONFIG, DT, MOVEMENT_CONFIG, PLAYER_SHAPE, WORLD_CONFIG } from '
 import type { CourseDefinition, TriggerVolume } from '../course/types';
 import { GrappleGadget } from '../gadgets/grapple';
 import { LaunchPadGadget } from '../gadgets/launchPad';
-import { WingsuitGadget } from '../gadgets/wingsuit';
 import { DEFAULT_LOADOUT, gadgetDefinition } from '../gadgets/registry';
 import { type GadgetContext, GadgetEvent, GadgetId, type GadgetRuntime } from '../gadgets/types';
-import { type Box, makeBox, raycast } from '../sim/collision';
+import { type Box, makeBox } from '../sim/collision';
 import { type MovementConfig, type PlayerInput, type PlayerState, createPlayer, resetPlayer, stepPlayer } from '../sim/player';
 import { type GhostData, GhostRecorder } from './ghost';
 
@@ -86,7 +85,16 @@ export function isMovementInput(input: SessionInput): boolean {
 /** The lowest point of any piece, minus a margin: below this you've fallen. */
 export function killPlaneY(boxes: readonly Box[]): number {
   let lowest = Infinity;
-  for (const b of boxes) lowest = Math.min(lowest, b.center.y - b.bound);
+  const axis = new Vector3();
+  for (const b of boxes) {
+    // How far the box reaches down from its centre: each of its axes' vertical share.
+    let reach = 0;
+    for (const [i, h] of [b.half.x, b.half.y, b.half.z].entries()) {
+      axis.set(i === 0 ? 1 : 0, i === 1 ? 1 : 0, i === 2 ? 1 : 0).applyQuaternion(b.rot);
+      reach += Math.abs(axis.y) * h;
+    }
+    lowest = Math.min(lowest, b.center.y - reach);
+  }
   return lowest - WORLD_CONFIG.killDepth;
 }
 
@@ -143,8 +151,6 @@ export class RunSession {
   private readonly movement: MovementConfig;
   private readonly startPos: Vector3;
   private readonly recorder = new GhostRecorder();
-  /** Feet height when last on the ground, for spotting a fall into the void early. */
-  private lastGroundY = 0;
   private events: AnyEvent[] = [];
   private readonly emit = (e: GadgetEvent) => this.events.push(e);
 
@@ -234,7 +240,6 @@ export class RunSession {
     if (this.queuedCheckpoints !== null) this.checkpointsEnabled = this.queuedCheckpoints;
     this.queuedCheckpoints = null;
     resetPlayer(this.player, this.startPos);
-    this.lastGroundY = this.startPos.y;
     this.state = AttemptState.Ready;
     this.elapsed = 0;
     this.checkpoint = -1;
@@ -255,7 +260,6 @@ export class RunSession {
     const cp = this.checkpoint >= 0 ? this.course.checkpoints[this.checkpoint].respawn : null;
     const pos = cp ? new Vector3(...cp.pos) : this.startPos;
     resetPlayer(this.player, pos);
-    this.lastGroundY = pos.y;
     this.facing = this.spawnYaw = cp ? cp.yaw : this.course.start.yaw;
     this.events.push(SessionEvent.Spawned);
   }
@@ -264,7 +268,6 @@ export class RunSession {
   private respawnAtFinish(): void {
     const f = this.course.finish;
     resetPlayer(this.player, new Vector3(f.center[0], f.center[1] - f.size[1] / 2, f.center[2]));
-    this.lastGroundY = this.player.pos.y;
     this.spawnYaw = this.facing;
     this.events.push(SessionEvent.Spawned);
   }
@@ -327,7 +330,6 @@ export class RunSession {
     if (p.justMantled) this.events.push(SessionEvent.Mantled);
     if (p.justWallRun) this.events.push(SessionEvent.WallRunStarted);
     if (p.justWallJumped) this.events.push(SessionEvent.WallJumped);
-    if (p.grounded) this.lastGroundY = p.pos.y;
 
     if (this.state === AttemptState.Running) {
       this.recorder.sample(this.elapsed, p.pos, this.facing, this.ropePoint);
@@ -380,35 +382,11 @@ export class RunSession {
     }
   }
 
-  /**
-   * Below the kill plane, or well below the last footing with nothing underneath and nothing
-   * along the arc you're falling on. Never while on a grapple line.
-   */
+  /** Below the kill boundary (drawn under the course): the only way to fall. Above it you can dip as far as you like. */
   private hasFallen(): boolean {
-    const { pos, vel } = this.player;
-    if (pos.y < this.killY) return true;
-    if (this.player.grounded || this.player.tethered || this.player.wallRun || vel.y >= 0) return false;
-    // Gliding is a controlled descent, not a fall.
-    if (this.find(WingsuitGadget)?.gliding) return false;
-    if (pos.y > this.lastGroundY - WORLD_CONFIG.voidFallDepth) return false;
-    if (raycast(this.boxes, pos, DOWN, pos.y - this.killY)) return false;
-    return !this.arcHitsAnything();
+    return this.player.pos.y < this.killY;
   }
 
-  /** Traces the ballistic path ahead in short segments, down to the kill plane. */
-  private arcHitsAnything(): boolean {
-    const g = this.movement.gravity;
-    const { pos: p0, vel: v } = this.player;
-    arcFrom.copy(p0);
-    for (let t = ARC_STEP; arcFrom.y > this.killY && t <= ARC_MAX_SECONDS; t += ARC_STEP) {
-      arcTo.set(p0.x + v.x * t, p0.y + v.y * t - 0.5 * g * t * t, p0.z + v.z * t);
-      arcDir.subVectors(arcTo, arcFrom);
-      const len = arcDir.length();
-      if (raycast(this.boxes, arcFrom, arcDir.divideScalar(len), len)) return true;
-      arcFrom.copy(arcTo);
-    }
-    return false;
-  }
 }
 
 /** Gadget slots per run. */
@@ -421,9 +399,3 @@ export const MAX_SLOTS = 3;
  */
 const TICK_ORDER: readonly GadgetId[] = [GadgetId.LaunchPad, GadgetId.Grapple, GadgetId.Dash, GadgetId.Jetpack, GadgetId.Wingsuit];
 
-const DOWN = new Vector3(0, -1, 0);
-const ARC_STEP = 0.2;
-const ARC_MAX_SECONDS = 4;
-const arcFrom = new Vector3();
-const arcTo = new Vector3();
-const arcDir = new Vector3();
