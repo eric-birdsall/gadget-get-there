@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { Action, DEFAULT_BINDINGS } from '../input/input';
-import { keyLabel, keyRangeLabel } from '../input/keyNames';
+import { keyLabel } from '../input/keyNames';
 import { bindKey, clearKey, defaultBindings, loadBindings, saveBindings } from './bindings';
 
 const store = new Map<string, string>();
@@ -63,7 +63,5 @@ describe('key bindings', () => {
 
   it('names keys for the screen', () => {
     expect(['KeyE', 'Digit4', 'Numpad2', 'ShiftLeft', 'Mouse2', 'ArrowUp'].map(keyLabel)).toEqual(['E', '4', 'Num 2', 'L Shift', 'Right click', '↑']);
-    expect(keyRangeLabel(['1', '2', '3', '4', '5'])).toBe('1–5');
-    expect(keyRangeLabel(['Z', 'X', 'C'])).toBe('Z X C');
   });
 });

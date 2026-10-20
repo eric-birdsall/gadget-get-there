@@ -50,10 +50,3 @@ export function keyLabel(code: string): string {
   if (/^Mouse\d+$/.test(code)) return `Mouse ${Number(code.slice(5)) + 1}`;
   return code;
 }
-
-/** Labels for a run of keys: "1–5" when they're consecutive digits, else "Z X C V B". */
-export function keyRangeLabel(labels: readonly string[]): string {
-  const digits = labels.every((l, i) => /^\d$/.test(l) && (i === 0 || Number(l) === Number(labels[i - 1]) + 1));
-  if (digits && labels.length > 2) return `${labels[0]}–${labels[labels.length - 1]}`;
-  return labels.join(' ');
-}

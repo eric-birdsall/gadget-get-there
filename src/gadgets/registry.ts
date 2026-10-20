@@ -10,7 +10,6 @@ export const GADGETS: readonly GadgetDefinition[] = [
   {
     id: GadgetId.Grapple,
     displayName: 'Grappling Hook',
-    slot: 1,
     budgetLabel: `x${USAGE_CONFIG.grappleSwings}`,
     summary: 'Fire a rope at any surface under the crosshair, swing beneath it as it reels you in, and let go to fly on with a boost.',
     stats: [
@@ -24,7 +23,6 @@ export const GADGETS: readonly GadgetDefinition[] = [
   {
     id: GadgetId.Jetpack,
     displayName: 'Jetpack',
-    slot: 2,
     budgetLabel: `${USAGE_CONFIG.jetpackSeconds}s`,
     summary: 'Hold to thrust straight up, from the ground or mid-air. Steer as normal while you climb.',
     stats: [
@@ -36,7 +34,6 @@ export const GADGETS: readonly GadgetDefinition[] = [
   {
     id: GadgetId.LaunchPad,
     displayName: 'Launch Pad',
-    slot: 3,
     budgetLabel: `x${USAGE_CONFIG.padLaunches}`,
     summary: 'Throw a pad onto flat ground. Step on it to launch up and along the way you faced when you threw it.',
     stats: [
@@ -49,7 +46,6 @@ export const GADGETS: readonly GadgetDefinition[] = [
   {
     id: GadgetId.Dash,
     displayName: 'Dash Thruster',
-    slot: 4,
     budgetLabel: `x${USAGE_CONFIG.dashes}`,
     summary: 'A quick, level burst the way you are moving (or looking), on the ground or in the air.',
     stats: [
@@ -62,7 +58,6 @@ export const GADGETS: readonly GadgetDefinition[] = [
   {
     id: GadgetId.Wingsuit,
     displayName: 'Wingsuit',
-    slot: 5,
     budgetLabel: `${USAGE_CONFIG.wingsuitSeconds}s`,
     summary: 'Hold in the air to glide where you look. Look down to dive and gain speed, up to float.',
     stats: [

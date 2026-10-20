@@ -71,8 +71,6 @@ export interface GadgetRuntime {
 export interface GadgetDefinition {
   id: GadgetId;
   displayName: string;
-  /** Number key that adds or removes it at the start line. */
-  slot: number;
   /** Full budget, for the menu: '5s', 'x2'. */
   budgetLabel: string;
   /** One sentence on what it does, for the menu's info modal. */

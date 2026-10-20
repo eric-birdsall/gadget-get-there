@@ -32,7 +32,7 @@ Pick up to three of the five gadgets before a run. Each has a fixed budget on ev
 | Wall jump | Space while wall running (or touching a wall at your side in the air): kick off away and up |
 | Mantle a ledge | Hold Space in the air while moving into a ledge up to ~1 m above your head |
 | Use gadgets | E (slot 1), Q (slot 2), F (slot 3). Grapple: hold to hook any surface under the crosshair · jetpack: hold to thrust up · launch pad: press to throw · dash thruster: press to dash · wingsuit: hold in the air to glide |
-| Choose gadgets | In the menu, click a gadget to put it in the next free slot; click it again (or its slot) to take it out. At the start line, 1–5 do the same (they do nothing mid-run). Changing gadgets from the menu mid-run restarts. Retries keep them. |
+| Choose gadgets | In the menu, click a gadget to put it in the next free slot; click it again (or its slot) to take it out. Changing gadgets from the menu mid-run restarts. Retries keep them. |
 | Rebind keys | Settings → Key bindings |
 | Retry from start | R (or Enter) |
 | Toggle ghost | G |

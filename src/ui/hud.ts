@@ -3,7 +3,7 @@ import { GADGETS, gadgetDefinition } from '../gadgets/registry';
 import type { GadgetId } from '../gadgets/types';
 import { Medal } from '../game/medals';
 import { AttemptState } from '../game/session';
-import { Action, type Bindings, USE_ACTIONS, keyName, pickKeysName, useKeysName } from '../input/input';
+import { Action, type Bindings, USE_ACTIONS, keyName, useKeysName } from '../input/input';
 import { GADGET_ICONS } from './icons';
 
 const el = (id: string) => document.getElementById(id)!;
@@ -102,7 +102,7 @@ export class Hud {
   /** Rewrites every key shown on screen; call after the bindings change. */
   refreshKeys(): void {
     const b = this.bindings;
-    el('hint').textContent = `Move to start the clock · ${pickKeysName(b)} add or remove gadgets`;
+    el('hint').textContent = 'Move to start the clock';
     el('controls-hint').textContent = `${keyName(b, Action.Retry)} retry · ${keyName(b, Action.ToggleGhost)} ghost · Esc pause`;
     el('result-retry').textContent = `${keyName(b, Action.Retry)} to go again · Esc to change gadgets`;
     this.lastGadgetKey = '';
@@ -155,8 +155,10 @@ export class Hud {
     this.gadgetHint.textContent = !ready
       ? ''
       : loadout.length === 0
-        ? `No gadgets · ${pickKeysName(b)} to add some`
-        : `${pickKeysName(b)} add or remove gadgets · ${useKeysName(b, loadout.length)} use them`;
+        ? 'No gadgets · Esc to pick some'
+        : loadout.length === 1
+          ? `${useKeysName(b, 1)} uses your gadget`
+          : `${useKeysName(b, loadout.length)} use your gadgets`;
   }
 
   /** Ring round the crosshair while sliding: 0…1 fills, 1 glows (jump now for a burst), −1 hides. */

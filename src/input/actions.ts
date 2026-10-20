@@ -16,12 +16,6 @@ export enum Action {
   LookUp = 'look-up',
   LookDown = 'look-down',
   Retry = 'retry',
-  /** At the start line: add or remove gadget N (palette order). */
-  PickGadget1 = 'slot-1',
-  PickGadget2 = 'slot-2',
-  PickGadget3 = 'slot-3',
-  PickGadget4 = 'slot-4',
-  PickGadget5 = 'slot-5',
   ToggleGhost = 'toggle-ghost',
   ToggleDebug = 'toggle-debug',
 }

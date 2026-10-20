@@ -2,7 +2,7 @@ import { CAMERA_CONFIG } from '../config';
 import { Action } from './actions';
 import { PAD_ACTIONS, PadButton, type PadState, firstPad, readPad } from './gamepad';
 import { type KeyLookState, newKeyLookState, stepKeyLook } from './keyLook';
-import { keyLabel, keyRangeLabel } from './keyNames';
+import { keyLabel } from './keyNames';
 
 export { Action };
 
@@ -25,29 +25,17 @@ export const DEFAULT_BINDINGS: Bindings = {
   [Action.LookUp]: ['KeyI'],
   [Action.LookDown]: ['KeyK'],
   [Action.Retry]: ['KeyR', 'Enter'],
-  [Action.PickGadget1]: ['Digit1', 'Numpad1'],
-  [Action.PickGadget2]: ['Digit2', 'Numpad2'],
-  [Action.PickGadget3]: ['Digit3', 'Numpad3'],
-  [Action.PickGadget4]: ['Digit4', 'Numpad4'],
-  [Action.PickGadget5]: ['Digit5', 'Numpad5'],
   [Action.ToggleGhost]: ['KeyG'],
   [Action.ToggleDebug]: ['Backquote'],
 };
 
 /** Use keys, by slot. */
 export const USE_ACTIONS = [Action.UseSlot1, Action.UseSlot2, Action.UseSlot3] as const;
-/** Start-line add/remove keys, by palette position. */
-export const PICK_ACTIONS = [Action.PickGadget1, Action.PickGadget2, Action.PickGadget3, Action.PickGadget4, Action.PickGadget5] as const;
 
 /** The action's main key as shown on screen, e.g. "E". */
 export function keyName(bindings: Bindings, action: Action): string {
   const code = bindings[action][0];
   return code ? keyLabel(code) : 'unbound';
-}
-
-/** The add/remove keys together: "1–5" by default. */
-export function pickKeysName(bindings: Bindings): string {
-  return keyRangeLabel(PICK_ACTIONS.map((a) => keyName(bindings, a)));
 }
 
 /** The use keys for `slots` slots together: "E / Q / F" by default. */

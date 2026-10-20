@@ -4,7 +4,7 @@ import { ABILITY_CONFIG, CAMERA_CONFIG, DT, MAX_FRAME_SECONDS } from './config';
 import { crossing } from './course/crossing';
 import { GrappleGadget, findGrappleTarget } from './gadgets/grapple';
 import { LaunchPadGadget, padPlacement } from './gadgets/launchPad';
-import { DEFAULT_LOADOUT, GADGETS, isGadgetId } from './gadgets/registry';
+import { DEFAULT_LOADOUT, isGadgetId } from './gadgets/registry';
 import { DashGadget } from './gadgets/dash';
 import { JetpackGadget } from './gadgets/jetpack';
 import { WingsuitGadget } from './gadgets/wingsuit';
@@ -12,7 +12,7 @@ import { GadgetEvent, type GadgetId } from './gadgets/types';
 import { type GhostPose, GhostPlayer } from './game/ghost';
 import { medalFor } from './game/medals';
 import { type AnyEvent, AttemptState, MAX_SLOTS, RunSession, type SessionInput, SessionEvent } from './game/session';
-import { Action, InputManager, PICK_ACTIONS, USE_ACTIONS } from './input/input';
+import { Action, InputManager, USE_ACTIONS } from './input/input';
 import { Renderer } from './render/renderer';
 import { Stance } from './sim/player';
 import { RecordStore } from './storage/records';
@@ -95,12 +95,9 @@ function refreshGadget(): void {
   menu.setLoadout(session.loadout, !ready);
 }
 
-/** Add `id` to the next free slot, or take it out. From the menu mid-run, this restarts. */
-function toggleGadget(id: GadgetId, fromMenu = false): void {
-  if (session.state !== AttemptState.Ready) {
-    if (!fromMenu) return;
-    restart();
-  }
+/** Add `id` to the next free slot, or take it out (from the menu). Mid-run, this restarts. */
+function toggleGadget(id: GadgetId): void {
+  if (session.state !== AttemptState.Ready) restart();
   if (!session.toggleGadget(id)) return;
   settings.loadout = session.loadout.join(',');
   saveSettings(settings);
@@ -245,7 +242,7 @@ const menu = new Menu(settings, bindings, {
     enterPlay();
   },
   tuning: () => tuning.toggle(),
-  toggleGadget: (id) => toggleGadget(id, true),
+  toggleGadget,
   clearGadgets: () => {
     if (session.state !== AttemptState.Ready) restart();
     if (!session.clearGadgets()) return;
@@ -344,11 +341,6 @@ function handleKeys(): void {
     menu.syncCheckbox('ghost');
     hud.showToast(settings.ghost ? 'Ghost on' : 'Ghost off', 0.8);
   }
-  // 1–5: at the start line, add that gadget to the next free slot or take it out. Mid-run they
-  // do nothing, so a stray press can't wreck a run.
-  PICK_ACTIONS.forEach((a, i) => {
-    if (input.consumePress(a) && GADGETS[i] && session.state === AttemptState.Ready) toggleGadget(GADGETS[i].id);
-  });
   if (input.consumePress(Action.Retry)) restart();
 }
 

@@ -213,3 +213,7 @@ Replaces the gadget in hand, switching (scroll, F, 1–5 mid-run) and auto-switc
 - Browsers only allow fullscreen and mouse capture from a click or key, so Play is clicked once. Resuming with Menu plays on without capturing the mouse; the mouse then doesn't look.
 - The browser only reports the controller after a button press on the page.
 - Menus stay mouse/keyboard for now. Grapple aim assist only if stick aiming proves hard.
+
+## Gadgets are chosen in the menu only (built)
+- The 1–5 add/remove keys at the start line are gone, with their hint and Controls rows. Pick gadgets in the menu (Esc).
+- Start-line hint: "E / Q / F use your gadgets"; with none chosen, "No gadgets · Esc to pick some". The info modal shows just the budget.

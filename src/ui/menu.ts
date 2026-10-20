@@ -2,7 +2,7 @@ import { GADGETS, gadgetDefinition } from '../gadgets/registry';
 import type { GadgetId } from '../gadgets/types';
 import { type Settings, saveSettings } from '../storage/settings';
 import { MAX_SLOTS } from '../game/session';
-import { Action, type Bindings, MAX_KEYS_PER_ACTION, PICK_ACTIONS, USE_ACTIONS, keyName, useKeysName } from '../input/input';
+import { Action, type Bindings, MAX_KEYS_PER_ACTION, USE_ACTIONS, keyName, useKeysName } from '../input/input';
 import { keyLabel } from '../input/keyNames';
 import { bindKey, clearKey, defaultBindings, saveBindings } from '../storage/bindings';
 import { formatTime } from './hud';
@@ -51,10 +51,6 @@ const CONTROL_GROUPS: { title: string; rows: [Action, string][] }[] = [
       [Action.UseSlot2, 'Use slot 2'],
       [Action.UseSlot3, 'Use slot 3'],
     ],
-  },
-  {
-    title: 'Add / remove at the start line',
-    rows: GADGETS.map((g): [Action, string] => [PICK_ACTIONS[g.slot - 1], g.displayName]),
   },
   {
     title: 'Run',
@@ -211,7 +207,7 @@ export class Menu {
     title.textContent = g.displayName;
     const meta = document.createElement('div');
     meta.className = 'meta';
-    meta.textContent = `Key ${keyName(this.bindings, PICK_ACTIONS[g.slot - 1])} · ${g.budgetLabel} per run`;
+    meta.textContent = `${g.budgetLabel} per run`;
     const summary = document.createElement('p');
     summary.textContent = g.summary;
     const stats = document.createElement('dl');
