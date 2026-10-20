@@ -147,20 +147,31 @@ describe('finish', () => {
 });
 
 describe('gadget order', () => {
-  it('holds each gadget exactly once; placing one first swaps it in while Ready', () => {
+  it('clicking adds a gadget to the next free slot, and removes one already chosen', () => {
     const s = new RunSession(tiny, { loadout: [GadgetId.Grapple, GadgetId.LaunchPad, GadgetId.Rollerblades] });
-    s.placeGadget(GadgetId.Rollerblades);
-    expect(s.loadout).toEqual([GadgetId.Rollerblades, GadgetId.LaunchPad, GadgetId.Grapple]);
-    expect(s.gadget?.id).toBe(GadgetId.Rollerblades);
-    s.placeGadget(GadgetId.Grapple, 1);
-    expect(s.loadout).toEqual([GadgetId.Rollerblades, GadgetId.Grapple, GadgetId.LaunchPad]);
-    expect(s.nextGadget).toBe(GadgetId.Grapple);
+    expect(s.toggleGadget(GadgetId.Grapple)).toBe(true);
+    // The rest move up.
+    expect(s.loadout).toEqual([GadgetId.LaunchPad, GadgetId.Rollerblades]);
+    expect(s.gadget?.id).toBe(GadgetId.LaunchPad);
+    s.toggleGadget(GadgetId.Grapple);
+    expect(s.loadout).toEqual([GadgetId.LaunchPad, GadgetId.Rollerblades, GadgetId.Grapple]);
+    expect(s.nextGadget).toBe(GadgetId.Rollerblades);
+  });
+
+  it('allows fewer than three gadgets, or none', () => {
+    const s = new RunSession(tiny, { loadout: [GadgetId.Rollerblades] });
+    expect(s.loadout).toEqual([GadgetId.Rollerblades]);
+    s.toggleGadget(GadgetId.Rollerblades);
+    expect(s.loadout).toEqual([]);
+    expect(s.gadget).toBeNull();
+    s.step(go());
+    expect(s.state).toBe(AttemptState.Running);
   });
 
   it('locks once the clock starts', () => {
     const s = new RunSession(tiny, { loadout: [GadgetId.Grapple, GadgetId.LaunchPad, GadgetId.Rollerblades] });
     s.step(go());
-    s.placeGadget(GadgetId.Rollerblades);
+    expect(s.toggleGadget(GadgetId.Grapple)).toBe(false);
     expect(s.loadout[0]).toBe(GadgetId.Grapple);
     expect(s.gadget?.id).toBe(GadgetId.Grapple);
   });

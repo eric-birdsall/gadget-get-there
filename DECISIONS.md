@@ -80,3 +80,8 @@ Separate from gadgets: they work whichever gadget is equipped.
 - When all three are used, finish on foot (abilities still work).
 - A checkpoint respawn keeps the clock running and gadgets stay spent. R (a full retry) refills all three.
 - **Personal best:** one PB (and one ghost) per level, whatever the checkpoint setting. The order used is saved with it and shown on the finish card. Existing one-gadget PBs are cleared.
+
+## Picking gadgets (built)
+- Click a gadget to put it in the next free slot; click it again, or click its slot, to take it out. Later slots move up. (This replaced drag and drop.)
+- A run can carry 0–3 gadgets; with none you play on foot.
+- At the start line, 1 2 3 add or remove gadgets the same way (Q / E no longer do anything).

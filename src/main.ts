@@ -4,12 +4,12 @@ import { ABILITY_CONFIG, CAMERA_CONFIG, DT, MAX_FRAME_SECONDS } from './config';
 import { crossing } from './course/crossing';
 import { GrappleGadget, findGrappleTarget } from './gadgets/grapple';
 import { LaunchPadGadget, padPlacement } from './gadgets/launchPad';
-import { DEFAULT_LOADOUT, GADGETS, cycleGadget, isGadgetId } from './gadgets/registry';
+import { DEFAULT_LOADOUT, GADGETS, isGadgetId } from './gadgets/registry';
 import { RollerbladeGadget } from './gadgets/rollerblades';
 import { GadgetEvent, type GadgetId } from './gadgets/types';
 import { type GhostPose, GhostPlayer } from './game/ghost';
 import { medalFor } from './game/medals';
-import { type AnyEvent, AttemptState, RunSession, type SessionInput, SessionEvent } from './game/session';
+import { type AnyEvent, AttemptState, MAX_SLOTS, RunSession, type SessionInput, SessionEvent } from './game/session';
 import { Action, InputManager } from './input/input';
 import { Renderer } from './render/renderer';
 import { Stance } from './sim/player';
@@ -24,10 +24,10 @@ loadTuning();
 const course = crossing;
 const settings = loadSettings();
 const records = new RecordStore();
-/** The saved gadget order, if it's still a valid order of every gadget. */
+/** The saved gadget order (possibly empty), if it's valid: known gadgets, each at most once. */
 function savedLoadout(): GadgetId[] {
-  const ids = settings.loadout.split(',');
-  const valid = ids.length === GADGETS.length && ids.every(isGadgetId) && new Set(ids).size === ids.length;
+  const ids = settings.loadout === '' ? [] : settings.loadout.split(',');
+  const valid = ids.length <= MAX_SLOTS && ids.every(isGadgetId) && new Set(ids).size === ids.length;
   return valid ? (ids as GadgetId[]) : [...DEFAULT_LOADOUT];
 }
 
@@ -82,14 +82,13 @@ function refreshGadget(): void {
   menu.setLoadout(session.loadout, !ready);
 }
 
-/** Put `id` in `slot` (first by default), swapping places. From the menu mid-run, this restarts. */
-function placeGadget(id: GadgetId, slot = 0, fromMenu = false): void {
-  if (session.loadout[slot] === id) return;
+/** Add `id` to the next free slot, or take it out. From the menu mid-run, this restarts. */
+function toggleGadget(id: GadgetId, fromMenu = false): void {
   if (session.state !== AttemptState.Ready) {
     if (!fromMenu) return;
     restart();
   }
-  session.placeGadget(id, slot);
+  if (!session.toggleGadget(id)) return;
   settings.loadout = session.loadout.join(',');
   saveSettings(settings);
   refreshGadget();
@@ -218,7 +217,7 @@ const menu = new Menu(settings, {
     enterPlay();
   },
   tuning: () => tuning.toggle(),
-  placeGadget: (id, slot) => placeGadget(id, slot, true),
+  toggleGadget: (id) => toggleGadget(id, true),
   settingsChanged: applySettings,
 });
 
@@ -292,13 +291,11 @@ function handleKeys(): void {
     menu.syncCheckbox('ghost');
     hud.showToast(settings.ghost ? 'Ghost on' : 'Ghost off', 0.8);
   }
-  // At the start line: 1 2 3 put that gadget first; Q / E rotate the first slot.
+  // At the start line: 1 2 3 add that gadget to the next free slot, or take it out.
   const slots = [Action.Slot1, Action.Slot2, Action.Slot3];
   slots.forEach((a, i) => {
-    if (input.consumePress(a) && GADGETS[i]) placeGadget(GADGETS[i].id);
+    if (input.consumePress(a) && GADGETS[i]) toggleGadget(GADGETS[i].id);
   });
-  if (input.consumePress(Action.NextGadget)) placeGadget(cycleGadget(session.loadout[0], 1));
-  if (input.consumePress(Action.PrevGadget)) placeGadget(cycleGadget(session.loadout[0], -1));
   if (input.consumePress(Action.Retry)) restart();
 }
 

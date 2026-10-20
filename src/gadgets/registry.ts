@@ -37,9 +37,3 @@ export function gadgetDefinition(id: GadgetId): GadgetDefinition {
 export function isGadgetId(v: unknown): v is GadgetId {
   return GADGETS.some((g) => g.id === v);
 }
-
-/** The next (or previous) gadget in selector order. */
-export function cycleGadget(id: GadgetId, step: 1 | -1): GadgetId {
-  const i = GADGETS.findIndex((g) => g.id === id);
-  return GADGETS[(i + step + GADGETS.length) % GADGETS.length].id;
-}

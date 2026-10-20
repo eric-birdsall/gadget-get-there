@@ -119,9 +119,9 @@ export class RunSession {
   attempt = 0;
   /** Index of the furthest checkpoint reached this attempt, or -1. */
   checkpoint = -1;
-  /** Gadget order for the run. Locked once the clock starts. */
+  /** Gadget order for the run (0 to MAX_SLOTS gadgets, each once). Locked once the clock starts. */
   readonly loadout: GadgetId[];
-  /** Index into `loadout` of the gadget in use; `loadout.length` once all are used up. */
+  /** Index into `loadout` of the gadget in use; `loadout.length` once all are used up (or none chosen). */
   slot = 0;
   /** The gadget in use, or null on foot after all are spent. */
   gadget: GadgetRuntime | null;
@@ -155,7 +155,8 @@ export class RunSession {
     this.player = createPlayer(this.startPos);
     this.unlimited = options.unlimited ?? false;
     const order = options.loadout ?? DEFAULT_LOADOUT;
-    this.loadout = options.gadget ? [options.gadget, ...order.filter((g) => g !== options.gadget)] : [...order];
+    const picked = options.gadget ? [options.gadget, ...order.filter((g) => g !== options.gadget)] : [...order];
+    this.loadout = [...new Set(picked)].slice(0, MAX_SLOTS);
     this.gadget = this.createGadget(0);
     this.checkpointsEnabled = options.checkpointsEnabled ?? true;
     this.restart();
@@ -174,15 +175,20 @@ export class RunSession {
     return this.loadout[this.slot + 1] ?? null;
   }
 
-  /** At the start line: put `id` in slot `slot` (first by default), swapping places. */
-  placeGadget(id: GadgetId, slot = 0): void {
-    if (this.state !== AttemptState.Ready) return;
-    const from = this.loadout.indexOf(id);
-    if (from < 0 || from === slot || slot >= this.loadout.length) return;
-    [this.loadout[from], this.loadout[slot]] = [this.loadout[slot], this.loadout[from]];
+  /**
+   * At the start line: a gadget not in the loadout goes into the next free slot; one already in
+   * it is removed, and the slots after it move up. Returns false if nothing changed.
+   */
+  toggleGadget(id: GadgetId): boolean {
+    if (this.state !== AttemptState.Ready) return false;
+    const at = this.loadout.indexOf(id);
+    if (at >= 0) this.loadout.splice(at, 1);
+    else if (this.loadout.length < MAX_SLOTS) this.loadout.push(id);
+    else return false;
     this.gadget?.resetTransientState(this.player);
     this.slot = 0;
     this.gadget = this.createGadget(0);
+    return true;
   }
 
   /** Spent gadget: on to the next slot. */
@@ -360,6 +366,9 @@ export class RunSession {
     return false;
   }
 }
+
+/** Gadget slots per run. */
+export const MAX_SLOTS = 3;
 
 const DOWN = new Vector3(0, -1, 0);
 const ARC_STEP = 0.2;

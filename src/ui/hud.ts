@@ -108,6 +108,8 @@ export class Hud {
     const key = `${loadout.join()}|${slot}|${remaining.toFixed(2)}|${ready}`;
     if (key === this.lastGadgetKey) return;
     this.lastGadgetKey = key;
+    // Only chosen gadgets get a slot on screen.
+    this.slotEls.forEach((el, i) => el.classList.toggle('hidden', i >= loadout.length));
     loadout.forEach((id, i) => {
       const el = this.slotEls[i];
       if (el.dataset.gadget !== id) {
@@ -128,9 +130,11 @@ export class Hud {
     const current = loadout[slot];
     const next = loadout[slot + 1];
     this.gadgetHint.textContent = !current
-      ? 'Gadgets used up · finish on foot'
+      ? loadout.length === 0
+        ? 'No gadgets · 1 2 3 to add some'
+        : 'Gadgets used up · finish on foot'
       : ready
-        ? `${gadgetDefinition(current).displayName} first · 1 2 3 to choose which goes first`
+        ? '1 2 3 add or remove gadgets · they run in this order'
         : `${gadgetDefinition(current).actionHint}${next ? ` · next: ${gadgetDefinition(next).displayName}` : ''}`;
   }
 

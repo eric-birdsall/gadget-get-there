@@ -20,7 +20,7 @@ Pushing to `main` runs the tests, builds, and deploys to GitHub Pages (`.github/
 
 Click **Play** to go fullscreen and capture the mouse. Esc pauses (the run clock freezes too) and a second Esc leaves fullscreen; Resume goes back in. In Chrome/Edge holding Esc also exits; Safari and Firefox exit fullscreen on the first Esc.
 
-Each run uses all three gadgets in the order you choose, once each: one grapple swing, one pad launch, 5 s of rollerblading on the ground. When one is used up the next takes over automatically; after all three you finish on foot.
+Each run uses the gadgets you pick (up to three, in the order you pick them), once each: one grapple swing, one pad launch, 5 s of rollerblading on the ground. When one is used up the next takes over automatically; after all three you finish on foot.
 
 | Action | Keys |
 |---|---|
@@ -30,7 +30,7 @@ Each run uses all three gadgets in the order you choose, once each: one grapple 
 | Slide (at speed) / crouch-walk (when slow) | Hold Shift; jump out of a slide keeps its speed |
 | Mantle a ledge | Hold Space in the air while moving into a ledge up to ~1 m above your head |
 | Use gadget | Left click (grapple: hold · rollerblades: hold to tuck · launch pad: click to throw) |
-| Gadget order | Drag gadgets onto the numbered slots in the menu (or click a slot to cycle it). Changing it mid-run restarts. At the start line, 1 2 3 or Q / E choose the first gadget. Retries keep the order. |
+| Gadget order | In the menu, click a gadget to put it in the next free slot; click it again (or its slot) to take it out. At the start line, 1 2 3 do the same. Changing gadgets mid-run restarts. Retries keep the order. |
 | Retry from start | R (or Enter) |
 | Toggle ghost | G |
 | Debug readout (speed, grounded…) | ` |
