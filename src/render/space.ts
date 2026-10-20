@@ -33,7 +33,7 @@ import type { Box } from '../sim/collision';
 export const SPACE_COLOR = '#070918';
 
 /** Small deterministic RNG, so the asteroid field is the same every load. */
-function rng(seed: number): () => number {
+export function rng(seed: number): () => number {
   let a = seed >>> 0;
   return () => {
     a = (a + 0x6d2b79f5) >>> 0;
@@ -44,7 +44,7 @@ function rng(seed: number): () => number {
   };
 }
 
-const NOISE_GLSL = /* glsl */ `
+export const NOISE_GLSL = /* glsl */ `
 float hash(vec3 p) { p = fract(p * 0.3183099 + 0.1); p *= 17.0; return fract(p.x * p.y * p.z * (p.x + p.y + p.z)); }
 float noise(vec3 x) {
   vec3 i = floor(x); vec3 f = fract(x); f = f * f * (3.0 - 2.0 * f);
@@ -410,13 +410,26 @@ export class SpaceBackdrop {
 
   /** A new course: a new asteroid field that keeps clear of it. */
   setCourse(boxes: readonly Box[]): void {
+    const visible = this.visible;
     this.scene.remove(this.asteroids.group);
     this.asteroids.dispose();
     this.asteroids = new AsteroidField(boxes, rng(0xa57e));
+    this.asteroids.group.visible = visible;
     this.scene.add(this.asteroids.group);
   }
 
+  /** Shown or hidden (the city replaces it). */
+  set visible(on: boolean) {
+    this.sky.visible = on;
+    this.asteroids.group.visible = on;
+  }
+
+  get visible(): boolean {
+    return this.sky.visible;
+  }
+
   update(dt: number, cameraPos: Vector3): void {
+    if (!this.sky.visible) return;
     this.time += dt;
     this.sky.position.copy(cameraPos);
     this.starMaterial.uniforms.uTime.value = this.time;

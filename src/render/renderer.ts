@@ -23,7 +23,9 @@ import type { Pad } from '../gadgets/launchPad';
 import type { GhostPose } from '../game/ghost';
 import { type Box, SurfaceKind, raycast } from '../sim/collision';
 import { ThirdPersonCamera } from './camera';
-import { SURFACE_COLORS, gridMaterial } from './materials';
+import { CityBackdrop, buildingsUnder } from './city';
+import { gridMaterial } from './materials';
+import { THEMES, type Theme } from './theme';
 import { BlobShadow, PlayerModel, type PlayerPose } from './playerModel';
 import { SPACE_COLOR, SpaceBackdrop } from './space';
 import { CheckpointFlags, GhostView, GrappleMarker, MARKER_COLORS, PadViews, RopeView, finishGate } from './worldViews';
@@ -77,6 +79,12 @@ export class Renderer {
   private readonly shadow = new BlobShadow();
   private readonly sun: DirectionalLight;
   private readonly space: SpaceBackdrop;
+  private readonly city: CityBackdrop;
+  private readonly fill: HemisphereLight;
+  private theme: Theme = 'space';
+  private course: CourseDefinition;
+  /** The course's own materials, freed when it's rebuilt. */
+  private courseMaterials: { dispose(): void }[] = [];
   private readonly down = new Vector3(0, -1, 0);
   private readonly probe = new Vector3();
   private readonly hand = new Vector3();
@@ -92,6 +100,7 @@ export class Renderer {
     private boxes: readonly Box[],
     course: CourseDefinition,
   ) {
+    this.course = course;
     this.gl = new WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
     this.gl.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     this.gl.outputColorSpace = SRGBColorSpace;
@@ -104,7 +113,8 @@ export class Renderer {
     // Space: a dark fog so distant pieces fade into the sky, cool fill light and a bright sun.
     this.scene.background = new Color(SPACE_COLOR);
     this.scene.fog = new Fog(SPACE_COLOR, 220, 900);
-    this.scene.add(new HemisphereLight('#a9b8ff', '#2a2050', 1.25));
+    this.fill = new HemisphereLight('#a9b8ff', '#2a2050', 1.25);
+    this.scene.add(this.fill);
     this.sun = new DirectionalLight('#fff6e8', 3.0);
     this.sun.castShadow = true;
     this.sun.shadow.mapSize.set(2048, 2048);
@@ -118,6 +128,8 @@ export class Renderer {
     this.scene.add(this.sun, this.sun.target);
 
     this.space = new SpaceBackdrop(this.scene, this.boxes);
+    this.city = new CityBackdrop(this.scene, this.boxes);
+    this.city.visible = false;
     this.setCourse(boxes, course, false);
     this.scene.add(this.grappleMarker.group);
     this.scene.add(this.player.root, this.shadow.mesh, this.rope.mesh, this.pads.group, this.ghost.group);
@@ -137,24 +149,51 @@ export class Renderer {
       const m = o as Mesh;
       m.geometry?.dispose();
     });
+    for (const m of this.courseMaterials) m.dispose();
+    this.courseMaterials = [];
     this.boxes = boxes;
+    this.course = course;
     this.courseGroup = new Group();
     this.buildCourse();
     this.flags = new CheckpointFlags(course.checkpoints);
     this.courseGroup.add(this.flags.group, finishGate(course.finish));
     this.scene.add(this.courseGroup);
-    if (newAsteroids) this.space.setCourse(boxes);
+    if (newAsteroids) {
+      this.space.setCourse(boxes);
+      this.city.setCourse(boxes);
+    }
+  }
+
+  /** Space or the city at night: colours, light, haze and backdrop. The course is rebuilt in the new look. */
+  setTheme(theme: Theme): void {
+    if (theme === this.theme) return;
+    this.theme = theme;
+    const look = THEMES[theme];
+    (this.scene.background as Color).set(look.background);
+    const fog = this.scene.fog as Fog;
+    fog.color.set(look.fog.color);
+    fog.near = look.fog.near;
+    fog.far = look.fog.far;
+    this.fill.color.set(look.fill.sky);
+    this.fill.groundColor.set(look.fill.ground);
+    this.fill.intensity = look.fill.intensity;
+    this.sun.color.set(look.sun.color);
+    this.sun.intensity = look.sun.intensity;
+    this.space.visible = theme === 'space';
+    this.city.visible = theme === 'city';
+    this.setCourse(this.boxes, this.course, false);
   }
 
   private buildCourse(): void {
+    const look = THEMES[this.theme];
     const materials = new Map<SurfaceKind, MeshStandardMaterial>();
     const edgeMaterials = new Map<SurfaceKind, LineBasicMaterial>();
     for (const box of this.boxes) {
       let mat = materials.get(box.kind);
-      if (!mat) materials.set(box.kind, (mat = gridMaterial(box.kind)));
+      if (!mat) materials.set(box.kind, (mat = gridMaterial(box.kind, look)));
       let edgeMat = edgeMaterials.get(box.kind);
       if (!edgeMat) {
-        const c = new Color(SURFACE_COLORS[box.kind].line).multiplyScalar(0.7);
+        const c = new Color(look.surfaces[box.kind].line).multiplyScalar(look.edgeBrightness);
         edgeMaterials.set(box.kind, (edgeMat = new LineBasicMaterial({ color: c })));
       }
       const geo = new BoxGeometry(box.half.x * 2, box.half.y * 2, box.half.z * 2);
@@ -166,6 +205,9 @@ export class Renderer {
       mesh.add(new LineSegments(new EdgesGeometry(geo), edgeMat));
       this.courseGroup.add(mesh);
     }
+    this.courseMaterials.push(...materials.values(), ...edgeMaterials.values());
+    // In the city, every rooftop has its building under it.
+    if (this.theme === 'city') this.courseGroup.add(buildingsUnder(this.boxes, this.city.facade));
   }
 
   resize(): void {
@@ -226,6 +268,7 @@ export class Renderer {
     this.sun.position.copy(pose.feet).addScaledVector(SUN_DIRECTION, 100);
 
     this.space.update(dt, this.view.camera.position);
+    this.city.update(this.view.camera.position);
 
     this.gl.render(this.scene, this.view.camera);
   }

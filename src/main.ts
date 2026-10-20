@@ -78,6 +78,7 @@ function applySettings(): void {
   input.autoLevel = settings.autoLevel;
   renderer.view.baseFov = settings.fov;
   renderer.setShadows(settings.shadows);
+  renderer.setTheme(settings.theme === 'space' ? 'space' : 'city');
   hud.setDebugVisible(settings.showDebug);
   audio.setVolumes(settings.sfxVolume, settings.musicVolume);
   session.setCheckpointsEnabled(settings.checkpoints);

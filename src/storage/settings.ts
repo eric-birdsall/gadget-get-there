@@ -27,6 +27,8 @@ export interface Settings {
   inputMode: string;
   /** Crouch / slide: 'toggle' (press on, press off) or 'hold'. */
   crouchMode: string;
+  /** The world's look: 'space' or 'city' (at night). */
+  theme: string;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -45,6 +47,7 @@ export const DEFAULT_SETTINGS: Settings = {
   level: 'the-crossing',
   inputMode: 'keys',
   crouchMode: 'toggle',
+  theme: 'city',
 };
 
 export function readJson(key: string): unknown {

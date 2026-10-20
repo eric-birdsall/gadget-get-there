@@ -164,6 +164,12 @@ export class Menu {
     this.checkbox('set-checkpoints', 'checkpoints');
     this.checkbox('set-ghost', 'ghost');
     this.checkbox('set-shadows', 'shadows');
+    const theme = el<HTMLSelectElement>('set-theme');
+    theme.value = settings.theme;
+    theme.addEventListener('change', () => {
+      this.settings.theme = theme.value;
+      this.changed();
+    });
     const crouchMode = el<HTMLSelectElement>('set-crouch');
     crouchMode.value = settings.crouchMode;
     crouchMode.addEventListener('change', () => {
