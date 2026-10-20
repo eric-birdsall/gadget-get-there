@@ -22,6 +22,24 @@ import { PLAYER_SHAPE } from '../config';
 
 const follow = (rate: number, dt: number) => 1 - Math.exp(-rate * dt);
 
+/** Heights of the leg and arm pivots above the feet. */
+const HIP_HEIGHT = 0.72;
+const SHOULDER_HEIGHT = 1.28;
+
+/** Run cycle feel. */
+const RUN = {
+  /** The full run cycle shows from this speed up, m/s. */
+  fullGaitSpeed: 3,
+  /** One cycle covers strideBase + stridePerSpeed × speed metres (two steps). */
+  strideBase: 1,
+  stridePerSpeed: 0.2,
+  /** Leg swing each way at full speed, radians; arms swing this share of it. */
+  legSwing: 0.75,
+  armSwing: 0.8,
+  /** Body rise at each step, m. */
+  bob: 0.06,
+};
+
 /** Shortest signed angle from a to b. */
 function angleDelta(a: number, b: number): number {
   return Math.atan2(Math.sin(b - a), Math.cos(b - a));
@@ -63,6 +81,16 @@ export class PlayerModel {
   private reach = -1;
   /** Sideways lean away from a wall being run on: + leans left, − right. */
   private wallLean = 0;
+  private onWall = false;
+  /** Hip and shoulder pivots, left then right: the run cycle swings them. */
+  private readonly legs: Group[] = [];
+  private readonly arms: Group[] = [];
+  /** Run cycle angle, advanced by distance covered, radians. */
+  private stride = 0;
+  /** 0 … 1: how much of the run cycle shows (none standing, in the air or sliding). */
+  private gait = 0;
+  /** 0 … 1: how much of the mid-air pose shows. */
+  private air = 0;
 
   /** `ghost` makes a translucent, shadowless copy for the personal-best ghost. */
   constructor(ghost = false) {
@@ -90,11 +118,22 @@ export class PlayerModel {
       return mesh;
     };
 
-    // Legs and boots.
+    // A part hung from a pivot (hip or shoulder), placed by where it sits on the body.
+    const hang = (pivot: Group, mesh: Mesh, x: number, y: number, z: number, shadow = true) => {
+      mesh.position.set(x - pivot.position.x, y - pivot.position.y, z - pivot.position.z);
+      mesh.castShadow = shadow && !ghost;
+      pivot.add(mesh);
+      return mesh;
+    };
+
+    // Legs and boots, swinging from the hips.
     for (const side of [-1, 1]) {
-      add(new Mesh(new CapsuleGeometry(0.15, 0.42, 4, 12), suit), side * 0.16, 0.44, 0);
-      const boot = add(new Mesh(new CapsuleGeometry(0.16, 0.1, 4, 12), trim), side * 0.16, 0.13, -0.04);
-      boot.scale.set(1, 0.9, 1.3);
+      const hip = new Group();
+      hip.position.set(side * 0.16, HIP_HEIGHT, 0);
+      hang(hip, new Mesh(new CapsuleGeometry(0.15, 0.42, 4, 12), suit), side * 0.16, 0.44, 0);
+      hang(hip, new Mesh(new CapsuleGeometry(0.16, 0.1, 4, 12), trim), side * 0.16, 0.13, -0.04).scale.set(1, 0.9, 1.3);
+      this.legs.push(hip);
+      this.body.add(hip);
     }
 
     // Torso, with an orange waist band and a chest control panel.
@@ -105,11 +144,16 @@ export class PlayerModel {
     add(new Mesh(new BoxGeometry(0.045, 0.045, 0.02), amber), 0, 1.13, -0.38, false);
     add(new Mesh(new BoxGeometry(0.045, 0.045, 0.02), glow), 0.07, 1.13, -0.38, false);
 
-    // Arms, slightly out from the body, with dark gloves.
+    // Arms, slightly out from the body, with dark gloves, swinging from the shoulders.
     for (const side of [-1, 1]) {
-      const arm = add(new Mesh(new CapsuleGeometry(0.11, 0.4, 4, 10), suit), side * 0.45, 1.06, 0);
-      arm.rotation.z = side * 0.18;
-      add(new Mesh(new SphereGeometry(0.12, 12, 10), trim), side * 0.5, 0.78, 0, false);
+      const shoulder = new Group();
+      shoulder.position.set(side * 0.4, SHOULDER_HEIGHT, 0);
+      // Tilted out; the run cycle swings it forward and back about X.
+      shoulder.rotation.z = side * 0.18;
+      hang(shoulder, new Mesh(new CapsuleGeometry(0.11, 0.4, 4, 10), suit), side * 0.42, 1.06, 0);
+      hang(shoulder, new Mesh(new SphereGeometry(0.12, 12, 10), trim), side * 0.42, 0.78, 0, false);
+      this.arms.push(shoulder);
+      this.body.add(shoulder);
     }
 
     // Helmet: a white dome with a neck ring and a gold, mirrored visor across the front.
@@ -206,6 +250,7 @@ export class PlayerModel {
       target = -0.4 * (normal.x * rx + normal.z * rz);
     }
     this.wallLean += (target - this.wallLean) * follow(14, dt);
+    this.onWall = normal !== null;
   }
 
   /** Wingsuit glide: wings out, body belly-down. */
@@ -243,6 +288,8 @@ export class PlayerModel {
     this.lean += (leanWanted - this.lean) * follow(10, dt);
     this.prevVel.copy(pose.vel);
 
+    this.animateLimbs(dt, hSpeed, pose.grounded);
+
     if (landed > 0) this.squashVel -= Math.min(6, 1.2 + landed * 0.18);
     if (jumped) this.squashVel += 3.5;
     // Damped spring back to rest.
@@ -256,10 +303,44 @@ export class PlayerModel {
     this.body.rotation.set(pitch, 0, this.bank + this.wallLean);
     // Gliding pitches the body about its middle rather than its feet, so it stays over the player.
     const mid = PLAYER_SHAPE.height / 2;
-    this.body.position.set(0, this.glide * mid * (1 - Math.cos(pitch)), -this.glide * mid * Math.sin(pitch));
+    // Two bounces per stride: up as each leg passes under the body.
+    const bob = this.gait * RUN.bob * Math.abs(Math.cos(this.stride));
+    this.body.position.set(0, this.glide * mid * (1 - Math.cos(pitch)) + bob, -this.glide * mid * Math.sin(pitch));
     const sy = 1 + this.squash - this.low * 0.45;
     const sxz = 1 / Math.sqrt(sy);
     this.body.scale.set(sxz, sy, sxz);
+  }
+
+  /**
+   * Legs stride and arms swing opposite them, faster and wider with speed, while running on the
+   * ground or along a wall. In the air: one knee up, arms out. Gliding, sliding and mantling hold
+   * the limbs still.
+   */
+  private animateLimbs(dt: number, hSpeed: number, grounded: boolean): void {
+    const busy = this.glide > 0.3 || this.reach >= 0;
+    const running = (grounded || this.onWall) && !busy;
+    // Crouch-walking still steps, smaller; a slide doesn't.
+    const stepping = running && this.slideLean < 0.5;
+    const gaitWanted = stepping ? MathUtils.clamp(hSpeed / RUN.fullGaitSpeed, 0, 1) * (1 - 0.5 * this.low) : 0;
+    this.gait += (gaitWanted - this.gait) * follow(10, dt);
+    this.air += ((!grounded && !this.onWall && !busy ? 1 : 0) - this.air) * follow(8, dt);
+    // One cycle (two steps) per stride length, which grows with speed.
+    if (stepping) this.stride += (hSpeed / (RUN.strideBase + RUN.stridePerSpeed * hSpeed)) * Math.PI * dt;
+
+    const amp = RUN.legSwing * Math.min(1, 0.45 + hSpeed / 18);
+    this.legs.forEach((hip, i) => {
+      const side = i === 0 ? 1 : -1;
+      // Positive X rotation swings the foot back (the model faces −Z).
+      const run = side * Math.sin(this.stride) * amp * this.gait;
+      const airPose = (i === 0 ? -0.7 : 0.35) * this.air;
+      hip.rotation.x = run + airPose;
+    });
+    this.arms.forEach((shoulder, i) => {
+      const side = i === 0 ? 1 : -1;
+      const run = -side * Math.sin(this.stride) * amp * RUN.armSwing * this.gait;
+      shoulder.rotation.x = run - 0.25 * this.air;
+      shoulder.rotation.z = (i === 0 ? -1 : 1) * (0.18 + 0.5 * this.air);
+    });
   }
 
   /** Faces a given heading immediately, for spawns. */
