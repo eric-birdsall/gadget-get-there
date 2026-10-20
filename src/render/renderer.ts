@@ -169,7 +169,7 @@ export class Renderer {
     }
   }
 
-  /** Space or the city at night: colours, light, haze and backdrop. The course is rebuilt in the new look. */
+  /** Space or the city at night: colours, light, haze, backdrop and the player's body. The course is rebuilt in the new look. */
   setTheme(theme: Theme): void {
     if (theme === this.theme) return;
     this.theme = theme;
@@ -186,6 +186,8 @@ export class Renderer {
     this.sun.intensity = look.sun.intensity;
     this.space.visible = theme === 'space';
     this.city.visible = theme === 'city';
+    this.player.setLook(theme);
+    this.ghost.model.setLook(theme);
     this.setCourse(this.boxes, this.course, false);
   }
 
