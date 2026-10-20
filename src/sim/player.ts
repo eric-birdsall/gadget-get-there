@@ -68,6 +68,8 @@ export interface PlayerState {
   stance: Stance;
   /** Seconds into the current slide (0 when not sliding). */
   slideTime: number;
+  /** This slide has already flagged its burst as ready. */
+  slideReadyFlagged: boolean;
   mantle: Mantle | null;
   /** Running along a wall: its outward normal and how long so far. */
   wallRun: { normal: Vector3; time: number; speed: number } | null;
@@ -79,7 +81,7 @@ export interface PlayerState {
   justSlid: boolean;
   /** Set for the one tick a long slide ends with its burst of speed. */
   justSlideBurst: boolean;
-  /** Set for the one tick a slide reaches the length that earns the jump burst. */
+  /** Set for the one tick a slide's burst becomes available (long enough, and enough stamina). */
   justSlideReady: boolean;
   justMantled: boolean;
   justWallRun: boolean;
@@ -106,6 +108,7 @@ export function createPlayer(pos: Vector3): PlayerState {
     airborneLock: 0,
     stance: Stance.Stand,
     slideTime: 0,
+    slideReadyFlagged: false,
     mantle: null,
     justSlid: false,
     justSlideBurst: false,
@@ -138,6 +141,7 @@ export function resetPlayer(p: PlayerState, pos: Vector3): void {
   p.airborneLock = 0;
   p.stance = Stance.Stand;
   p.slideTime = 0;
+  p.slideReadyFlagged = false;
   p.mantle = null;
   p.justSlid = false;
   p.justSlideBurst = false;
@@ -469,13 +473,18 @@ function updateStance(p: PlayerState, input: PlayerInput, boxes: readonly Box[])
     next = p.stance === Stance.Slide && speed < c.slideMinSpeed ? Stance.Crouch : p.stance;
   }
   if (next === Stance.Slide && p.stance !== Stance.Slide) p.justSlid = true;
-  const before = p.slideTime;
   const ready = ABILITY_CONFIG.slideBurstMinSeconds;
   // A full slide ends with its burst: standing up, or leaving the ground. Slowing into a crouch
   // loses it. (A jump out of a slide is handled where the jump happens.)
   if (p.stance === Stance.Slide && next !== Stance.Slide && next !== Stance.Crouch && p.slideTime >= ready) slideBurst(p);
   p.slideTime = next === Stance.Slide && p.stance === Stance.Slide ? p.slideTime + DT : 0;
-  if (before < ready && p.slideTime >= ready) p.justSlideReady = true;
+  // The burst is ready once the slide is long enough and there's a burst to have (stamina, and
+  // not already at the ceiling); flagged once per slide, for the ring's glow and the chime.
+  if (p.slideTime < ready) p.slideReadyFlagged = false;
+  else if (!p.slideReadyFlagged && burstAvailable(p)) {
+    p.justSlideReady = true;
+    p.slideReadyFlagged = true;
+  }
   p.stance = next;
 }
 
@@ -511,14 +520,29 @@ function sprintConfig(cfg: MovementConfig): MovementConfig {
   return sprintCfg;
 }
 
-/** A full slide's burst: extra speed the way you're steering, or straight on with no steer. */
+/**
+ * A full slide's burst: extra speed the way you're steering (or straight on with no steer), up to
+ * the burst ceiling and no further. It costs stamina; without enough, or already at the ceiling,
+ * there's no burst and nothing is spent.
+ */
 function slideBurst(p: PlayerState): void {
+  const c = ABILITY_CONFIG;
+  if (!burstAvailable(p)) return;
   const speed = Math.hypot(p.vel.x, p.vel.z);
+  const add = Math.min(c.slideBurstSpeed, c.slideBurstCeiling - speed);
   const along = wish.lengthSq() > 0 ? wish : speed > 1e-3 ? boostDir.set(p.vel.x / speed, 0, p.vel.z / speed) : null;
-  if (!along) return;
-  p.vel.x += along.x * ABILITY_CONFIG.slideBurstSpeed;
-  p.vel.z += along.z * ABILITY_CONFIG.slideBurstSpeed;
+  if (!along || add <= 0.05) return;
+  p.vel.x += along.x * add;
+  p.vel.z += along.z * add;
+  p.stamina = Math.max(0, p.stamina - c.slideBurstStamina);
+  p.staminaDelay = c.sprintRegenDelay;
   p.justSlideBurst = true;
+}
+
+/** Enough stamina for a slide burst, and not already at its ceiling. */
+export function burstAvailable(p: PlayerState): boolean {
+  const c = ABILITY_CONFIG;
+  return p.stamina >= c.slideBurstStamina - 1e-9 && Math.hypot(p.vel.x, p.vel.z) < c.slideBurstCeiling - 0.05;
 }
 
 /** On the ground and travelling up a slope (steeper than slideMaxRise along the travel). */

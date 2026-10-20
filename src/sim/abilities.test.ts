@@ -139,6 +139,43 @@ describe('slide', () => {
     expect(bursts).toBe(1);
   });
 
+  it('chaining slides levels off at the ceiling instead of speeding up forever', () => {
+    const p = sprinting();
+    p.stamina = 1;
+    let top = 0;
+    for (let i = 0; i < 4; i++) {
+      run(p, { forward: 1, crouch: true }, A.slideBurstMinSeconds + 0.05);
+      stepPlayer(p, { ...NO_INPUT, forward: 1 }, [FLOOR]);
+      top = Math.max(top, horizontalSpeed(p));
+      // Keep stamina topped up: this checks the ceiling alone.
+      p.stamina = 1;
+    }
+    expect(top).toBeLessThanOrEqual(A.slideBurstCeiling + 1e-6);
+    expect(top).toBeGreaterThan(A.slideBurstCeiling - 0.5);
+  });
+
+  it('each burst costs stamina, and with too little left there is no burst (or ready glow)', () => {
+    const p = sprinting();
+    run(p, { forward: 1, crouch: true }, A.slideBurstMinSeconds + 0.05);
+    const before = p.stamina;
+    stepPlayer(p, { ...NO_INPUT, forward: 1 }, [FLOOR]);
+    expect(p.justSlideBurst).toBe(true);
+    expect(p.stamina).toBeCloseTo(before - A.slideBurstStamina, 2);
+
+    const q = sprinting();
+    q.stamina = A.slideBurstStamina / 2;
+    let ready = false;
+    for (let t = 0; t < A.slideBurstMinSeconds + 0.2; t += DT) {
+      stepPlayer(q, { ...NO_INPUT, forward: 1, crouch: true }, [FLOOR]);
+      if (q.justSlideReady) ready = true;
+    }
+    expect(ready).toBe(false);
+    const speed = horizontalSpeed(q);
+    stepPlayer(q, { ...NO_INPUT, forward: 1 }, [FLOOR]);
+    expect(q.justSlideBurst).toBe(false);
+    expect(horizontalSpeed(q)).toBeLessThan(speed + 1);
+  });
+
   it('a slide that slows into a crouch-walk loses its burst', () => {
     const p = sprinting();
     run(p, { forward: 1, crouch: true }, 12);

@@ -267,3 +267,8 @@ Replaces the gadget in hand, switching (scroll, F, 1–5 mid-run) and auto-switc
 ## The slide burst comes when the slide ends (built)
 - A slide of 1 s or more ends with its burst (+4.5 m/s the way you're steering) however it ends: jumping out, letting go and standing up, or sliding off an edge. Only a slide that slows into a crouch-walk loses it. One burst per slide.
 - Replaces "only a jump out of the slide uses it" and the 0.15 s let-go grace (no longer needed). Renamed slide-jump → slide burst in the code (config `slideBurstMinSeconds`, `slideBurstSpeed`).
+
+## Slide bursts are capped and cost stamina (built)
+- Chaining slides could add ~3 m/s every second, without limit. Now a burst lifts you to at most 17.5 m/s (sprint speed + the burst), so chains level off.
+- Each burst costs 25% of sprint stamina and needs that much in the bar; refilling pauses briefly after it. Already at the ceiling or short of stamina: no burst, nothing spent.
+- The ready ring only glows, and the chime only plays, when a burst is actually available.

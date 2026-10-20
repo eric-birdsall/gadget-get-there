@@ -16,7 +16,7 @@ import { PadButton } from './input/gamepad';
 import { Action, InputManager, USE_ACTIONS, device } from './input/input';
 import { PadNav } from './ui/padNav';
 import { Renderer } from './render/renderer';
-import { Stance } from './sim/player';
+import { Stance, burstAvailable } from './sim/player';
 import { RecordStore } from './storage/records';
 import { loadBindings, loadPadBindings } from './storage/bindings';
 import { loadSettings, saveSettings } from './storage/settings';
@@ -515,7 +515,9 @@ function frame(now: number): void {
   });
   hud.setCrosshairLocked(grappleTarget !== null);
   // Slide charge: fills over the slide time that earns the jump burst.
-  hud.setSlideCharge(p.stance === Stance.Slide ? Math.min(1, p.slideTime / ABILITY_CONFIG.slideBurstMinSeconds) : -1);
+  // The slide ring fills over the burst's slide time, and only glows when a burst is there to have.
+  const charge = Math.min(1, p.slideTime / ABILITY_CONFIG.slideBurstMinSeconds);
+  hud.setSlideCharge(p.stance === Stance.Slide ? (charge >= 1 && !burstAvailable(p) ? 0.98 : charge) : -1);
   // Paused, the sprint effects rest (the stamina bar still shows).
   hud.setStamina(p.stamina, p.sprinting && !paused);
   hud.update(session.state, session.elapsed);

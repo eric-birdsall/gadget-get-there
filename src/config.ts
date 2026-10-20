@@ -95,6 +95,10 @@ export const ABILITY_CONFIG = {
   slideBurstMinSeconds: 1.0,
   /** …ends (stand up, jump, or off an edge; not slowing into a crouch) with this much more speed, the way you're steering, m/s. */
   slideBurstSpeed: 4.5,
+  /** …but never past this (sprint speed + the burst): chaining slides can't keep adding speed, m/s. */
+  slideBurstCeiling: 17.5,
+  /** Each burst costs this share of sprint stamina, and needs at least that much in the bar. */
+  slideBurstStamina: 0.25,
   /** Ledge tops this far above the feet can be mantled, m. */
   mantleMinHeight: 0.5,
   mantleMaxHeight: 2.8,
