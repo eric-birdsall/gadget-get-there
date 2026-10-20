@@ -2,6 +2,9 @@ import { GADGETS, gadgetDefinition } from '../gadgets/registry';
 import type { GadgetId } from '../gadgets/types';
 import { type Settings, saveSettings } from '../storage/settings';
 import { MAX_SLOTS } from '../game/session';
+import { Action, type Bindings, MAX_KEYS_PER_ACTION, SLOT_ACTIONS, keyName, switchKeysName } from '../input/input';
+import { keyLabel } from '../input/keyNames';
+import { bindKey, clearKey, defaultBindings, saveBindings } from '../storage/bindings';
 import { formatTime } from './hud';
 import { GADGET_ICONS } from './icons';
 
@@ -16,7 +19,40 @@ export interface MenuHandlers {
   /** Empty every slot. Mid-run this restarts. */
   clearGadgets: () => void;
   settingsChanged: () => void;
+  bindingsChanged: () => void;
 }
+
+/** The Controls page, in groups. Debug keys stay off it. */
+const CONTROL_GROUPS: { title: string; rows: [Action, string][] }[] = [
+  {
+    title: 'Movement',
+    rows: [
+      [Action.Forward, 'Forward'],
+      [Action.Back, 'Back'],
+      [Action.Left, 'Left'],
+      [Action.Right, 'Right'],
+      [Action.Jump, 'Jump · mantle · wall run'],
+      [Action.Crouch, 'Slide / crouch'],
+    ],
+  },
+  {
+    title: 'Gadgets',
+    rows: [
+      [Action.Gadget, 'Use gadget'],
+      [Action.NextGadget, 'Next gadget'],
+      ...GADGETS.map((g): [Action, string] => [SLOT_ACTIONS[g.slot - 1], g.displayName]),
+    ],
+  },
+  {
+    title: 'Run',
+    rows: [
+      [Action.Retry, 'Retry'],
+      [Action.ToggleGhost, 'Ghost on / off'],
+    ],
+  },
+];
+
+const actionLabel = (a: Action) => CONTROL_GROUPS.flatMap((g) => g.rows).find(([x]) => x === a)?.[1] ?? a;
 
 type NumberKey = 'sensitivity' | 'fov' | 'musicVolume' | 'sfxVolume';
 type BoolKey = 'invertY' | 'checkpoints' | 'ghost' | 'shadows';
@@ -33,9 +69,15 @@ export class Menu {
   private readonly tileEls = new Map<GadgetId, HTMLButtonElement>();
   private loadout: GadgetId[] = [];
   private loadoutKey = '';
+  /** Each action's key buttons on the Controls page. */
+  private readonly bindEls = new Map<Action, HTMLButtonElement[]>();
+  /** The key button waiting for a key press, if any. */
+  private capture: { action: Action; index: number } | null = null;
+  private takenTimer = 0;
 
   constructor(
     private readonly settings: Settings,
+    private readonly bindings: Bindings,
     private readonly handlers: MenuHandlers,
   ) {
     this.playButton.addEventListener('click', handlers.play);
@@ -43,6 +85,9 @@ export class Menu {
     el('tuning').addEventListener('click', handlers.tuning);
     el('open-settings').addEventListener('click', () => this.showSettings(true));
     el('close-settings').addEventListener('click', () => this.showSettings(false));
+    el('open-controls').addEventListener('click', () => this.showControls(true));
+    el('close-controls').addEventListener('click', () => this.showControls(false));
+    this.buildControls();
 
     this.buildLoadoutPicker();
 
@@ -150,7 +195,7 @@ export class Menu {
     title.textContent = g.displayName;
     const meta = document.createElement('div');
     meta.className = 'meta';
-    meta.textContent = `Key ${g.slot} · ${g.budgetLabel} per run`;
+    meta.textContent = `Key ${keyName(this.bindings, SLOT_ACTIONS[g.slot - 1])} · ${g.budgetLabel} per run`;
     const summary = document.createElement('p');
     summary.textContent = g.summary;
     const stats = document.createElement('dl');
@@ -198,7 +243,7 @@ export class Menu {
     el<HTMLButtonElement>('clear-slots').disabled = loadout.length === 0;
     el('menu-gadgets-hint').textContent = running
       ? 'Changing gadgets restarts the run'
-      : 'Click gadgets to fill the slots · F or scroll switches between them in the run';
+      : `Click gadgets to fill the slots · ${switchKeysName(this.bindings)} switches between them in the run`;
   }
 
   setBest(seconds: number | null): void {
@@ -211,10 +256,157 @@ export class Menu {
 
   /** Switches the panel between the main menu and the settings view. */
   showSettings(open: boolean, focus = true): void {
+    this.showControls(false, false);
     el('card').classList.toggle('settings-open', open);
     el('settings').classList.toggle('hidden', !open);
     el('card').scrollTop = 0;
     if (focus) (open ? el('close-settings') : el('open-settings')).focus({ preventScroll: true });
+  }
+
+  get controlsOpen(): boolean {
+    return el('card').classList.contains('controls-open');
+  }
+
+  /** The Controls page, reached from settings; closing it goes back to settings. */
+  showControls(open: boolean, focus = true): void {
+    this.endCapture();
+    el('card').classList.toggle('controls-open', open);
+    el('controls-view').classList.toggle('hidden', !open);
+    el('card').scrollTop = 0;
+    if (focus) (open ? el('close-controls') : el('open-controls')).focus({ preventScroll: true });
+  }
+
+  /** One row per action: its name, then a main and an alternate key button. */
+  private buildControls(): void {
+    const list = el('controls-list');
+    for (const group of CONTROL_GROUPS) {
+      const h = document.createElement('h3');
+      h.textContent = group.title;
+      list.append(h);
+      for (const [action, label] of group.rows) {
+        const row = document.createElement('div');
+        row.className = 'bind-row';
+        row.dataset.action = action;
+        const name = document.createElement('span');
+        name.className = 'bind-name';
+        name.textContent = label;
+        row.append(name);
+        const buttons: HTMLButtonElement[] = [];
+        for (let i = 0; i < MAX_KEYS_PER_ACTION; i++) {
+          const b = document.createElement('button');
+          b.className = 'bind small';
+          b.addEventListener('click', () => this.startCapture(action, i));
+          buttons.push(b);
+          row.append(b);
+        }
+        this.bindEls.set(action, buttons);
+        list.append(row);
+      }
+    }
+    el('reset-controls').addEventListener('click', () => {
+      Object.assign(this.bindings, defaultBindings());
+      this.bindingsChanged();
+      this.setControlsNote('Controls reset to the defaults.');
+    });
+    // Capture phase on window, ahead of the game's own Esc handling.
+    window.addEventListener('keydown', (e) => this.onCaptureKey(e), true);
+    window.addEventListener('mousedown', (e) => this.onCaptureMouse(e), true);
+    this.renderBindings();
+  }
+
+  /** True while a key button waits for the new key. */
+  get capturing(): boolean {
+    return this.capture !== null;
+  }
+
+  private startCapture(action: Action, index: number): void {
+    // Can't leave a gap: an empty main key fills before the alternate.
+    this.endCapture();
+    this.capture = { action, index: Math.min(index, this.bindings[action].length) };
+    const button = this.bindEls.get(action)![this.capture.index];
+    button.classList.add('listening');
+    button.textContent = 'Press a key…';
+    this.setControlsNote('Press a key or mouse button · Backspace clears · Esc cancels');
+  }
+
+  private endCapture(): void {
+    if (!this.capture) return;
+    this.capture = null;
+    this.renderBindings();
+  }
+
+  private onCaptureKey(e: KeyboardEvent): void {
+    if (!this.capture) return;
+    e.preventDefault();
+    e.stopImmediatePropagation();
+    const { action, index } = this.capture;
+    if (e.code === 'Escape') {
+      this.endCapture();
+      this.setControlsNote('');
+    } else if (e.code === 'Backspace') {
+      clearKey(this.bindings, action, index);
+      this.capture = null;
+      this.bindingsChanged();
+      this.setControlsNote(`${actionLabel(action)} key cleared.`);
+    } else this.assign(e.code);
+  }
+
+  private onCaptureMouse(e: MouseEvent): void {
+    if (!this.capture) return;
+    // Left-clicking another key button just moves the wait there.
+    if (e.button === 0 && (e.target as Element).closest?.('.bind')) {
+      this.endCapture();
+      return;
+    }
+    e.preventDefault();
+    e.stopImmediatePropagation();
+    // Swallow the click a left press makes, so it doesn't also press whatever is under the cursor.
+    // (Other buttons make no click, and a waiting listener would eat the next real one.)
+    if (e.button === 0) window.addEventListener('click', (c) => c.stopImmediatePropagation(), { capture: true, once: true });
+    this.assign(`Mouse${e.button}`);
+  }
+
+  private assign(code: string): void {
+    const { action, index } = this.capture!;
+    this.capture = null;
+    const taken = bindKey(this.bindings, action, index, code);
+    this.bindingsChanged();
+    if (taken.length === 0) {
+      this.setControlsNote('');
+      return;
+    }
+    // One key does one thing: say where it came from, and mark that row.
+    this.setControlsNote(`${keyLabel(code)} moved from ${taken.map(actionLabel).join(', ')}.`);
+    for (const a of taken) this.bindEls.get(a)![0].parentElement!.classList.add('taken');
+    clearTimeout(this.takenTimer);
+    this.takenTimer = window.setTimeout(() => {
+      for (const row of el('controls-list').querySelectorAll('.taken')) row.classList.remove('taken');
+    }, 2000);
+  }
+
+  private bindingsChanged(): void {
+    saveBindings(this.bindings);
+    this.renderBindings();
+    this.loadoutKey = '';
+    this.handlers.bindingsChanged();
+  }
+
+  private setControlsNote(text: string): void {
+    el('controls-note').textContent = text;
+  }
+
+  private renderBindings(): void {
+    for (const [action, buttons] of this.bindEls) {
+      const keys = this.bindings[action];
+      buttons.forEach((b, i) => {
+        b.classList.remove('listening');
+        b.classList.toggle('unset', !keys[i]);
+        b.textContent = keys[i] ? keyLabel(keys[i]) : '—';
+        b.title = keys[i] ? 'Click, then press a new key' : 'Click, then press a key to add one';
+      });
+      // No key at all: the action can't be used.
+      buttons[0].parentElement!.classList.toggle('unbound', keys.length === 0);
+    }
   }
 
   /** `started` switches the button between "Play" and "Resume". */
@@ -227,6 +419,7 @@ export class Menu {
 
   hide(): void {
     this.showSettings(false, false);
+    this.setControlsNote('');
     this.closeInfo();
     // Don't leave a menu button focused, or Space during play would press it.
     (document.activeElement as HTMLElement | null)?.blur();

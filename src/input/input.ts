@@ -1,4 +1,5 @@
 import { CAMERA_CONFIG } from '../config';
+import { keyLabel, keyRangeLabel } from './keyNames';
 
 export enum Action {
   Forward = 'forward',
@@ -19,8 +20,9 @@ export enum Action {
   ToggleDebug = 'toggle-debug',
 }
 
-/** Key codes (KeyboardEvent.code) or `Mouse0`..`Mouse2` per action. Remappable. */
+/** Key codes (KeyboardEvent.code) or `Mouse0`..`Mouse4` per action: a main key and an alternate. Remappable. */
 export type Bindings = Record<Action, string[]>;
+export const MAX_KEYS_PER_ACTION = 2;
 
 export const DEFAULT_BINDINGS: Bindings = {
   [Action.Forward]: ['KeyW', 'ArrowUp'],
@@ -41,6 +43,24 @@ export const DEFAULT_BINDINGS: Bindings = {
   [Action.ToggleDebug]: ['Backquote'],
 };
 
+export const SLOT_ACTIONS = [Action.Slot1, Action.Slot2, Action.Slot3, Action.Slot4, Action.Slot5] as const;
+
+/** The action's main key as shown on screen, e.g. "E". */
+export function keyName(bindings: Bindings, action: Action): string {
+  const code = bindings[action][0];
+  return code ? keyLabel(code) : 'unbound';
+}
+
+/** How to switch gadgets: "F or scroll", or just "scroll" with no key bound. */
+export function switchKeysName(bindings: Bindings): string {
+  return bindings[Action.NextGadget].length ? `${keyName(bindings, Action.NextGadget)} or scroll` : 'scroll';
+}
+
+/** The gadget keys together: "1–5" by default. */
+export function slotKeysName(bindings: Bindings): string {
+  return keyRangeLabel(SLOT_ACTIONS.map((a) => keyName(bindings, a)));
+}
+
 /**
  * Scroll-wheel stepping: the first wheel event after a pause is one step straight away, however
  * small (one notch on a mouse, the start of a trackpad swipe). While events keep coming, another
@@ -58,6 +78,7 @@ export class InputManager {
   sensitivity = 1;
   invertY = false;
   bindings: Bindings = DEFAULT_BINDINGS;
+  private bound = new Set<string>();
   /**
    * Called when the browser refuses to capture the mouse. `switchedToFreeCursor` is true when
    * the game fell back to playing with a visible cursor.
@@ -87,7 +108,8 @@ export class InputManager {
       if (!this.locked) return;
       // Esc belongs to the pause/fullscreen handling in main.
       if (e.code === 'Escape') return;
-      if (e.code === 'Space' || e.code.startsWith('Arrow')) e.preventDefault();
+      // Bound keys belong to the game, not the browser (Tab, ', / and Space all do things there).
+      if (this.bound.has(e.code) || e.code === 'Space' || e.code.startsWith('Arrow')) e.preventDefault();
       if (!e.repeat) this.pressed.add(e.code);
       this.held.add(e.code);
     });
@@ -190,6 +212,11 @@ export class InputManager {
       this.fakeLocked = false;
       document.dispatchEvent(new Event('pointerlockchange'));
     } else document.exitPointerLock();
+  }
+
+  setBindings(bindings: Bindings): void {
+    this.bindings = bindings;
+    this.bound = new Set(Object.values(bindings).flat());
   }
 
   isHeld(action: Action): boolean {

@@ -12,10 +12,11 @@ import { GadgetEvent, type GadgetId } from './gadgets/types';
 import { type GhostPose, GhostPlayer } from './game/ghost';
 import { medalFor } from './game/medals';
 import { type AnyEvent, AttemptState, MAX_SLOTS, RunSession, type SessionInput, SessionEvent } from './game/session';
-import { Action, InputManager } from './input/input';
+import { Action, InputManager, SLOT_ACTIONS } from './input/input';
 import { Renderer } from './render/renderer';
 import { Stance } from './sim/player';
 import { RecordStore } from './storage/records';
+import { loadBindings } from './storage/bindings';
 import { loadSettings, saveSettings } from './storage/settings';
 import { Hud } from './ui/hud';
 import { Menu } from './ui/menu';
@@ -25,6 +26,7 @@ import { TuningPanel, loadTuning } from './ui/tuning';
 loadTuning();
 const course = crossing;
 const settings = loadSettings();
+const bindings = loadBindings();
 const records = new RecordStore();
 /** The saved gadget order (possibly empty). Gadgets that no longer exist drop out. */
 function savedLoadout(): GadgetId[] {
@@ -39,7 +41,8 @@ const session = new RunSession(course, {
 });
 const renderer = new Renderer(session.boxes, course);
 const input = new InputManager(renderer.canvas);
-const hud = new Hud();
+input.setBindings(bindings);
+const hud = new Hud(bindings);
 const tuning = new TuningPanel();
 const audio = new GameAudio();
 const fullscreen = new Fullscreen();
@@ -236,7 +239,7 @@ function enterPlay(): void {
   input.lock();
 }
 
-const menu = new Menu(settings, {
+const menu = new Menu(settings, bindings, {
   play: enterPlay,
   restart: () => {
     restart();
@@ -253,6 +256,11 @@ const menu = new Menu(settings, {
     audio.play(Sfx.Select);
   },
   settingsChanged: applySettings,
+  bindingsChanged: () => {
+    input.setBindings(bindings);
+    hud.refreshKeys();
+    refreshGadget();
+  },
 });
 
 // First Esc pauses (still fullscreen); a second Esc, on the pause menu, leaves fullscreen.
@@ -267,6 +275,10 @@ document.addEventListener(
       // Esc closes the gadget info first.
       e.preventDefault();
       menu.closeInfo();
+    } else if (menu.controlsOpen) {
+      // Esc on the Controls page goes back to settings.
+      e.preventDefault();
+      menu.showControls(false);
     } else if (menu.settingsOpen) {
       // Esc in settings goes back to the menu rather than leaving fullscreen.
       e.preventDefault();
@@ -335,8 +347,7 @@ function handleKeys(): void {
   }
   // 1–5: at the start line, add that gadget to the next free slot or take it out; mid-run,
   // take it in hand. The scroll wheel steps through the slots, skipping used-up gadgets.
-  const slots = [Action.Slot1, Action.Slot2, Action.Slot3, Action.Slot4, Action.Slot5];
-  slots.forEach((a, i) => {
+  SLOT_ACTIONS.forEach((a, i) => {
     if (!input.consumePress(a) || !GADGETS[i]) return;
     if (session.state === AttemptState.Ready) toggleGadget(GADGETS[i].id);
     else session.selectGadget(GADGETS[i].id);

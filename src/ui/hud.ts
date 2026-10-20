@@ -3,6 +3,7 @@ import { GADGETS, gadgetDefinition } from '../gadgets/registry';
 import type { GadgetId } from '../gadgets/types';
 import { Medal } from '../game/medals';
 import { AttemptState } from '../game/session';
+import { Action, type Bindings, SLOT_ACTIONS, keyName, slotKeysName, switchKeysName } from '../input/input';
 import { GADGET_ICONS } from './icons';
 
 const el = (id: string) => document.getElementById(id)!;
@@ -76,7 +77,7 @@ export class Hud {
 
   private readonly slotEls: HTMLElement[] = [];
 
-  constructor() {
+  constructor(private readonly bindings: Bindings) {
     for (let i = 0; i < GADGETS.length; i++) {
       const slot = document.createElement('div');
       slot.className = 'slot';
@@ -86,6 +87,17 @@ export class Hud {
       this.slotEls.push(slot);
       this.slots.append(slot);
     }
+    this.refreshKeys();
+  }
+
+  /** Rewrites every key shown on screen; call after the bindings change. */
+  refreshKeys(): void {
+    const b = this.bindings;
+    el('hint').textContent = `Move to start the clock · ${slotKeysName(b)} add or remove gadgets · ${switchKeysName(b)} switches`;
+    el('controls-hint').textContent = `${keyName(b, Action.Retry)} retry · ${keyName(b, Action.ToggleGhost)} ghost · Esc pause`;
+    el('result-retry').textContent = `${keyName(b, Action.Retry)} to go again · Esc to change gadgets`;
+    this.lastGadgetKey = '';
+    for (const slot of this.slotEls) delete slot.dataset.gadget;
   }
 
   update(state: AttemptState, elapsed: number): void {
@@ -118,7 +130,7 @@ export class Hud {
       if (el.dataset.gadget !== id) {
         el.dataset.gadget = id;
         el.querySelector('.icon')!.innerHTML = GADGET_ICONS[id];
-        el.querySelector('.key')!.textContent = String(gadgetDefinition(id).slot);
+        el.querySelector('.key')!.textContent = keyName(this.bindings, SLOT_ACTIONS[gadgetDefinition(id).slot - 1]);
         el.title = gadgetDefinition(id).displayName;
       }
       const left = remaining[i] ?? 1;
@@ -132,13 +144,14 @@ export class Hud {
       ring.style.strokeDashoffset = `${100 * (1 - left)}`;
     });
     const current = loadout[inHand];
+    const b = this.bindings;
     this.gadgetHint.textContent = !current
-      ? 'No gadgets · 1–5 to add some'
+      ? `No gadgets · ${slotKeysName(b)} to add some`
       : ready
-        ? '1–5 add or remove gadgets · scroll or F to switch during the run'
+        ? `${slotKeysName(b)} add or remove gadgets · ${switchKeysName(b)} to switch during the run`
         : (remaining[inHand] ?? 1) <= 0
           ? 'Gadgets used up · finish on foot'
-          : `${gadgetDefinition(current).actionHint} · F or scroll to switch`;
+          : `${gadgetDefinition(current).actionHint.replace('{use}', keyName(b, Action.Gadget))} · ${switchKeysName(b)} to switch`;
   }
 
   /** Ring round the crosshair while sliding: 0…1 fills, 1 glows (jump now for a burst), −1 hides. */
