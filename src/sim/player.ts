@@ -68,8 +68,6 @@ export interface PlayerState {
   stance: Stance;
   /** Seconds into the current slide (0 when not sliding). */
   slideTime: number;
-  /** Seconds left in which a jump still gets the burst of a full slide that just stood up. */
-  slideBurstGrace: number;
   mantle: Mantle | null;
   /** Running along a wall: its outward normal and how long so far. */
   wallRun: { normal: Vector3; time: number; speed: number } | null;
@@ -79,8 +77,8 @@ export interface PlayerState {
   airSteerLock: number;
   /** Set for the one tick a slide starts or a mantle grabs, for animation and sound. */
   justSlid: boolean;
-  /** Set for the one tick a long slide's jump gives its burst of speed. */
-  justSlideJumped: boolean;
+  /** Set for the one tick a long slide ends with its burst of speed. */
+  justSlideBurst: boolean;
   /** Set for the one tick a slide reaches the length that earns the jump burst. */
   justSlideReady: boolean;
   justMantled: boolean;
@@ -108,10 +106,9 @@ export function createPlayer(pos: Vector3): PlayerState {
     airborneLock: 0,
     stance: Stance.Stand,
     slideTime: 0,
-    slideBurstGrace: 0,
     mantle: null,
     justSlid: false,
-    justSlideJumped: false,
+    justSlideBurst: false,
     justSlideReady: false,
     justMantled: false,
     wallRun: null,
@@ -141,10 +138,9 @@ export function resetPlayer(p: PlayerState, pos: Vector3): void {
   p.airborneLock = 0;
   p.stance = Stance.Stand;
   p.slideTime = 0;
-  p.slideBurstGrace = 0;
   p.mantle = null;
   p.justSlid = false;
-  p.justSlideJumped = false;
+  p.justSlideBurst = false;
   p.justSlideReady = false;
   p.justMantled = false;
   p.wallRun = null;
@@ -474,12 +470,10 @@ function updateStance(p: PlayerState, input: PlayerInput, boxes: readonly Box[])
   }
   if (next === Stance.Slide && p.stance !== Stance.Slide) p.justSlid = true;
   const before = p.slideTime;
-  const ready = ABILITY_CONFIG.slideJumpMinSeconds;
-  // A full slide that stands up keeps its burst for a moment: letting go of slide a split second
-  // before jumping still counts. Any other end (a crouch, the air) loses it.
-  p.slideBurstGrace = Math.max(0, p.slideBurstGrace - DT);
-  if (p.stance === Stance.Slide && next === Stance.Stand && p.slideTime >= ready) p.slideBurstGrace = c.slideJumpGrace;
-  else if (next !== Stance.Stand) p.slideBurstGrace = 0;
+  const ready = ABILITY_CONFIG.slideBurstMinSeconds;
+  // A full slide ends with its burst: standing up, or leaving the ground. Slowing into a crouch
+  // loses it. (A jump out of a slide is handled where the jump happens.)
+  if (p.stance === Stance.Slide && next !== Stance.Slide && next !== Stance.Crouch && p.slideTime >= ready) slideBurst(p);
   p.slideTime = next === Stance.Slide && p.stance === Stance.Slide ? p.slideTime + DT : 0;
   if (before < ready && p.slideTime >= ready) p.justSlideReady = true;
   p.stance = next;
@@ -515,6 +509,16 @@ function sprintConfig(cfg: MovementConfig): MovementConfig {
   Object.assign(sprintCfg, cfg);
   sprintCfg.groundSpeed = Math.max(cfg.groundSpeed, ABILITY_CONFIG.sprintSpeed);
   return sprintCfg;
+}
+
+/** A full slide's burst: extra speed the way you're steering, or straight on with no steer. */
+function slideBurst(p: PlayerState): void {
+  const speed = Math.hypot(p.vel.x, p.vel.z);
+  const along = wish.lengthSq() > 0 ? wish : speed > 1e-3 ? boostDir.set(p.vel.x / speed, 0, p.vel.z / speed) : null;
+  if (!along) return;
+  p.vel.x += along.x * ABILITY_CONFIG.slideBurstSpeed;
+  p.vel.z += along.z * ABILITY_CONFIG.slideBurstSpeed;
+  p.justSlideBurst = true;
 }
 
 /** On the ground and travelling up a slope (steeper than slideMaxRise along the travel). */
@@ -745,7 +749,7 @@ export function stepPlayer(p: PlayerState, input: PlayerInput, boxes: readonly B
   p.justJumped = false;
   p.justLanded = false;
   p.justSlid = false;
-  p.justSlideJumped = false;
+  p.justSlideBurst = false;
   p.justSlideReady = false;
   p.justMantled = false;
   p.justWallRun = false;
@@ -775,19 +779,8 @@ export function stepPlayer(p: PlayerState, input: PlayerInput, boxes: readonly B
   // Jumping out of a slide or crouch stands you up first, if there's room.
   const roomToJump = p.stance === Stance.Stand || fits(p.pos, PLAYER_SHAPE.height, boxes);
   if (p.jumpQueued <= cfg.jumpBuffer && canJump && roomToJump) {
-    // Jumping out of a slide held long enough bursts you forward: the way you're steering, or
-    // straight on with no steer.
-    const fullSlide = p.stance === Stance.Slide && p.slideTime >= ABILITY_CONFIG.slideJumpMinSeconds;
-    if (fullSlide || (p.grounded && p.slideBurstGrace > 0)) {
-      p.slideBurstGrace = 0;
-      const speed = Math.hypot(p.vel.x, p.vel.z);
-      const along = wish.lengthSq() > 0 ? wish : speed > 1e-3 ? boostDir.set(p.vel.x / speed, 0, p.vel.z / speed) : null;
-      if (along) {
-        p.vel.x += along.x * ABILITY_CONFIG.slideJumpBoost;
-        p.vel.z += along.z * ABILITY_CONFIG.slideJumpBoost;
-        p.justSlideJumped = true;
-      }
-    }
+    // Jumping out of a full slide ends it with its burst.
+    if (p.stance === Stance.Slide && p.slideTime >= ABILITY_CONFIG.slideBurstMinSeconds) slideBurst(p);
     if (p.stance !== Stance.Stand) {
       p.stance = Stance.Stand;
       p.slideTime = 0;

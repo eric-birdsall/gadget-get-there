@@ -205,8 +205,8 @@ function handle(events: AnyEvent[]): void {
       case SessionEvent.SlideReady:
         audio.play(Sfx.SlideReady);
         break;
-      case SessionEvent.SlideJumped:
-        audio.play(Sfx.SlideJump);
+      case SessionEvent.SlideBurst:
+        audio.play(Sfx.SlideBurst);
         // Feel the burst: the view punches wide and eases back.
         renderer.view.kick(8);
         break;
@@ -515,7 +515,7 @@ function frame(now: number): void {
   });
   hud.setCrosshairLocked(grappleTarget !== null);
   // Slide charge: fills over the slide time that earns the jump burst.
-  hud.setSlideCharge(p.stance === Stance.Slide ? Math.min(1, p.slideTime / ABILITY_CONFIG.slideJumpMinSeconds) : -1);
+  hud.setSlideCharge(p.stance === Stance.Slide ? Math.min(1, p.slideTime / ABILITY_CONFIG.slideBurstMinSeconds) : -1);
   // Paused, the sprint effects rest (the stamina bar still shows).
   hud.setStamina(p.stamina, p.sprinting && !paused);
   hud.update(session.state, session.elapsed);

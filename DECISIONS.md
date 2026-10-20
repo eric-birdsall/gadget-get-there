@@ -263,3 +263,7 @@ Replaces the gadget in hand, switching (scroll, F, 1–5 mid-run) and auto-switc
 - Slide-jump burst: +4.5 m/s (was 2.5), added the way you're steering (straight on with no steer). Letting go of slide up to 0.15 s before the jump still gets it. The view punches 8° wider for the burst.
 - Speed streaks toned down (fainter, nearer the edges).
 - The Crossing's slide line sprints down the last ramp first.
+
+## The slide burst comes when the slide ends (built)
+- A slide of 1 s or more ends with its burst (+4.5 m/s the way you're steering) however it ends: jumping out, letting go and standing up, or sliding off an edge. Only a slide that slows into a crouch-walk loses it. One burst per slide.
+- Replaces "only a jump out of the slide uses it" and the 0.15 s let-go grace (no longer needed). Renamed slide-jump → slide burst in the code (config `slideBurstMinSeconds`, `slideBurstSpeed`).

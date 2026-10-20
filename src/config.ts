@@ -91,12 +91,10 @@ export const ABILITY_CONFIG = {
   slideStopSpeed: 1,
   slideTurnGrip: 0.35,
   crouchSpeed: 4,
-  /** Jumping out of a slide at least this long… s */
-  slideJumpMinSeconds: 1.0,
-  /** …adds this much speed, the way you're steering, m/s. */
-  slideJumpBoost: 4.5,
-  /** Letting go of slide just before jumping still counts, within this long, s. */
-  slideJumpGrace: 0.15,
+  /** A slide at least this long… s */
+  slideBurstMinSeconds: 1.0,
+  /** …ends (stand up, jump, or off an edge; not slowing into a crouch) with this much more speed, the way you're steering, m/s. */
+  slideBurstSpeed: 4.5,
   /** Ledge tops this far above the feet can be mantled, m. */
   mantleMinHeight: 0.5,
   mantleMaxHeight: 2.8,

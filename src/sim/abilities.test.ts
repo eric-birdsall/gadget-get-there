@@ -29,7 +29,7 @@ function sprinting(boxes: Box[] = [FLOOR], at = new Vector3()): PlayerState {
 }
 
 describe('slide', () => {
-  it('starts at sprint speed with no burst of its own (the burst is saved for the jump)', () => {
+  it('starts at sprint speed with no burst of its own (the burst comes when the slide ends)', () => {
     const p = sprinting();
     const before = horizontalSpeed(p);
     stepPlayer(p, { ...NO_INPUT, forward: 1, crouch: true }, [FLOOR]);
@@ -101,42 +101,50 @@ describe('slide', () => {
     expect(horizontalSpeed(p)).toBeGreaterThan(speed - 0.2);
   });
 
-  it('jumping out of a slide longer than 1 s bursts you forward; a short slide does not', () => {
-    const jumpAfter = (seconds: number) => {
+  it('a slide over 1 s ends with a burst forward: jumping out or just standing up; a short slide does not', () => {
+    const endSlide = (seconds: number, jump: boolean) => {
       const p = sprinting();
       run(p, { forward: 1, crouch: true }, seconds);
       const before = horizontalSpeed(p);
-      stepPlayer(p, { ...NO_INPUT, forward: 1, crouch: true, jump: true }, [FLOOR]);
-      return { gain: horizontalSpeed(p) - before, burst: p.justSlideJumped };
+      stepPlayer(p, { ...NO_INPUT, forward: 1, jump, crouch: false }, [FLOOR]);
+      return { gain: horizontalSpeed(p) - before, burst: p.justSlideBurst, jumped: p.justJumped };
     };
-    const short = jumpAfter(A.slideJumpMinSeconds - 0.3);
+    const short = endSlide(A.slideBurstMinSeconds - 0.3, true);
     expect(short.burst).toBe(false);
     expect(short.gain).toBeLessThan(0.5);
-    const long = jumpAfter(A.slideJumpMinSeconds + 0.1);
+    for (const jump of [true, false]) {
+      const long = endSlide(A.slideBurstMinSeconds + 0.1, jump);
+      expect(long.jumped).toBe(jump);
+      expect(long.burst).toBe(true);
+      expect(long.gain).toBeGreaterThan(A.slideBurstSpeed - 0.5);
+    }
     // The moment it becomes available is flagged once, for the HUD ring and chime.
     const p = sprinting();
     let readyTicks = 0;
-    for (let t = 0; t < A.slideJumpMinSeconds + 0.3; t += DT) {
+    for (let t = 0; t < A.slideBurstMinSeconds + 0.3; t += DT) {
       stepPlayer(p, { ...NO_INPUT, forward: 1, crouch: true }, [FLOOR]);
       if (p.justSlideReady) readyTicks++;
     }
     expect(readyTicks).toBe(1);
-    expect(long.burst).toBe(true);
-    expect(long.gain).toBeGreaterThan(A.slideJumpBoost - 0.5);
   });
 
-  it('the stored burst survives letting go just before the jump, but goes if you stand any longer', () => {
-    const jumpAfterStanding = (standFor: number) => {
-      const p = sprinting();
-      run(p, { forward: 1, crouch: true }, A.slideJumpMinSeconds + 0.1);
-      run(p, { forward: 1 }, standFor);
-      stepPlayer(p, { ...NO_INPUT, forward: 1, jump: true }, [FLOOR]);
-      expect(p.justJumped).toBe(true);
-      return p.justSlideJumped;
-    };
-    expect(jumpAfterStanding(0)).toBe(true);
-    expect(jumpAfterStanding(A.slideJumpGrace / 2)).toBe(true);
-    expect(jumpAfterStanding(A.slideJumpGrace + 0.15)).toBe(false);
+  it('one burst per slide: jumping while holding slide bursts once, not again on the way up', () => {
+    const p = sprinting();
+    run(p, { forward: 1, crouch: true }, A.slideBurstMinSeconds + 0.1);
+    let bursts = 0;
+    for (let t = 0; t < 0.5; t += DT) {
+      stepPlayer(p, { ...NO_INPUT, forward: 1, crouch: true, jump: t === 0 }, [FLOOR]);
+      if (p.justSlideBurst) bursts++;
+    }
+    expect(bursts).toBe(1);
+  });
+
+  it('a slide that slows into a crouch-walk loses its burst', () => {
+    const p = sprinting();
+    run(p, { forward: 1, crouch: true }, 12);
+    expect(p.stance).toBe(Stance.Crouch);
+    stepPlayer(p, { ...NO_INPUT, forward: 1 }, [FLOOR]);
+    expect(p.justSlideBurst).toBe(false);
   });
 
   it('fits under a low bar that stops a standing player, and stays low until clear', () => {
@@ -223,7 +231,7 @@ describe('sprint', () => {
     expect(p.sprinting).toBe(true);
     expect(p.stamina).toBe(before);
     stepPlayer(p, { ...NO_INPUT, forward: 1, jump: true }, [FLOOR]);
-    expect(p.justSlideJumped).toBe(true);
+    expect(p.justSlideBurst).toBe(true);
     expect(p.sprinting).toBe(true);
   });
 
