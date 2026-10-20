@@ -12,7 +12,9 @@ import { GadgetEvent, type GadgetId } from './gadgets/types';
 import { type GhostPose, GhostPlayer } from './game/ghost';
 import { medalFor } from './game/medals';
 import { type AnyEvent, AttemptState, MAX_SLOTS, RunSession, type SessionInput, SessionEvent } from './game/session';
+import { PadButton } from './input/gamepad';
 import { Action, InputManager, USE_ACTIONS } from './input/input';
+import { PadNav } from './ui/padNav';
 import { Renderer } from './render/renderer';
 import { Stance } from './sim/player';
 import { RecordStore } from './storage/records';
@@ -246,8 +248,16 @@ function handle(events: AnyEvent[]): void {
 }
 
 /** From a click: go fullscreen and capture the mouse. Plays in the window if fullscreen is refused. */
+/** True while the controller is pressing a menu button (A): Play and Resume then resume as Menu does. */
+let padActivating = false;
+
 function enterPlay(): void {
   audio.start();
+  // A controller press can't capture the mouse or go fullscreen: play on in the window.
+  if (padActivating) {
+    input.lockFromPad();
+    return;
+  }
   if (!fullscreen.active) {
     void fullscreen.enter();
     // Some embedded browsers neither grant nor refuse: check a moment later instead.
@@ -283,6 +293,19 @@ const menu = new Menu(settings, bindings, {
   },
 });
 
+/**
+ * Back one level in the menus (Esc, or B on the controller): out of the gadget info, the
+ * Controls page, then settings. Returns false at the top level, with nothing to go back from.
+ */
+function menuBack(): boolean {
+  if (menu.capturing) menu.cancelCapture();
+  else if (menu.infoOpen) menu.closeInfo();
+  else if (menu.controlsOpen) menu.showControls(false);
+  else if (menu.settingsOpen) menu.showSettings(false);
+  else return false;
+  return true;
+}
+
 // First Esc pauses (still fullscreen); a second Esc, on the pause menu, leaves fullscreen.
 document.addEventListener(
   'keydown',
@@ -291,24 +314,37 @@ document.addEventListener(
     if (!paused) {
       e.preventDefault();
       input.unlock();
-    } else if (menu.infoOpen) {
-      // Esc closes the gadget info first.
+    } else if (menuBack()) {
       e.preventDefault();
-      menu.closeInfo();
-    } else if (menu.controlsOpen) {
-      // Esc on the Controls page goes back to settings.
-      e.preventDefault();
-      menu.showControls(false);
-    } else if (menu.settingsOpen) {
-      // Esc in settings goes back to the menu rather than leaving fullscreen.
-      e.preventDefault();
-      menu.showSettings(false);
     } else if (performance.now() - pausedAt > 250) {
       fullscreen.exit();
     }
   },
   true,
 );
+
+// The menus with the controller: D-pad or stick to move, A to press, B to go back.
+const padNav = new PadNav({
+  root: () => document.getElementById(menu.infoOpen ? 'info-modal' : 'overlay')!,
+  activate: (el) => {
+    padActivating = true;
+    try {
+      el.click();
+    } finally {
+      padActivating = false;
+    }
+  },
+  back: () => void menuBack(),
+});
+
+// Labels follow whichever the player last touched: keys, or controller buttons.
+input.onDeviceChange = (d) => {
+  document.body.classList.toggle('pad-nav', d === 'pad');
+  hud.refreshKeys();
+  menu.refreshKeys();
+  refreshGadget();
+  if (d === 'pad' && paused) padNav.focus(document.getElementById('play')!);
+};
 // Browsers without Esc lock leave fullscreen on one press: pause too.
 document.addEventListener('fullscreenchange', () => {
   if (!fullscreen.active && !paused) input.unlock();
@@ -325,8 +361,10 @@ document.addEventListener('pointerlockchange', () => {
   if (paused) pausedAt = performance.now();
   audio.setPaused(paused);
   document.body.classList.toggle('hide-cursor', !paused && input.usingFreeCursor);
-  if (paused) menu.show(started, pauseNote());
-  else {
+  if (paused) {
+    menu.show(started, pauseNote());
+    if (input.device === 'pad') padNav.focus(document.getElementById('play')!);
+  } else {
     started = true;
     menu.hide();
     hud.setFreeCursorNotice(input.usingFreeCursor);
@@ -385,13 +423,14 @@ function frame(now: number): void {
 
   // The controller's Menu button pauses and resumes (resuming can't capture the mouse or go
   // fullscreen: browsers only allow those from a click or key).
-  if (input.pollPad()) {
+  input.pollPad();
+  if (input.padEdges.has(PadButton.Menu)) {
     if (!paused) input.unlock();
     else if (!menu.capturing) {
       audio.start();
       input.lockFromPad();
     }
-  }
+  } else if (paused) padNav.update(dt, input.padState, input.padEdges);
   if (!paused) {
     handleKeys();
     input.update(dt);

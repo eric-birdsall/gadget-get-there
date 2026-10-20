@@ -3,7 +3,7 @@ import { GADGETS, gadgetDefinition } from '../gadgets/registry';
 import type { GadgetId } from '../gadgets/types';
 import { Medal } from '../game/medals';
 import { AttemptState } from '../game/session';
-import { Action, type Bindings, USE_ACTIONS, keyName, useKeysName } from '../input/input';
+import { Action, type Bindings, USE_ACTIONS, device, keyName, useKeysName } from '../input/input';
 import { GADGET_ICONS } from './icons';
 
 const el = (id: string) => document.getElementById(id)!;
@@ -103,8 +103,11 @@ export class Hud {
   refreshKeys(): void {
     const b = this.bindings;
     el('hint').textContent = 'Move to start the clock';
-    el('controls-hint').textContent = `${keyName(b, Action.Retry)} retry · ${keyName(b, Action.ToggleGhost)} ghost · Esc pause`;
-    el('result-retry').textContent = `${keyName(b, Action.Retry)} to go again · Esc to change gadgets`;
+    const pad = device.current === 'pad';
+    el('controls-hint').textContent = pad
+      ? `${keyName(b, Action.Retry)} retry · Menu pause`
+      : `${keyName(b, Action.Retry)} retry · ${keyName(b, Action.ToggleGhost)} ghost · Esc pause`;
+    el('result-retry').textContent = `${keyName(b, Action.Retry)} to go again · ${pad ? 'Menu' : 'Esc'} to change gadgets`;
     this.lastGadgetKey = '';
     for (const slot of this.slotEls) delete slot.dataset.gadget;
   }
@@ -155,7 +158,7 @@ export class Hud {
     this.gadgetHint.textContent = !ready
       ? ''
       : loadout.length === 0
-        ? 'No gadgets · Esc to pick some'
+        ? `No gadgets · ${device.current === 'pad' ? 'Menu' : 'Esc'} to pick some`
         : loadout.length === 1
           ? `${useKeysName(b, 1)} uses your gadget`
           : `${useKeysName(b, loadout.length)} use your gadgets`;

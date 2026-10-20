@@ -1,6 +1,6 @@
 import { CAMERA_CONFIG } from '../config';
 import { Action } from './actions';
-import { PAD_ACTIONS, PadButton, type PadState, firstPad, readPad } from './gamepad';
+import { PAD_ACTIONS, PAD_LABELS, PadButton, type PadState, firstPad, readPad } from './gamepad';
 import { type KeyLookState, newKeyLookState, stepKeyLook } from './keyLook';
 import { keyLabel } from './keyNames';
 
@@ -32,8 +32,14 @@ export const DEFAULT_BINDINGS: Bindings = {
 /** Use keys, by slot. */
 export const USE_ACTIONS = [Action.UseSlot1, Action.UseSlot2, Action.UseSlot3] as const;
 
-/** The action's main key as shown on screen, e.g. "E". */
+export type InputDevice = 'keys' | 'pad';
+
+/** What the player last used: on-screen labels show that device's buttons. */
+export const device = { current: 'keys' as InputDevice };
+
+/** The action's main key as shown on screen, e.g. "E" (or "RT" when playing with the controller). */
 export function keyName(bindings: Bindings, action: Action): string {
+  if (device.current === 'pad' && PAD_LABELS[action]) return PAD_LABELS[action];
   const code = bindings[action][0];
   return code ? keyLabel(code) : 'unbound';
 }
@@ -76,6 +82,13 @@ export class InputManager {
   private pad: PadState | null = null;
   private padDown = new Set<PadButton>();
   private padPressed = new Set<PadButton>();
+  /** Every button down at the last poll, and the ones that went down since. */
+  private padPrev = new Set<PadButton>();
+  private edges = new Set<PadButton>();
+  /** Buttons held when play resumed (A on Resume): ignored until let go, so they don't jump. */
+  private padSuppressed = new Set<PadButton>();
+  /** Called when the player switches between keyboard/mouse and the controller. */
+  onDeviceChange: (device: InputDevice) => void = () => {};
   /** Once a lock has worked, a later refusal is just the browser's re-lock cooldown after Esc. */
   private everLocked = false;
   /** Cursor x as a fraction of the window width, or null when unknown. */
@@ -83,6 +96,7 @@ export class InputManager {
 
   constructor(private readonly target: HTMLElement) {
     document.addEventListener('keydown', (e) => {
+      this.setDevice('keys');
       if (!this.locked) return;
       // Esc belongs to the pause/fullscreen handling in main.
       if (e.code === 'Escape') return;
@@ -93,6 +107,7 @@ export class InputManager {
     });
     document.addEventListener('keyup', (e) => this.held.delete(e.code));
     document.addEventListener('mousedown', (e) => {
+      this.setDevice('keys');
       if (!this.locked) return;
       this.pressed.add(`Mouse${e.button}`);
       this.held.add(`Mouse${e.button}`);
@@ -100,6 +115,8 @@ export class InputManager {
     document.addEventListener('mouseup', (e) => this.held.delete(`Mouse${e.button}`));
     document.addEventListener('mousemove', (e) => {
       this.cursorX = e.clientX / window.innerWidth;
+      // A real move, not a nudge of the desk.
+      if (Math.abs(e.movementX) + Math.abs(e.movementY) > 4) this.setDevice('keys');
       // Resumed from the controller, the cursor is free: it doesn't look around.
       if (!this.locked || this.padLocked) return;
       this.yaw -= e.movementX * CAMERA_CONFIG.horizontalSensitivity * this.sensitivity;
@@ -162,23 +179,48 @@ export class InputManager {
    * fullscreen), so play carries on with the cursor free and the mouse not looking.
    */
   lockFromPad(): void {
+    this.padSuppressed = new Set(this.padPrev);
     if (this.freeCursor) return this.lock();
     this.padLocked = true;
     document.dispatchEvent(new Event('pointerlockchange'));
   }
 
-  /**
-   * Reads the controller; call once per frame, paused or not. Returns true when its Menu
-   * button was pressed (pause or resume).
-   */
-  pollPad(): boolean {
+  /** Reads the controller; call once per frame, paused or not. */
+  pollPad(): void {
     const gp = firstPad();
     this.pad = gp ? readPad(gp) : null;
     const down = this.pad?.down ?? new Set<PadButton>();
-    for (const b of down) if (!this.padDown.has(b) && this.locked) this.padPressed.add(b);
-    const menu = down.has(PadButton.Menu) && !this.padDown.has(PadButton.Menu);
-    this.padDown = this.locked ? down : new Set([...down].filter((b) => b === PadButton.Menu));
-    return menu;
+    this.edges = new Set([...down].filter((b) => !this.padPrev.has(b)));
+    this.padPrev = down;
+    for (const b of this.padSuppressed) if (!down.has(b)) this.padSuppressed.delete(b);
+    if (this.locked) {
+      for (const b of this.edges) if (!this.padSuppressed.has(b)) this.padPressed.add(b);
+      this.padDown = new Set([...down].filter((b) => !this.padSuppressed.has(b)));
+    } else this.padDown = new Set();
+    const p = this.pad;
+    if (this.edges.size > 0 || (p && Math.max(Math.abs(p.forward), Math.abs(p.right), Math.abs(p.turn), Math.abs(p.tilt)) > 0.3)) {
+      this.setDevice('pad');
+    }
+  }
+
+  /** The controller this frame (sticks and buttons), or null with none connected. */
+  get padState(): PadState | null {
+    return this.pad;
+  }
+
+  /** Controller buttons that went down this frame, paused or not. */
+  get padEdges(): ReadonlySet<PadButton> {
+    return this.edges;
+  }
+
+  get device(): InputDevice {
+    return device.current;
+  }
+
+  private setDevice(d: InputDevice): void {
+    if (device.current === d) return;
+    device.current = d;
+    this.onDeviceChange(d);
   }
 
   /** Movement from keys and the left stick: +1 forward, +1 right. */

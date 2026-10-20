@@ -15,6 +15,12 @@ export enum PadButton {
   RT = 7,
   View = 8,
   Menu = 9,
+  LeftStick = 10,
+  RightStick = 11,
+  Up = 12,
+  Down = 13,
+  Left = 14,
+  Right = 15,
 }
 
 /** Buttons that act as game actions while playing. */
@@ -26,6 +32,16 @@ export const PAD_ACTIONS: readonly [PadButton, Action][] = [
   [PadButton.RB, Action.UseSlot3],
   [PadButton.View, Action.Retry],
 ];
+
+/** How each mapped action's button is written on screen, while playing with the controller. */
+export const PAD_LABELS: Partial<Record<Action, string>> = {
+  [Action.Jump]: 'A',
+  [Action.Crouch]: 'B',
+  [Action.UseSlot1]: 'RT',
+  [Action.UseSlot2]: 'LT',
+  [Action.UseSlot3]: 'RB',
+  [Action.Retry]: 'View',
+};
 
 /** Stick travel ignored around the centre (worn sticks rest off-centre). */
 const DEADZONE = 0.18;

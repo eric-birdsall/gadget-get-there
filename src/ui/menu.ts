@@ -2,7 +2,7 @@ import { GADGETS, gadgetDefinition } from '../gadgets/registry';
 import type { GadgetId } from '../gadgets/types';
 import { type Settings, saveSettings } from '../storage/settings';
 import { MAX_SLOTS } from '../game/session';
-import { Action, type Bindings, MAX_KEYS_PER_ACTION, USE_ACTIONS, keyName, useKeysName } from '../input/input';
+import { Action, type Bindings, MAX_KEYS_PER_ACTION, USE_ACTIONS, device, keyName, useKeysName } from '../input/input';
 import { keyLabel } from '../input/keyNames';
 import { bindKey, clearKey, defaultBindings, saveBindings } from '../storage/bindings';
 import type { Medal } from '../game/medals';
@@ -268,7 +268,9 @@ export class Menu {
     el<HTMLButtonElement>('clear-slots').disabled = loadout.length === 0;
     el('menu-gadgets-hint').textContent = running
       ? 'Changing gadgets restarts the run'
-      : `Click gadgets to fill the slots · ${useKeysName(this.bindings)} use them in the run`;
+      : device.current === 'pad'
+        ? `A adds or removes a gadget · Y shows its info · ${useKeysName(this.bindings)} use them in the run`
+        : `Click gadgets to fill the slots · ${useKeysName(this.bindings)} use them in the run`;
   }
 
   /** The level row: each level's name and best, the current one highlighted. */
@@ -364,6 +366,17 @@ export class Menu {
     window.addEventListener('keydown', (e) => this.onCaptureKey(e), true);
     window.addEventListener('mousedown', (e) => this.onCaptureMouse(e), true);
     this.renderBindings();
+  }
+
+  /** Stops waiting for a key (B on the controller). */
+  cancelCapture(): void {
+    this.endCapture();
+    this.setControlsNote('');
+  }
+
+  /** Redraws key labels (the player switched between keys and the controller). */
+  refreshKeys(): void {
+    this.loadoutKey = '';
   }
 
   /** True while a key button waits for the new key. */

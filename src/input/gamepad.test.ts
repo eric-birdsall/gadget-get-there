@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
+import { Action } from './actions';
 import { PadButton, readPad, stick } from './gamepad';
+import { DEFAULT_BINDINGS, device, keyName, useKeysName } from './input';
 
 const pad = (axes: number[], pressed: number[] = [], values: Record<number, number> = {}) => ({
   axes,
@@ -31,5 +33,15 @@ describe('controller', () => {
     expect(readPad(pad([0, 0, 0, 0], [], { [PadButton.RT]: 0.5 })).down.has(PadButton.RT)).toBe(true);
     const s = readPad(pad([0, 0, 0, 0], [PadButton.A, PadButton.Menu]));
     expect([...s.down].sort()).toEqual([PadButton.A, PadButton.Menu]);
+  });
+
+  it('labels show controller buttons while the controller is in use, keys otherwise', () => {
+    device.current = 'pad';
+    expect(useKeysName(DEFAULT_BINDINGS)).toBe('RT / LT / RB');
+    expect(keyName(DEFAULT_BINDINGS, Action.Retry)).toBe('View');
+    // No controller button for this one: its key shows.
+    expect(keyName(DEFAULT_BINDINGS, Action.ToggleGhost)).toBe('G');
+    device.current = 'keys';
+    expect(useKeysName(DEFAULT_BINDINGS)).toBe('E / Q / F');
   });
 });

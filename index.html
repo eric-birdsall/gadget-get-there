@@ -20,6 +20,8 @@
       canvas { display: block; }
       .hud { position: fixed; pointer-events: none; text-shadow: 0 1px 3px rgba(20, 24, 60, 0.55); }
       .hidden { display: none !important; }
+      /* Menu focus while steering with the controller. */
+      body.pad-nav .pad-focus { outline: 3px solid #7ff6ff; outline-offset: 3px; box-shadow: 0 0 16px rgba(127, 246, 255, 0.5); }
       /* Playing without mouse capture: the crosshair is the aim, so hide the system pointer. */
       body.hide-cursor, body.hide-cursor * { cursor: none !important; }
       .tabular { font-variant-numeric: tabular-nums; }
