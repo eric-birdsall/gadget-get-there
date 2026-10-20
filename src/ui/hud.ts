@@ -54,8 +54,7 @@ export function loadoutIcons(loadout: readonly GadgetId[]): string {
   return loadout.map((id) => `<span class="mini-icon" title="${gadgetDefinition(id).displayName}">${GADGET_ICONS[id]}</span>`).join('');
 }
 
-/** Circumference of the countdown ring (r = 20 in a 48 box). */
-const RING = 2 * Math.PI * 20;
+
 
 export class Hud {
   private readonly timer = el('timer');
@@ -79,8 +78,8 @@ export class Hud {
       const slot = document.createElement('div');
       slot.className = 'slot';
       slot.innerHTML =
-        `<svg class="ring" viewBox="0 0 48 48"><circle cx="24" cy="24" r="20"/></svg>` +
-        `<span class="icon"></span><span class="key"></span>`;
+        `<span class="icon-square"><svg class="ring" viewBox="0 0 56 56"><rect x="2" y="2" width="52" height="52" rx="7" pathLength="100"/></svg>` +
+        `<span class="icon"></span><span class="key"></span></span><span class="label"></span>`;
       this.slotEls.push(slot);
       this.slots.append(slot);
     }
@@ -116,16 +115,18 @@ export class Hud {
         el.dataset.gadget = id;
         el.querySelector('.icon')!.innerHTML = GADGET_ICONS[id];
         el.querySelector('.key')!.textContent = String(gadgetDefinition(id).slot);
+        el.querySelector('.label')!.textContent = gadgetDefinition(id).displayName;
         el.title = gadgetDefinition(id).displayName;
       }
       el.classList.toggle('active', i === slot);
       el.classList.toggle('used', i < slot);
       el.classList.toggle('next', i === slot + 1);
       el.classList.toggle('ready', ready);
-      const ring = el.querySelector<SVGCircleElement>('.ring circle')!;
+      // The outline traces down as the current gadget wears out.
+      const ring = el.querySelector<SVGRectElement>('.ring rect')!;
       const left = i === slot ? remaining : i < slot ? 0 : 1;
-      ring.style.strokeDasharray = `${RING}`;
-      ring.style.strokeDashoffset = `${RING * (1 - left)}`;
+      ring.style.strokeDasharray = '100';
+      ring.style.strokeDashoffset = `${100 * (1 - left)}`;
     });
     const current = loadout[slot];
     const next = loadout[slot + 1];

@@ -37,29 +37,44 @@
       #crosshair.locked { transform: scale(2.2); background: #fff; box-shadow: 0 0 0 1.5px #ffd54a, 0 0 8px #ffd54a; }
 
       #gadgets { left: 0; right: 0; bottom: 18px; display: flex; flex-direction: column; align-items: center; gap: 6px; }
-      #slots { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; padding: 0 16px; }
-      /* Gadget slots: an icon in a ring that counts down, in run order. */
-      .slot {
-        position: relative; width: 52px; height: 52px; border-radius: 50%;
-        display: flex; align-items: center; justify-content: center;
-        background: rgba(28, 31, 58, 0.4); opacity: 0.75; transition: transform 0.15s, opacity 0.15s;
+      #slots { display: flex; gap: 14px; flex-wrap: wrap; justify-content: center; padding: 0 16px; }
+      /* Futuristic icon squares: dark glass with cut corners and glowing cyan line icons. */
+      .icon-square {
+        position: relative; display: flex; align-items: center; justify-content: center;
+        width: 52px; height: 52px; box-sizing: border-box; color: #7ff6ff;
+        background: linear-gradient(160deg, #262c5a 0%, #141833 100%);
+        clip-path: polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px);
+        box-shadow: inset 0 0 0 1.5px rgba(127, 246, 255, 0.45), inset 0 0 14px rgba(127, 246, 255, 0.12);
       }
-      .slot .icon { width: 28px; height: 28px; color: #fff; }
-      .slot .icon svg, .mini-icon svg { width: 100%; height: 100%; display: block; }
-      .slot .ring { position: absolute; inset: 0; transform: rotate(-90deg); }
-      .slot .ring circle { fill: none; stroke: rgba(255, 255, 255, 0.35); stroke-width: 3; transition: stroke-dashoffset 0.1s linear; }
-      .slot.active { opacity: 1; background: rgba(255, 93, 143, 0.8); transform: scale(1.12); }
-      .slot.active .ring circle { stroke: #fff; }
-      .slot.next { opacity: 0.95; }
+      .icon-square svg:not(.ring) {
+        width: 64%; height: 64%; filter: drop-shadow(0 0 2px rgba(127, 246, 255, 0.9)) drop-shadow(0 0 6px rgba(127, 246, 255, 0.45));
+      }
+      .icon-square.empty {
+        background: repeating-linear-gradient(135deg, #f1f4fa 0 6px, #e8ecf5 6px 12px);
+        box-shadow: inset 0 0 0 1.5px #c5cde0;
+      }
+
+      /* HUD gadget slots, in run order; the outline counts down on the one in use. */
+      .slot { display: flex; flex-direction: column; align-items: center; gap: 3px; opacity: 0.7; transition: opacity 0.15s; }
+      .slot .icon-square { transition: transform 0.15s; }
+      .slot .icon { width: 64%; height: 64%; display: flex; }
+      .slot .icon svg { width: 100%; height: 100%; }
+      .slot .ring { position: absolute; inset: 0; width: 100%; height: 100%; }
+      .slot .ring rect { fill: none; stroke: transparent; stroke-width: 3; transition: stroke-dashoffset 0.1s linear; }
+      .slot .label { font-size: 11px; font-weight: 600; letter-spacing: 0.02em; }
+      .slot.active { opacity: 1; }
+      .slot.active .icon-square { transform: scale(1.1); box-shadow: inset 0 0 0 1.5px rgba(127, 246, 255, 0.9), 0 0 0 0, inset 0 0 18px rgba(127, 246, 255, 0.3); }
+      .slot.active .ring rect { stroke: #ff5d8f; }
+      .slot.next { opacity: 0.9; }
       .slot.used { opacity: 0.3; }
-      .slot.used::after {
-        content: ''; position: absolute; left: 8px; right: 8px; top: 50%; height: 2.5px; margin-top: -1px;
-        background: #fff; transform: rotate(-35deg); border-radius: 2px;
+      .slot.used .icon-square::after {
+        content: ''; position: absolute; left: 6px; right: 6px; top: 50%; height: 2px; margin-top: -1px;
+        background: #ff6a6a; transform: rotate(-40deg);
       }
       .slot .key {
-        position: absolute; right: -4px; bottom: -4px; display: none; align-items: center; justify-content: center;
-        width: 18px; height: 18px; border-radius: 5px; background: #fff; color: var(--ink);
-        font-size: 11px; font-weight: 800; text-shadow: none;
+        position: absolute; right: 2px; bottom: 2px; display: none; align-items: center; justify-content: center;
+        width: 15px; height: 15px; border-radius: 3px; background: #7ff6ff; color: #141833;
+        font-size: 10px; font-weight: 800; text-shadow: none;
       }
       .slot.ready .key { display: inline-flex; }
       #gadget-hint { font-size: 13px; opacity: 0.9; padding: 0 16px; text-align: center; }
@@ -117,25 +132,27 @@
       button.primary:hover { background: #ff7aa3; }
       button.selected { background: #ffe1ea; border-color: var(--accent); font-weight: 700; }
       /* Loadout picker: click gadgets to fill the numbered slots in order. */
-      #menu-palette { display: flex; flex-wrap: wrap; justify-content: center; gap: 5px; margin-bottom: 8px; }
+      #menu-palette { display: flex; flex-wrap: wrap; justify-content: center; gap: 18px; margin-bottom: 10px; }
       .gadget-tile {
-        position: relative; flex: 0 0 auto; display: flex; align-items: center; gap: 4px; padding: 5px 9px 5px 7px;
-        border-radius: 999px; font-size: 12px; white-space: nowrap;
+        flex: 0 0 auto; display: flex; flex-direction: column; align-items: center; gap: 4px;
+        padding: 0; border: none; background: none; font-size: 12px; white-space: nowrap;
       }
-      .gadget-tile svg { width: 18px; height: 18px; color: var(--ink); }
-      .gadget-tile.chosen { background: #ffe1ea; border-color: var(--accent); }
+      .gadget-tile:hover { background: none; }
+      .gadget-tile:hover .icon-square { transform: translateY(-2px); }
+      .gadget-tile .icon-square { width: 54px; height: 54px; transition: transform 0.1s; }
+      .gadget-tile.chosen .icon-square { box-shadow: inset 0 0 0 2px var(--accent), inset 0 0 16px rgba(255, 93, 143, 0.35); }
+      .gadget-tile.chosen .name { font-weight: 700; color: var(--accent); }
       .gadget-tile .badge:empty { display: none; }
-      /* Slot number, on the tile's corner so it doesn't widen the row. */
       .gadget-tile .badge {
-        position: absolute; left: -4px; top: -6px; display: inline-flex; align-items: center; justify-content: center;
-        width: 15px; height: 15px; border-radius: 50%; background: var(--accent); color: #fff; font-size: 10px; font-weight: 800;
+        position: absolute; right: 3px; top: 3px; display: inline-flex; align-items: center; justify-content: center;
+        width: 15px; height: 15px; border-radius: 3px; background: var(--accent); color: #fff; font-size: 10px; font-weight: 800;
       }
       #menu-gadgets { margin-bottom: 6px; }
       .loadout-slot {
         display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
-        min-height: 78px; padding: 8px 4px 9px; font-size: 13px; border-radius: 12px; border: 2px solid #d3d9e8;
+        padding: 8px 4px 9px; font-size: 12px; border-radius: 12px; border: 1px solid #d3d9e8;
       }
-      .loadout-slot svg { width: 30px; height: 30px; color: var(--ink); }
+      .loadout-slot .icon-square { width: 46px; height: 46px; }
       .loadout-slot .n { font-size: 11px; font-weight: 800; opacity: 0.5; }
       .loadout-slot.empty { border-style: dashed; background: #f7f9fc; color: #8a93ab; cursor: default; }
       #menu-gadgets-hint { margin: 0 0 8px; font-size: 12px; opacity: 0.6; }

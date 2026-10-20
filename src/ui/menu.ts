@@ -92,7 +92,7 @@ export class Menu {
     for (const g of GADGETS) {
       const tile = document.createElement('button');
       tile.className = 'gadget-tile';
-      tile.innerHTML = `${GADGET_ICONS[g.id]}<span class="name"></span><span class="badge"></span>`;
+      tile.innerHTML = `<span class="icon-square">${GADGET_ICONS[g.id]}<span class="badge"></span></span><span class="name"></span>`;
       tile.querySelector('.name')!.textContent = g.displayName;
       tile.addEventListener('click', () => this.handlers.toggleGadget(g.id));
       this.tileEls.set(g.id, tile);
@@ -124,11 +124,11 @@ export class Menu {
       const id = loadout[i];
       slot.classList.toggle('empty', !id);
       if (id) {
-        slot.innerHTML = `<span class="n">${i + 1}</span>${GADGET_ICONS[id]}<span class="name"></span>`;
+        slot.innerHTML = `<span class="n">${i + 1}</span><span class="icon-square">${GADGET_ICONS[id]}</span><span class="name"></span>`;
         slot.querySelector('.name')!.textContent = gadgetDefinition(id).displayName;
         slot.title = `Click to take ${gadgetDefinition(id).displayName} out`;
       } else {
-        slot.innerHTML = `<span class="n">${i + 1}</span><span class="name">Empty</span>`;
+        slot.innerHTML = `<span class="n">${i + 1}</span><span class="icon-square empty"></span><span class="name">Empty</span>`;
         slot.title = 'Click a gadget above to fill this slot';
       }
     });
