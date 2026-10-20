@@ -35,7 +35,7 @@ const session = new RunSession(course, {
   loadout: savedLoadout(),
   checkpointsEnabled: settings.checkpoints,
 });
-const renderer = new Renderer(session.boxes, course, session.anchors);
+const renderer = new Renderer(session.boxes, course);
 const input = new InputManager(renderer.canvas);
 const hud = new Hud();
 const tuning = new TuningPanel();
@@ -55,7 +55,7 @@ const aimDir = new Vector3();
 let landedSpeed = 0;
 let jumped = false;
 let ghost: GhostPlayer | null = null;
-const ghostPose: GhostPose = { pos: new Vector3(), yaw: 0, anchor: -1 };
+const ghostPose: GhostPose = { pos: new Vector3(), yaw: 0, rope: null };
 
 function applySettings(): void {
   input.sensitivity = settings.sensitivity;
@@ -368,7 +368,8 @@ function frame(now: number): void {
   const grapple = g instanceof GrappleGadget ? g : null;
   const pads = g instanceof LaunchPadGadget ? g : null;
   const live = session.state !== AttemptState.Finished;
-  const grappleTarget = grapple && !grapple.attached && live ? findGrappleTarget(session.anchors, session.boxes, aimOrigin, aimDir, p) : -1;
+  const canHook = grapple && !grapple.attached && grapple.remaining > 0 && live;
+  const grappleTarget = canHook ? findGrappleTarget(session.boxes, aimOrigin, aimDir, p) : null;
   const padPreview = pads && live ? padPlacement(session.boxes, aimOrigin, aimDir, p) : null;
   const showGhost = settings.ghost && ghost !== null;
   renderer.render(paused ? 0 : dt, {
@@ -382,9 +383,8 @@ function frame(now: number): void {
     sliding: p.stance === Stance.Slide,
     crouching: p.stance === Stance.Crouch,
     mantle: p.mantle ? p.mantle.t / ABILITY_CONFIG.mantleDuration : -1,
-    grappleEquipped: !!grapple,
     grappleTarget,
-    grappleAttached: grapple?.anchorIndex ?? -1,
+    grappleRope: grapple?.point ?? null,
     // A thrown pad stays in the world after switching to another gadget.
     pad: session.gadgets.find((x): x is LaunchPadGadget => x instanceof LaunchPadGadget)?.pad ?? null,
     padEquipped: !!pads && live,
@@ -392,7 +392,7 @@ function frame(now: number): void {
     checkpointReached: session.checkpoint,
     ghost: showGhost ? ghost!.poseAt(session.elapsed, ghostPose) : null,
   });
-  hud.setCrosshairLocked(grappleTarget >= 0);
+  hud.setCrosshairLocked(grappleTarget !== null);
   // Slide charge: fills over the slide time that earns the jump burst.
   hud.setSlideCharge(p.stance === Stance.Slide ? Math.min(1, p.slideTime / ABILITY_CONFIG.slideJumpMinSeconds) : -1);
   hud.update(session.state, session.elapsed);

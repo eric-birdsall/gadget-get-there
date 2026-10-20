@@ -114,3 +114,12 @@ Replaces "one use each, auto-switch in order".
 ## Slide jump burst and indicator (built)
 - Jumping out of a slide that has lasted at least **1.0 s** adds **+2.5 m/s**.
 - While sliding, a thin ring around the crosshair fills over that second. When full it turns bright cyan and glows, with a short chime.
+
+## Grapple any surface (built)
+- No more dedicated anchors. Hold E and the hook fixes to whatever surface is under the crosshair, if it's within **42 m** and the rope's path is clear. Floors, walls, undersides: anything. There's no aim assist.
+- A glowing cyan ring marks where the hook would land, and the crosshair lights up, whenever the grapple is in hand with swings left.
+- The Crossing floats gold **overhead beams, blocks and a ceiling** well above the path (out of jump reach) to swing from:
+  - over the runway, the hops, the big gap, the left downhill and hub A;
+  - across the central gap, over both bypass routes and the final ramp;
+  - above the final corner.
+- Ghost format v2 records where the rope is fixed; older ghosts are dropped (best times are kept).

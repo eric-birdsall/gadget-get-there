@@ -15,7 +15,6 @@ const tiny: CourseDefinition = {
   pieces: [slab(0, 0, 0, 6, 6), slab(0, 0, -10, 6, 6), slab(0, 0, -20, 6, 6)],
   checkpoints: [{ center: [0, 1, -10], size: [6, 2, 6], respawn: { pos: [0, 0, -10], yaw: 0 } }],
   finish: { center: [0, 1, -21], size: [6, 2, 2] },
-  anchors: [],
 };
 
 const go = (over: Partial<SessionInput> = {}): SessionInput => ({ ...idleInput(), forward: 1, ...over });

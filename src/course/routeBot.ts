@@ -17,8 +17,8 @@ export interface Waypoint {
   noJump?: boolean;
   /** Jump as soon as this waypoint becomes the target. */
   jump?: boolean;
-  /** On becoming the target: latch onto this anchor and hold until `releaseZ` is passed. */
-  grapple?: { anchor: number; releaseZ: number };
+  /** On becoming the target: hook this point and hold until `releaseZ` is passed. */
+  grapple?: { at: [number, number, number]; releaseZ: number };
   /** On becoming the target: throw a pad at this point. */
   pad?: [number, number, number];
   /** Take this gadget in hand on becoming the target (before any press or throw). */
@@ -91,7 +91,7 @@ export function runRoute(session: RunSession, route: Waypoint[], maxSeconds = 12
         input.actionPressed = true;
       }
       if (wp.grapple || wp.pad) {
-        const aimAt = wp.grapple ? session.anchors[wp.grapple.anchor] : new Vector3(...wp.pad!);
+        const aimAt = new Vector3(...(wp.grapple ? wp.grapple.at : wp.pad!));
         handPosition(p, hand);
         input.aimOrigin = hand.clone();
         input.aimDir = aimAt.clone().sub(hand).normalize();

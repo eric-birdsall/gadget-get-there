@@ -92,3 +92,8 @@ export function bankedCurve(
 export function wall(x: number, z: number, width: number, depth: number, bottom: number, top: number, yaw = 0): BoxSpec {
   return { center: [x, (bottom + top) / 2, z], size: [width, top - bottom, depth], rotation: [yaw, 0, 0], kind: SurfaceKind.Wall };
 }
+
+/** A floating beam or ceiling to grapple, its centre at (x, y, z). */
+export function overhead(x: number, y: number, z: number, width: number, height: number, depth: number): BoxSpec {
+  return { center: [x, y, z], size: [width, height, depth], kind: SurfaceKind.Overhead };
+}

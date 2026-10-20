@@ -114,7 +114,6 @@ export interface SessionOptions {
  */
 export class RunSession {
   readonly boxes: Box[];
-  readonly anchors: Vector3[];
   readonly killY: number;
   readonly player: PlayerState;
   state = AttemptState.Ready;
@@ -153,7 +152,6 @@ export class RunSession {
   ) {
     this.movement = options.movement ?? MOVEMENT_CONFIG;
     this.boxes = course.pieces.map(makeBox);
-    this.anchors = course.anchors.map((a) => new Vector3(...a));
     this.killY = killPlaneY(this.boxes);
     this.startPos = new Vector3(...course.start.pos);
     this.player = createPlayer(this.startPos);
@@ -297,7 +295,6 @@ export class RunSession {
     const ctx: GadgetContext = {
       player: this.player,
       boxes: this.boxes,
-      anchors: this.anchors,
       input: {
         held: live && input.action,
         pressed: live && input.actionPressed,
@@ -333,7 +330,7 @@ export class RunSession {
     if (p.grounded) this.lastGroundY = p.pos.y;
 
     if (this.state === AttemptState.Running) {
-      this.recorder.sample(this.elapsed, p.pos, this.facing, this.grappleAnchor());
+      this.recorder.sample(this.elapsed, p.pos, this.facing, this.ropePoint);
       this.checkTriggers();
     }
 
@@ -346,9 +343,10 @@ export class RunSession {
     return this.takeEvents();
   }
 
-  private grappleAnchor(): number {
+  /** Where the grapple rope is fixed right now, for the ghost; null when not swinging. */
+  get ropePoint(): Vector3 | null {
     const grapple = this.gadgets.find((g): g is GrappleGadget => g instanceof GrappleGadget);
-    return grapple ? grapple.anchorIndex : -1;
+    return grapple?.point ?? null;
   }
 
   private checkTriggers(): void {
@@ -364,7 +362,7 @@ export class RunSession {
     }
     if (inVolume(p, this.course.finish)) {
       this.state = AttemptState.Finished;
-      this.recorder.sample(this.elapsed, p.pos, this.facing, this.grappleAnchor(), true);
+      this.recorder.sample(this.elapsed, p.pos, this.facing, this.ropePoint, true);
       for (const g of this.gadgets) g.resetTransientState(p);
       this.result = {
         seconds: this.elapsed,

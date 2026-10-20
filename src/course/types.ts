@@ -28,8 +28,6 @@ export interface CourseDefinition {
   /** In course order; reaching a later one never moves the respawn back. */
   checkpoints: CheckpointDefinition[];
   finish: TriggerVolume;
-  /** Grapple anchor points. */
-  anchors: Vec3Tuple[];
   medalThresholds: MedalThresholds;
   availableGadgetIds: string[];
   referenceTargetDurationSeconds: number;

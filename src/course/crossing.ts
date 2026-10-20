@@ -1,6 +1,6 @@
 import { GadgetId } from '../gadgets/types';
 import { SurfaceKind } from '../sim/collision';
-import { bankedCurve, ramp, slab, wall } from './build';
+import { bankedCurve, overhead, ramp, slab, wall } from './build';
 import type { CourseDefinition } from './types';
 
 /**
@@ -9,15 +9,18 @@ import type { CourseDefinition } from './types';
  * plus a faster line that one gadget is built for:
  *
  * 1. Start runway.
- * 2. First split: platform hops down the middle to a 20 m gap (grapple anchor above it, a
+ * 2. First split: platform hops down the middle to a 20 m gap (a beam above it to grapple, a
  *    launch pad clears it, runners take stepping stones to the right), then a long ramp down to
  *    hub A; or a long smooth downhill on the left for rollerblades.
  * 3. Central gap: a 27 m drop-gap a launch pad crosses in one arc; the zigzag stones go around,
  *    and two blocks straight across are reachable only by mantling.
- * 4. Elevated bypass: two grapple anchors over the void, or a long gently descending ramp loop
+ * 4. Elevated bypass: two beams over the void to grapple across, or a long gently descending ramp loop
  *    to the right (good on rollerblades).
  * 5. Final sprint: a steep down ramp, a broad platform with a barrier (slide under its middle
- *    or go round), a banked right turn (an anchor above the corner) and the finish gate.
+ *    or go round), a banked right turn (a block above the corner) and the finish gate.
+ *
+ * The grapple hooks any surface, so the course also floats gold beams, blocks and ceilings well
+ * above the path (out of jump reach) to swing from.
  */
 export const crossing: CourseDefinition = {
   id: 'the-crossing',
@@ -65,7 +68,7 @@ export const crossing: CourseDefinition = {
     ramp([8, 26, -207], [18, 23, -232], 8),
     ramp([18, 23, -232], [18, 20, -268], 8),
     ramp([18, 20, -268], [7, 18, -292], 8),
-    // …and a small rest platform under the anchors.
+    // …and a small rest platform under the beams.
     slab(0, 22, -250, 6, 6, SurfaceKind.Accent),
     // Hub C.
     slab(0, 18, -300, 22, 20),
@@ -79,6 +82,19 @@ export const crossing: CourseDefinition = {
     { center: [0, 12.55, -352], size: [5, 2.9, 2], kind: SurfaceKind.Wall },
     ...bankedCurve(16, 10, -370, 16, 180, 90, 10, 16, 12),
     slab(36, 10, -386, 40, 10),
+
+    // Overhead grapple points: beams, blocks and ceilings high above the path.
+    overhead(0, 50, -15, 16, 1.2, 2.5),
+    overhead(0, 48, -55, 12, 1.2, 2.5),
+    overhead(0, 50, -91, 16, 1.5, 3),
+    overhead(-20, 45, -95, 3, 1.5, 12),
+    overhead(0, 40.5, -150, 22, 1, 10),
+    overhead(-6, 38, -175, 16, 1.2, 3),
+    overhead(0, 41, -232, 14, 1.5, 3),
+    overhead(0, 39, -264, 14, 1.5, 3),
+    overhead(18, 33, -250, 3, 1.2, 14),
+    overhead(0, 28, -325, 14, 1.2, 3),
+    overhead(14, 27, -378, 4, 2, 4),
   ],
 
   checkpoints: [
@@ -89,11 +105,4 @@ export const crossing: CourseDefinition = {
   ],
 
   finish: { center: [50, 12.5, -386], size: [2, 5, 10] },
-
-  anchors: [
-    [0, 50, -91],
-    [0, 40, -232],
-    [0, 38, -264],
-    [14, 26, -378],
-  ],
 };

@@ -34,7 +34,6 @@ export interface GadgetInput {
 export interface GadgetContext {
   player: PlayerState;
   boxes: readonly Box[];
-  anchors: readonly Vector3[];
   input: GadgetInput;
   emit: (event: GadgetEvent) => void;
 }

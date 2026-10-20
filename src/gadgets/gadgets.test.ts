@@ -1,6 +1,6 @@
 import { Vector3 } from 'three';
 import { describe, expect, it } from 'vitest';
-import { DT, LAUNCH_PAD_CONFIG, MOVEMENT_CONFIG, ROLLERBLADE_CONFIG, USAGE_CONFIG } from '../config';
+import { DT, GRAPPLE_CONFIG, LAUNCH_PAD_CONFIG, MOVEMENT_CONFIG, ROLLERBLADE_CONFIG, USAGE_CONFIG } from '../config';
 import { slab, ramp } from '../course/build';
 import type { CourseDefinition } from '../course/types';
 import { crossing } from '../course/crossing';
@@ -10,13 +10,15 @@ import { LaunchPadGadget } from './launchPad';
 import { RollerbladeGadget } from './rollerblades';
 import { GadgetEvent, GadgetId } from './types';
 
-const course = (pieces: CourseDefinition['pieces'], anchors: CourseDefinition['anchors'] = []): CourseDefinition => ({
+type Point = [number, number, number];
+
+/** A course of `pieces`, plus a small overhead block whose underside is at each of `hooks`. */
+const course = (pieces: CourseDefinition['pieces'], hooks: Point[] = []): CourseDefinition => ({
   ...crossing,
   start: { pos: [0, 0, 0], yaw: 0 },
-  pieces,
+  pieces: [...pieces, ...hooks.map(([x, y, z]) => ({ center: [x, y + 0.5, z] as Point, size: [2, 1, 2] as Point }))],
   checkpoints: [],
   finish: { center: [0, -500, 0], size: [1, 1, 1] },
-  anchors,
 });
 
 /** Input aimed from the player's hand straight at a point. */
@@ -35,8 +37,8 @@ describe('grappling hook', () => {
   const floor = slab(0, 0, 0, 200, 200);
   const anchor = new Vector3(0, 12, -15);
 
-  it('latches onto an anchor under the crosshair and pulls you toward it', () => {
-    const s = new RunSession(course([floor], [anchor.toArray() as [number, number, number]]), { gadget: GadgetId.Grapple, unlimited: true });
+  it('hooks the surface under the crosshair and pulls you toward it', () => {
+    const s = new RunSession(course([floor], [anchor.toArray() as Point]), { gadget: GadgetId.Grapple, unlimited: true });
     run(s, idleInput(), 0.1);
     const ev = s.step(aimAt(s, anchor, { action: true, actionPressed: true }));
     expect(ev).toContain(GadgetEvent.GrappleAttached);
@@ -47,8 +49,8 @@ describe('grappling hook', () => {
     expect(s.player.grounded).toBe(false);
   });
 
-  it('misses safely when nothing is in the cone, and you keep running', () => {
-    const s = new RunSession(course([floor], [anchor.toArray() as [number, number, number]]), { gadget: GadgetId.Grapple, unlimited: true });
+  it('misses safely when nothing is in range, and you keep running', () => {
+    const s = new RunSession(course([floor], [anchor.toArray() as Point]), { gadget: GadgetId.Grapple, unlimited: true });
     run(s, idleInput(), 0.1);
     const away = new Vector3(0, 0, 50);
     const ev = s.step(aimAt(s, away, { action: true, actionPressed: true, forward: 1 }));
@@ -57,15 +59,24 @@ describe('grappling hook', () => {
     expect(Math.hypot(s.player.vel.x, s.player.vel.z)).toBeGreaterThan(5);
   });
 
-  it('cannot latch through a wall', () => {
-    const wall = { center: [0, 5, -7] as [number, number, number], size: [20, 10, 1] as [number, number, number] };
-    const s = new RunSession(course([floor, wall], [anchor.toArray() as [number, number, number]]), { gadget: GadgetId.Grapple, unlimited: true });
+  it('hooks the first surface in the way: any surface works, walls included', () => {
+    const wall = { center: [0, 5, -7] as Point, size: [20, 10, 1] as Point };
+    const s = new RunSession(course([floor, wall], [anchor.toArray() as Point]), { gadget: GadgetId.Grapple, unlimited: true });
     run(s, idleInput(), 0.1);
-    expect(s.step(aimAt(s, anchor, { action: true, actionPressed: true }))).toContain(GadgetEvent.GrappleMissed);
+    expect(s.step(aimAt(s, anchor, { action: true, actionPressed: true }))).toContain(GadgetEvent.GrappleAttached);
+    expect((s.gadget as GrappleGadget).point!.z).toBeCloseTo(-6.45, 1);
+  });
+
+  it('does not reach past its range', () => {
+    const far = { center: [0, 20, -GRAPPLE_CONFIG.range - 10] as Point, size: [20, 2, 2] as Point };
+    const s = new RunSession(course([floor, far]), { gadget: GadgetId.Grapple, unlimited: true });
+    run(s, idleInput(), 0.1);
+    const ev = s.step(aimAt(s, new Vector3(0, 19, -GRAPPLE_CONFIG.range - 9), { action: true, actionPressed: true }));
+    expect(ev).toContain(GadgetEvent.GrappleMissed);
   });
 
   it('releasing keeps your momentum', () => {
-    const s = new RunSession(course([floor], [anchor.toArray() as [number, number, number]]), { gadget: GadgetId.Grapple, unlimited: true });
+    const s = new RunSession(course([floor], [anchor.toArray() as Point]), { gadget: GadgetId.Grapple, unlimited: true });
     run(s, idleInput(), 0.1);
     s.step(aimAt(s, anchor, { action: true, actionPressed: true }));
     run(s, aimAt(s, anchor, { action: true }), 0.6);
@@ -77,7 +88,7 @@ describe('grappling hook', () => {
   });
 
   it('retry clears the tether', () => {
-    const s = new RunSession(course([floor], [anchor.toArray() as [number, number, number]]), { gadget: GadgetId.Grapple, unlimited: true });
+    const s = new RunSession(course([floor], [anchor.toArray() as Point]), { gadget: GadgetId.Grapple, unlimited: true });
     run(s, idleInput(), 0.1);
     s.step(aimAt(s, anchor, { action: true, actionPressed: true }));
     s.restart();
@@ -194,7 +205,7 @@ describe('launch pad', () => {
 describe('budgets and switching', () => {
   const floor = slab(0, 0, 0, 2000, 2000);
   const anchor = new Vector3(0, 12, -15);
-  const anchors = [anchor.toArray() as [number, number, number]];
+  const anchors = [anchor.toArray() as Point];
 
   /** Latch on, swing briefly, let go. */
   function swing(s: RunSession): string[] {

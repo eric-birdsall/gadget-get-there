@@ -6,6 +6,8 @@ export enum SurfaceKind {
   Ramp = 'ramp',
   Wall = 'wall',
   Accent = 'accent',
+  /** Floating beams and ceilings high above the path, for the grapple. */
+  Overhead = 'overhead',
 }
 
 /** A solid oriented box: every piece of course geometry is one of these. */

@@ -77,13 +77,13 @@ const RUNNING_LINE = [...START, ...HOPS, ...STONES, ...TO_HUB_A, ...ZIGZAG, ...B
 export const GRAPPLE_LINE: Waypoint[] = [
   ...START,
   ...HOPS,
-  { x: 0, z: -80, grapple: { anchor: 0, releaseZ: -91 }, noJump: true },
+  { x: 0, z: -80, grapple: { at: [0, 49.2, -91], releaseZ: -91 }, noJump: true },
   { x: 0, z: -107 },
   ...TO_HUB_A.slice(1),
   ...ZIGZAG,
   { x: 0, z: -205 },
-  { x: 0, z: -207, grapple: { anchor: 1, releaseZ: -240 }, noJump: true },
-  { x: 0, z: -248, grapple: { anchor: 2, releaseZ: -276 }, noJump: true },
+  { x: 0, z: -207, grapple: { at: [0, 40.2, -232], releaseZ: -240 }, noJump: true },
+  { x: 0, z: -248, grapple: { at: [0, 38.2, -264], releaseZ: -276 }, noJump: true },
   { x: 0, z: -300, noJump: true },
   ...FINAL,
 ];
@@ -149,7 +149,7 @@ describe('The Crossing', () => {
     const route: Waypoint[] = [
       ...START,
       ...HOPS,
-      { x: 0, z: -80, grapple: { anchor: 0, releaseZ: -91 }, noJump: true },
+      { x: 0, z: -80, grapple: { at: [0, 49.2, -91], releaseZ: -91 }, noJump: true },
       { x: 0, z: -107 },
       ...TO_HUB_A.slice(1),
       { x: 0, z: -152, select: GadgetId.LaunchPad, pad: [0, 30, -158] },

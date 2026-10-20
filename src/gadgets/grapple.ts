@@ -4,7 +4,7 @@ import { type Box, raycast } from '../sim/collision';
 import { type MovementConfig, type PlayerState, depenetrate } from '../sim/player';
 import { type GadgetContext, GadgetEvent, GadgetId, type GadgetRuntime } from './types';
 
-const toAnchor = new Vector3();
+const toPoint = new Vector3();
 const hand = new Vector3();
 const dir = new Vector3();
 
@@ -13,52 +13,45 @@ export function handPosition(p: PlayerState, out: Vector3): Vector3 {
   return out.set(p.pos.x, p.pos.y + GRAPPLE_CONFIG.handHeight, p.pos.z);
 }
 
-/** True when nothing solid lies between `from` and the anchor. */
-function clearLine(boxes: readonly Box[], from: Vector3, anchor: Vector3): boolean {
-  dir.subVectors(anchor, from);
+/** Stop the line-of-sight check this far short: the rope is fixed to a surface, so its end always touches one. */
+const ROPE_END_CLEARANCE = 0.8;
+
+/** True when nothing solid lies between `from` and the rope's end. */
+function clearLine(boxes: readonly Box[], from: Vector3, point: Vector3): boolean {
+  dir.subVectors(point, from);
   const dist = dir.length();
-  if (dist < 1e-6) return true;
-  // Stop a little short, in case an anchor sits right against a surface.
-  return raycast(boxes, from, dir.divideScalar(dist), dist - 0.5) === null;
+  if (dist <= ROPE_END_CLEARANCE) return true;
+  return raycast(boxes, from, dir.divideScalar(dist), dist - ROPE_END_CLEARANCE) === null;
+}
+
+export interface GrappleTarget {
+  point: Vector3;
+  normal: Vector3;
 }
 
 /**
- * The anchor the crosshair is on: within range of the player, inside the aim-assist cone, and
- * in line of sight. Picks the one closest to the crosshair. Returns its index, or -1.
+ * Where the hook would land: the first surface under the crosshair, if it's within range of the
+ * player and the rope from the hand to it would be clear. Any surface works.
  */
-export function findGrappleTarget(
-  anchors: readonly Vector3[],
-  boxes: readonly Box[],
-  aimOrigin: Vector3,
-  aimDir: Vector3,
-  player: PlayerState,
-): number {
-  const cosCone = Math.cos((GRAPPLE_CONFIG.aimConeDegrees * Math.PI) / 180);
+export function findGrappleTarget(boxes: readonly Box[], aimOrigin: Vector3, aimDir: Vector3, player: PlayerState): GrappleTarget | null {
   handPosition(player, hand);
-  let best = -1;
-  let bestCos = cosCone;
-  for (let i = 0; i < anchors.length; i++) {
-    const a = anchors[i];
-    if (a.distanceTo(hand) > GRAPPLE_CONFIG.range) continue;
-    toAnchor.subVectors(a, aimOrigin).normalize();
-    const c = toAnchor.dot(aimDir);
-    if (c < bestCos) continue;
-    if (!clearLine(boxes, hand, a)) continue;
-    best = i;
-    bestCos = c;
-  }
-  return best;
+  // The crosshair ray starts at the camera behind the player, so it may travel a bit farther.
+  const hit = raycast(boxes, aimOrigin, aimDir, GRAPPLE_CONFIG.range + aimOrigin.distanceTo(hand));
+  if (!hit || hit.point.distanceTo(hand) > GRAPPLE_CONFIG.range) return null;
+  const point = hit.point.clone().addScaledVector(hit.normal, 0.05);
+  if (!clearLine(boxes, hand, point)) return null;
+  return { point, normal: hit.normal };
 }
 
 /**
- * Hold to latch onto the anchor under the crosshair: a rope you swing beneath while it reels you
- * in. Let go to release, keeping your speed plus a small boost.
+ * Hold to fire the hook at whatever surface is under the crosshair: a rope you swing beneath
+ * while it reels you in. Let go to release, keeping your speed plus a small boost.
  */
 export class GrappleGadget implements GadgetRuntime {
   readonly id = GadgetId.Grapple;
   limited = true;
-  /** Index into the course anchors while attached, else -1. */
-  anchorIndex = -1;
+  /** Where the rope is fixed while attached, else null. */
+  point: Vector3 | null = null;
   private length = 0;
   private swings = 0;
 
@@ -77,7 +70,7 @@ export class GrappleGadget implements GadgetRuntime {
   }
 
   get attached(): boolean {
-    return this.anchorIndex >= 0;
+    return this.point !== null;
   }
 
   movement(base: MovementConfig): MovementConfig {
@@ -86,15 +79,15 @@ export class GrappleGadget implements GadgetRuntime {
 
   beforeMove(ctx: GadgetContext): void {
     const { player: p, input } = ctx;
-    if (!this.attached) {
+    if (!this.point) {
       if (!input.pressed || this.remaining <= 0) return;
-      const target = findGrappleTarget(ctx.anchors, ctx.boxes, input.aimOrigin, input.aimDir, p);
-      if (target < 0) {
+      const target = findGrappleTarget(ctx.boxes, input.aimOrigin, input.aimDir, p);
+      if (!target) {
         ctx.emit(GadgetEvent.GrappleMissed);
         return;
       }
-      this.anchorIndex = target;
-      this.length = handPosition(p, hand).distanceTo(ctx.anchors[target]);
+      this.point = target.point;
+      this.length = handPosition(p, hand).distanceTo(target.point);
       if (p.grounded) p.vel.y = Math.max(p.vel.y, 0) + GRAPPLE_CONFIG.attachHop;
       p.tethered = true;
       p.grounded = false;
@@ -108,37 +101,35 @@ export class GrappleGadget implements GadgetRuntime {
       return;
     }
 
-    const anchor = ctx.anchors[this.anchorIndex];
     this.length = Math.max(GRAPPLE_CONFIG.minLength, this.length - GRAPPLE_CONFIG.reelSpeed * DT);
-    toAnchor.subVectors(anchor, handPosition(p, hand));
-    const dist = toAnchor.length();
-    if (dist > 1e-6) p.vel.addScaledVector(toAnchor, (GRAPPLE_CONFIG.pullAcceleration * DT) / dist);
+    toPoint.subVectors(this.point, handPosition(p, hand));
+    const dist = toPoint.length();
+    if (dist > 1e-6) p.vel.addScaledVector(toPoint, (GRAPPLE_CONFIG.pullAcceleration * DT) / dist);
   }
 
   afterMove(ctx: GadgetContext): void {
-    if (!this.attached) return;
+    if (!this.point) return;
     const p = ctx.player;
-    const anchor = ctx.anchors[this.anchorIndex];
     handPosition(p, hand);
-    // The rope snaps if the course gets between you and the anchor.
-    if (!clearLine(ctx.boxes, hand, anchor)) {
+    // The rope snaps if the course gets between you and where it's fixed.
+    if (!clearLine(ctx.boxes, hand, this.point)) {
       this.release(p, false);
       ctx.emit(GadgetEvent.GrappleReleased);
       return;
     }
-    toAnchor.subVectors(hand, anchor);
-    const dist = toAnchor.length();
+    toPoint.subVectors(hand, this.point);
+    const dist = toPoint.length();
     if (dist <= this.length || dist < 1e-6) return;
     // Taut rope: back onto the sphere, and no speed outward along it.
-    toAnchor.divideScalar(dist);
-    p.pos.addScaledVector(toAnchor, this.length - dist);
-    const outward = p.vel.dot(toAnchor);
-    if (outward > 0) p.vel.addScaledVector(toAnchor, -outward);
+    toPoint.divideScalar(dist);
+    p.pos.addScaledVector(toPoint, this.length - dist);
+    const outward = p.vel.dot(toPoint);
+    if (outward > 0) p.vel.addScaledVector(toPoint, -outward);
     depenetrate(p, ctx.boxes);
   }
 
   private release(p: PlayerState, boost = true): void {
-    this.anchorIndex = -1;
+    this.point = null;
     this.swings++;
     p.tethered = false;
     if (!boost) return;
@@ -152,7 +143,7 @@ export class GrappleGadget implements GadgetRuntime {
   resetTransientState(p: PlayerState): void {
     // Losing the rope mid-swing (a respawn, a mantle) still used the swing.
     if (this.attached) this.swings++;
-    this.anchorIndex = -1;
+    this.point = null;
     this.length = 0;
     p.tethered = false;
   }

@@ -1,5 +1,6 @@
 import {
   BoxGeometry,
+  CircleGeometry,
   CanvasTexture,
   ConeGeometry,
   CylinderGeometry,
@@ -11,8 +12,6 @@ import {
   NearestFilter,
   PlaneGeometry,
   RingGeometry,
-  SphereGeometry,
-  TorusGeometry,
   Vector3,
 } from 'three';
 import type { CheckpointDefinition, TriggerVolume } from '../course/types';
@@ -23,8 +22,7 @@ const follow = (rate: number, dt: number) => 1 - Math.exp(-rate * dt);
 const UP = new Vector3(0, 1, 0);
 
 export const MARKER_COLORS = {
-  anchor: '#ffd54a',
-  anchorTarget: '#ffffff',
+  grappleTarget: '#7ff6ff',
   checkpointIdle: '#ffffff',
   checkpointReached: '#5dff9d',
   pad: '#ff8a3d',
@@ -109,49 +107,31 @@ export function finishGate(finish: TriggerVolume): Group {
   return g;
 }
 
-/** Glowing grapple anchors. The one under the crosshair grows and turns white. */
-export class AnchorViews {
+/** A glowing ring on the surface the grapple would hook, shown while it's in hand and in range. */
+export class GrappleMarker {
   readonly group = new Group();
-  private readonly cores: Mesh[] = [];
-  private readonly rings: Mesh[] = [];
+  private readonly ring: Mesh;
+  private readonly dot: Mesh;
   private time = 0;
 
-  constructor(anchors: readonly Vector3[]) {
-    for (const a of anchors) {
-      const core = new Mesh(
-        new SphereGeometry(0.85, 16, 12),
-        new MeshStandardMaterial({ color: MARKER_COLORS.anchor, emissive: MARKER_COLORS.anchor, emissiveIntensity: 0.9 }),
-      );
-      core.position.copy(a);
-      const ring = new Mesh(
-        new TorusGeometry(1.6, 0.1, 8, 32),
-        new MeshBasicMaterial({ color: MARKER_COLORS.anchor, transparent: true, opacity: 0.8 }),
-      );
-      ring.position.copy(a);
-      this.cores.push(core);
-      this.rings.push(ring);
-      this.group.add(core, ring);
-    }
+  constructor() {
+    const mat = new MeshBasicMaterial({ color: MARKER_COLORS.grappleTarget, transparent: true, opacity: 0.9, side: DoubleSide, depthWrite: false });
+    this.ring = new Mesh(new RingGeometry(0.45, 0.6, 32), mat);
+    this.dot = new Mesh(new CircleGeometry(0.12, 16), mat);
+    this.group.add(this.ring, this.dot);
+    this.group.visible = false;
   }
 
-  /** `visible` hides them for gadgets that can't use them; `target` is the aimed anchor or -1. */
-  update(dt: number, cameraPos: Vector3, visible: boolean, target: number): void {
+  update(dt: number, target: { point: Vector3; normal: Vector3 } | null): void {
     this.time += dt;
-    this.cores.forEach((core, i) => {
-      core.visible = this.rings[i].visible = true;
-      const aimed = visible && i === target;
-      const mat = core.material as MeshStandardMaterial;
-      mat.emissiveIntensity = visible ? 0.9 : 0.25;
-      mat.color.set(aimed ? MARKER_COLORS.anchorTarget : MARKER_COLORS.anchor);
-      const ring = this.rings[i];
-      ring.lookAt(cameraPos);
-      const pulse = aimed ? 1.35 : 1 + 0.06 * Math.sin(this.time * 3 + i);
-      ring.scale.setScalar(pulse);
-      ring.visible = visible;
-      (ring.material as MeshBasicMaterial).color.set(aimed ? MARKER_COLORS.anchorTarget : MARKER_COLORS.anchor);
-    });
+    this.group.visible = !!target;
+    if (!target) return;
+    this.group.position.copy(target.point).addScaledVector(target.normal, 0.03);
+    this.group.quaternion.setFromUnitVectors(Z, target.normal);
+    this.ring.scale.setScalar(1 + 0.12 * Math.sin(this.time * 8));
   }
 }
+const Z = new Vector3(0, 0, 1);
 
 /** A rope drawn as a thin cylinder between two points. */
 export class RopeView {
@@ -247,12 +227,12 @@ export class GhostView {
   }
 
   /** `pose` null hides the ghost. */
-  update(dt: number, pose: { pos: Vector3; yaw: number; anchor: number } | null, anchors: readonly Vector3[], handHeight: number): void {
+  update(dt: number, pose: { pos: Vector3; yaw: number; rope: Vector3 | null } | null, handHeight: number): void {
     this.fade += ((pose ? 1 : 0) - this.fade) * follow(8, dt);
     this.group.visible = this.fade > 0.02;
     if (!pose) return;
     this.model.place(pose.pos, pose.yaw);
     this.hand.set(pose.pos.x, pose.pos.y + handHeight, pose.pos.z);
-    this.rope.set(pose.anchor >= 0 ? this.hand : null, pose.anchor >= 0 ? anchors[pose.anchor] ?? null : null);
+    this.rope.set(pose.rope ? this.hand : null, pose.rope);
   }
 }

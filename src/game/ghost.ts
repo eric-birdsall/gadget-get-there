@@ -1,9 +1,10 @@
 import { Vector3 } from 'three';
 import { GHOST_CONFIG } from '../config';
 
-export const GHOST_VERSION = 1;
-/** Numbers per sample: time, x, y, z, facing yaw, grapple anchor index + 1 (0 = none). */
-export const GHOST_STRIDE = 6;
+/** v2 records where the rope is fixed (any surface) instead of an anchor number. */
+export const GHOST_VERSION = 2;
+/** Numbers per sample: time, x, y, z, facing yaw, on a rope (0/1), rope x, y, z. */
+export const GHOST_STRIDE = 9;
 
 export interface GhostData {
   version: number;
@@ -13,8 +14,8 @@ export interface GhostData {
 export interface GhostPose {
   pos: Vector3;
   yaw: number;
-  /** Grapple anchor the ghost is swinging from, or -1. */
-  anchor: number;
+  /** Where the ghost's rope is fixed while it swings, or null. */
+  rope: Vector3 | null;
 }
 
 /** Records the player's path against run time, at a fixed rate, for a PB ghost. */
@@ -28,12 +29,12 @@ export class GhostRecorder {
   }
 
   /** Records a sample if one is due at `time` (or `force` it, e.g. the final frame). */
-  sample(time: number, pos: Vector3, yaw: number, anchor: number, force = false): void {
+  sample(time: number, pos: Vector3, yaw: number, rope: Vector3 | null, force = false): void {
     if (!force && time < this.next) return;
     if (time > GHOST_CONFIG.maxSeconds) return;
     // Millimetres and milliseconds are plenty, and keep saves small.
     const r = (n: number) => Math.round(n * 1000) / 1000;
-    this.samples.push(r(time), r(pos.x), r(pos.y), r(pos.z), r(yaw), anchor + 1);
+    this.samples.push(r(time), r(pos.x), r(pos.y), r(pos.z), r(yaw), rope ? 1 : 0, r(rope?.x ?? 0), r(rope?.y ?? 0), r(rope?.z ?? 0));
     this.next = time + 1 / GHOST_CONFIG.sampleRate;
   }
 
@@ -78,7 +79,7 @@ export class GhostPlayer {
     if (this.cursor >= count - 1 || t <= s[i]) {
       out.pos.set(s[i + 1], s[i + 2], s[i + 3]);
       out.yaw = s[i + 4];
-      out.anchor = s[i + 5] - 1;
+      this.rope(s, i, out);
       return out;
     }
     const j = i + GHOST_STRIDE;
@@ -87,7 +88,15 @@ export class GhostPlayer {
     const k = jump > GHOST_CONFIG.teleportDistance ? 0 : (t - s[i]) / (s[j] - s[i]);
     out.pos.set(s[i + 1] + (s[j + 1] - s[i + 1]) * k, s[i + 2] + (s[j + 2] - s[i + 2]) * k, s[i + 3] + (s[j + 3] - s[i + 3]) * k);
     out.yaw = s[i + 4] + shortestAngle(s[i + 4], s[j + 4]) * k;
-    out.anchor = (k < 0.5 ? s[i + 5] : s[j + 5]) - 1;
+    this.rope(s, k < 0.5 ? i : j, out);
     return out;
+  }
+
+  private rope(s: number[], i: number, out: GhostPose): void {
+    if (s[i + 5] === 0) {
+      out.rope = null;
+      return;
+    }
+    out.rope = (out.rope ?? new Vector3()).set(s[i + 6], s[i + 7], s[i + 8]);
   }
 }

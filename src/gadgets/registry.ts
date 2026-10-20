@@ -8,7 +8,7 @@ export const GADGETS: readonly GadgetDefinition[] = [
   {
     id: GadgetId.Grapple,
     displayName: 'Grappling Hook',
-    actionHint: 'Hold E on a glowing anchor to swing · release to let go',
+    actionHint: 'Hold E to hook any surface under the crosshair · release to let go',
     slot: 1,
     budgetLabel: `x${USAGE_CONFIG.grappleSwings}`,
     create: () => new GrappleGadget(),

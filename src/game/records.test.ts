@@ -2,7 +2,7 @@ import { Vector3 } from 'three';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { GadgetId } from '../gadgets/types';
 import { RecordStore } from '../storage/records';
-import { type GhostData, GhostPlayer, GhostRecorder, type GhostPose, isValidGhost } from './ghost';
+import { GHOST_STRIDE, type GhostData, GhostPlayer, GhostRecorder, type GhostPose, isValidGhost } from './ghost';
 import { Medal, medalFor } from './medals';
 
 /** A Map-backed localStorage for node. */
@@ -26,7 +26,7 @@ beforeEach(() => {
 
 const ghost = (n: number): GhostData => {
   const r = new GhostRecorder();
-  for (let i = 0; i <= n; i++) r.sample(i * 0.05, new Vector3(i, 0, 0), 0, -1, true);
+  for (let i = 0; i <= n; i++) r.sample(i * 0.05, new Vector3(i, 0, 0), 0, null, true);
   return r.finish();
 };
 
@@ -66,7 +66,7 @@ describe('personal bests', () => {
     expect(r.submit('c', run(45, ghost(3)))).toBe(true);
     const best = r.best('c')!;
     expect(best.seconds).toBe(45);
-    expect(best.ghost!.samples.length).toBe(4 * 6);
+    expect(best.ghost!.samples.length).toBe(4 * GHOST_STRIDE);
   });
 
   it('one best per level, whatever the checkpoint setting', () => {
@@ -118,7 +118,7 @@ describe('personal bests', () => {
 });
 
 describe('ghost', () => {
-  const pose = (): GhostPose => ({ pos: new Vector3(), yaw: 0, anchor: -1 });
+  const pose = (): GhostPose => ({ pos: new Vector3(), yaw: 0, rope: null });
 
   it('interpolates between samples at any time, including after dropped frames', () => {
     const g = new GhostPlayer(ghost(20));
@@ -132,23 +132,23 @@ describe('ghost', () => {
 
   it('snaps across a respawn instead of gliding', () => {
     const r = new GhostRecorder();
-    r.sample(0, new Vector3(0, 0, 0), 0, -1, true);
-    r.sample(0.05, new Vector3(50, 0, 0), 0, -1, true);
+    r.sample(0, new Vector3(0, 0, 0), 0, null, true);
+    r.sample(0.05, new Vector3(50, 0, 0), 0, null, true);
     const g = new GhostPlayer(r.finish());
     expect(g.poseAt(0.04, pose()).pos.x).toBe(0);
   });
 
   it('only records at the sample rate', () => {
     const r = new GhostRecorder();
-    for (let t = 0; t < 1; t += 1 / 120) r.sample(t, new Vector3(), 0, -1);
-    expect(r.finish().samples.length / 6).toBeLessThanOrEqual(21);
+    for (let t = 0; t < 1; t += 1 / 120) r.sample(t, new Vector3(), 0, null);
+    expect(r.finish().samples.length / GHOST_STRIDE).toBeLessThanOrEqual(21);
   });
 
   it('validates saved data', () => {
     expect(isValidGhost(ghost(3))).toBe(true);
-    expect(isValidGhost({ version: 2, samples: ghost(3).samples })).toBe(false);
+    expect(isValidGhost({ version: 1, samples: ghost(3).samples })).toBe(false);
     expect(isValidGhost({ version: 1, samples: [1, 2, 3] })).toBe(false);
-    expect(isValidGhost({ version: 1, samples: [0, 0, 0, 0, 0, 'x'] })).toBe(false);
+    expect(isValidGhost({ version: 1, samples: [0, 0, 0, 0, 0, 0, 0, 0, 'x'] })).toBe(false);
     expect(isValidGhost(null)).toBe(false);
   });
 });

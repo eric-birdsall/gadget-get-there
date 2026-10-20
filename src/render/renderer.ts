@@ -29,7 +29,7 @@ import { type Box, SurfaceKind, raycast } from '../sim/collision';
 import { ThirdPersonCamera } from './camera';
 import { SURFACE_COLORS, gridMaterial } from './materials';
 import { BlobShadow, PlayerModel, type PlayerPose } from './playerModel';
-import { AnchorViews, CheckpointFlags, GhostView, MARKER_COLORS, PadViews, RopeView, finishGate } from './worldViews';
+import { CheckpointFlags, GhostView, GrappleMarker, MARKER_COLORS, PadViews, RopeView, finishGate } from './worldViews';
 
 /** Everything the renderer needs to draw one frame. */
 export interface RenderFrame {
@@ -45,11 +45,10 @@ export interface RenderFrame {
   crouching: boolean;
   /** Mantle progress 0 … 1, or -1. */
   mantle: number;
-  /** Show anchors as usable, and which one is aimed (-1 none). */
-  grappleEquipped: boolean;
-  grappleTarget: number;
-  /** Anchor the player hangs from, or -1. */
-  grappleAttached: number;
+  /** Where the grapple would hook right now (in hand, in range), or null. */
+  grappleTarget: { point: Vector3; normal: Vector3 } | null;
+  /** Where the player's rope is fixed, or null. */
+  grappleRope: Vector3 | null;
   pad: Pad | null;
   padEquipped: boolean;
   padPreview: { pos: Vector3; normal: Vector3 } | null;
@@ -128,7 +127,7 @@ export class Renderer {
   private readonly probe = new Vector3();
   private readonly hand = new Vector3();
   private readonly flags: CheckpointFlags;
-  private readonly anchorViews: AnchorViews;
+  private readonly grappleMarker = new GrappleMarker();
   private readonly rope = new RopeView(MARKER_COLORS.rope);
   private readonly pads = new PadViews();
   private readonly ghost = new GhostView();
@@ -136,7 +135,6 @@ export class Renderer {
   constructor(
     private readonly boxes: readonly Box[],
     course: CourseDefinition,
-    private readonly anchors: readonly Vector3[],
   ) {
     this.gl = new WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
     this.gl.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -165,8 +163,7 @@ export class Renderer {
     this.buildCourse();
     this.scenery = scenery(this.scene);
     this.flags = new CheckpointFlags(course.checkpoints);
-    this.anchorViews = new AnchorViews(anchors);
-    this.scene.add(this.flags.group, finishGate(course.finish), this.anchorViews.group);
+    this.scene.add(this.flags.group, finishGate(course.finish), this.grappleMarker.group);
     this.scene.add(this.player.root, this.shadow.mesh, this.rope.mesh, this.pads.group, this.ghost.group);
 
     window.addEventListener('resize', () => this.resize());
@@ -238,12 +235,12 @@ export class Renderer {
     const hit = raycast(this.boxes, this.probe, this.down, 60);
     this.shadow.place(hit?.point ?? null, hit?.normal ?? null, hit ? hit.distance - 0.3 : 0);
 
-    this.anchorViews.update(dt, this.view.camera.position, f.grappleEquipped, f.grappleTarget);
+    this.grappleMarker.update(dt, f.grappleTarget);
     this.hand.set(pose.feet.x, pose.feet.y + GRAPPLE_CONFIG.handHeight, pose.feet.z);
-    this.rope.set(f.grappleAttached >= 0 ? this.hand : null, f.grappleAttached >= 0 ? this.anchors[f.grappleAttached] : null);
+    this.rope.set(f.grappleRope ? this.hand : null, f.grappleRope);
     this.pads.update(dt, f.pad, f.padPreview, !!f.padPreview, f.padEquipped);
     this.flags.setReached(f.checkpointReached);
-    this.ghost.update(dt, f.ghost, this.anchors, GRAPPLE_CONFIG.handHeight);
+    this.ghost.update(dt, f.ghost, GRAPPLE_CONFIG.handHeight);
 
     // Keep the sun's shadow map centred on the player.
     this.sun.target.position.copy(pose.feet);

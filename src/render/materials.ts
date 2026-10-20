@@ -7,6 +7,7 @@ export const SURFACE_COLORS: Record<SurfaceKind, { base: string; line: string }>
   [SurfaceKind.Ramp]: { base: '#7fe0cc', line: '#3fae98' },
   [SurfaceKind.Wall]: { base: '#a596ff', line: '#7a68e8' },
   [SurfaceKind.Accent]: { base: '#ffbd70', line: '#e58a2e' },
+  [SurfaceKind.Overhead]: { base: '#ffd86b', line: '#d9a520' },
 };
 
 /**

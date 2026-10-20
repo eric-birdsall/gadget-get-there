@@ -129,14 +129,12 @@ export const WORLD_CONFIG = {
 };
 
 export const GRAPPLE_CONFIG = {
-  /** Farthest anchor you can latch onto, measured from the player, m. */
+  /** Farthest surface the hook can reach, measured from the player, m. */
   range: 42,
-  /** Aim assist: anchors within this angle of the crosshair can be grabbed, degrees. */
-  aimConeDegrees: 14,
   /** Rope shortens at this rate while held, m/s. */
   reelSpeed: 9,
   minLength: 3,
-  /** Constant pull toward the anchor while attached, m/s². */
+  /** Constant pull toward where the rope is fixed, m/s². */
   pullAcceleration: 13,
   /** Upward kick when latching from the ground, so you leave it, m/s. */
   attachHop: 4,
