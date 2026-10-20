@@ -78,7 +78,13 @@ function refreshCategory(): void {
 
 function refreshGadget(): void {
   const ready = session.state === AttemptState.Ready;
-  hud.setGadgets(session.loadout, session.slot, session.gadget?.remaining ?? 0, ready);
+  hud.setGadgets(
+    session.loadout,
+    session.slot,
+    session.gadgets.map((g) => g.remaining),
+    session.gadgets.map((g) => g.usageLabel),
+    ready,
+  );
   menu.setLoadout(session.loadout, !ready);
 }
 
@@ -302,11 +308,16 @@ function handleKeys(): void {
     menu.syncCheckbox('ghost');
     hud.showToast(settings.ghost ? 'Ghost on' : 'Ghost off', 0.8);
   }
-  // At the start line: 1 2 3 add that gadget to the next free slot, or take it out.
+  // 1 2 3: at the start line, add that gadget to the next free slot or take it out; mid-run,
+  // take it in hand. The scroll wheel steps through the slots, skipping used-up gadgets.
   const slots = [Action.Slot1, Action.Slot2, Action.Slot3];
   slots.forEach((a, i) => {
-    if (input.consumePress(a) && GADGETS[i]) toggleGadget(GADGETS[i].id);
+    if (!input.consumePress(a) || !GADGETS[i]) return;
+    if (session.state === AttemptState.Ready) toggleGadget(GADGETS[i].id);
+    else session.selectGadget(GADGETS[i].id);
   });
+  const wheel = input.consumeWheel();
+  if (wheel !== 0) session.cycleGadget(wheel > 0 ? 1 : -1);
   if (input.consumePress(Action.Retry)) restart();
 }
 
@@ -364,7 +375,8 @@ function frame(now: number): void {
     grappleEquipped: !!grapple,
     grappleTarget,
     grappleAttached: grapple?.anchorIndex ?? -1,
-    pad: pads?.pad ?? null,
+    // A thrown pad stays in the world after switching to another gadget.
+    pad: session.gadgets.find((x): x is LaunchPadGadget => x instanceof LaunchPadGadget)?.pad ?? null,
     padEquipped: !!pads && live,
     padPreview,
     checkpointReached: session.checkpoint,

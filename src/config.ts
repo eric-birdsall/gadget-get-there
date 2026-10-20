@@ -179,9 +179,9 @@ export const LAUNCH_PAD_CONFIG = {
   throwCooldown: 0.25,
 };
 
-/** How much of each gadget a run gets before switching to the next slot. */
+/** Each gadget's budget per run. Fixed: the same on every level. */
 export const USAGE_CONFIG = {
-  grappleSwings: 1,
+  grappleSwings: 2,
   padLaunches: 1,
   /** Seconds of rolling on the ground. */
   rollerbladeSeconds: 5,

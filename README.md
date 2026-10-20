@@ -20,7 +20,7 @@ Pushing to `main` runs the tests, builds, and deploys to GitHub Pages (`.github/
 
 Click **Play** to go fullscreen and capture the mouse. Esc pauses (the run clock freezes too) and a second Esc leaves fullscreen; Resume goes back in. In Chrome/Edge holding Esc also exits; Safari and Firefox exit fullscreen on the first Esc.
 
-Each run uses the gadgets you pick (up to three, in the order you pick them), once each: one grapple swing, one pad launch, 5 s of rollerblading on the ground (counted from the press that puts them on). When one is used up the next takes over automatically; after all three you finish on foot.
+Pick up to three gadgets before a run. Each has a fixed budget on every level: Grapple x2 swings, Rollerblades 5 s (counted while the skates are on and you're on the ground), Launch Pad x1 launch. Switch between them any time with the scroll wheel (or 1 2 3); a used-up gadget stays in hand until you switch. Slot 1 is in hand at the start.
 
 | Action | Keys |
 |---|---|
@@ -30,7 +30,8 @@ Each run uses the gadgets you pick (up to three, in the order you pick them), on
 | Slide (at speed) / crouch-walk (when slow) | Hold Shift; jump out of a slide keeps its speed |
 | Mantle a ledge | Hold Space in the air while moving into a ledge up to ~1 m above your head |
 | Use gadget | E (grapple: hold · rollerblades: press to put on, then hold to tuck · launch pad: press to throw) |
-| Gadget order | In the menu, click a gadget to put it in the next free slot; click it again (or its slot) to take it out. At the start line, 1 2 3 do the same. Changing gadgets mid-run restarts. Retries keep the order. |
+| Choose gadgets | In the menu, click a gadget to put it in the next free slot; click it again (or its slot) to take it out. At the start line, 1 2 3 do the same. Changing gadgets from the menu mid-run restarts. Retries keep them. |
+| Switch gadget | Scroll wheel (skips used-up ones), or 1 2 3 mid-run |
 | Retry from start | R (or Enter) |
 | Toggle ghost | G |
 | Debug readout (speed, grounded…) | ` |
@@ -67,7 +68,7 @@ src/
 
 ## Status
 
-Runs now use a three-gadget loadout (one use each, automatic switching), with gadget icons in the HUD and one personal best per level. Phases 0–5 of the spec are in place: movement and camera; The Crossing with checkpoints (ON/OFF setting) and a finish gate; the three gadgets; medals, personal bests per checkpoint mode and the PB ghost; procedural sound and music.
+Runs carry up to three gadgets with fixed budgets and free scroll-wheel switching, with gadget icons in the HUD and one personal best per level. Phases 0–5 of the spec are in place: movement and camera; The Crossing with checkpoints (ON/OFF setting) and a finish gate; the three gadgets; medals, personal bests per checkpoint mode and the PB ghost; procedural sound and music.
 
 Character abilities (slide, crouch-walk, mantle) work with every gadget. The Crossing has two optional ability spots: blocks across the central gap that only a mantle reaches, and a barrier on the final platform with a slide-under slot.
 

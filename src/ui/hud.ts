@@ -100,11 +100,12 @@ export class Hud {
   }
 
   /**
-   * The gadget slots, in run order: the current one highlighted (with a countdown ring while it
-   * wears down), used ones crossed out. At the start line each shows the key that puts it first.
+   * The chosen gadgets in slot order: the one in hand highlighted, each with its budget left
+   * underneath and its outline counting down, used-up ones crossed out. At the start line each
+   * shows the key that adds or removes it.
    */
-  setGadgets(loadout: readonly GadgetId[], slot: number, remaining: number, ready: boolean): void {
-    const key = `${loadout.join()}|${slot}|${remaining.toFixed(2)}|${ready}`;
+  setGadgets(loadout: readonly GadgetId[], inHand: number, remaining: readonly number[], labels: readonly string[], ready: boolean): void {
+    const key = `${loadout.join()}|${inHand}|${labels.join()}|${ready}`;
     if (key === this.lastGadgetKey) return;
     this.lastGadgetKey = key;
     // Only chosen gadgets get a slot on screen.
@@ -115,28 +116,26 @@ export class Hud {
         el.dataset.gadget = id;
         el.querySelector('.icon')!.innerHTML = GADGET_ICONS[id];
         el.querySelector('.key')!.textContent = String(gadgetDefinition(id).slot);
-        el.querySelector('.label')!.textContent = gadgetDefinition(id).displayName;
         el.title = gadgetDefinition(id).displayName;
       }
-      el.classList.toggle('active', i === slot);
-      el.classList.toggle('used', i < slot);
-      el.classList.toggle('next', i === slot + 1);
+      const left = remaining[i] ?? 1;
+      el.querySelector('.label')!.textContent = labels[i] ?? '';
+      el.classList.toggle('active', i === inHand);
+      el.classList.toggle('used', left <= 0);
       el.classList.toggle('ready', ready);
-      // The outline traces down as the current gadget wears out.
+      // The outline traces down as the budget is spent.
       const ring = el.querySelector<SVGRectElement>('.ring rect')!;
-      const left = i === slot ? remaining : i < slot ? 0 : 1;
       ring.style.strokeDasharray = '100';
       ring.style.strokeDashoffset = `${100 * (1 - left)}`;
     });
-    const current = loadout[slot];
-    const next = loadout[slot + 1];
+    const current = loadout[inHand];
     this.gadgetHint.textContent = !current
-      ? loadout.length === 0
-        ? 'No gadgets · 1 2 3 to add some'
-        : 'Gadgets used up · finish on foot'
+      ? 'No gadgets · 1 2 3 to add some'
       : ready
-        ? '1 2 3 add or remove gadgets · they run in this order'
-        : `${gadgetDefinition(current).actionHint}${next ? ` · next: ${gadgetDefinition(next).displayName}` : ''}`;
+        ? '1 2 3 add or remove gadgets · scroll to switch during the run'
+        : (remaining[inHand] ?? 1) <= 0
+          ? `${gadgetDefinition(current).displayName} used up · scroll to switch`
+          : `${gadgetDefinition(current).actionHint} · scroll to switch`;
   }
 
   setCrosshairLocked(locked: boolean): void {

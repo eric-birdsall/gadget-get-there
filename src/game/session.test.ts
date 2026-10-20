@@ -155,7 +155,7 @@ describe('gadget order', () => {
     expect(s.gadget?.id).toBe(GadgetId.LaunchPad);
     s.toggleGadget(GadgetId.Grapple);
     expect(s.loadout).toEqual([GadgetId.LaunchPad, GadgetId.Rollerblades, GadgetId.Grapple]);
-    expect(s.nextGadget).toBe(GadgetId.Rollerblades);
+    expect(s.loadout[1]).toBe(GadgetId.Rollerblades);
   });
 
   it('clearing empties every slot, only at the start line', () => {
@@ -188,15 +188,42 @@ describe('gadget order', () => {
     expect(s.gadget?.id).toBe(GadgetId.Grapple);
   });
 
-  it('a checkpoint respawn keeps spent gadgets spent', () => {
-    const s = new RunSession(tiny, { checkpointsEnabled: true });
+  it('a checkpoint respawn keeps budgets and the gadget in hand', () => {
+    const s = new RunSession(tiny, { checkpointsEnabled: true, loadout: [GadgetId.Grapple, GadgetId.Rollerblades] });
     s.player.pos.set(0, 0, -10);
     s.step(go());
-    s.slot = 1;
-    s.gadget = null;
+    s.selectGadget(GadgetId.Rollerblades);
+    s.step(go({ action: true, actionPressed: true }));
+    for (let i = 0; i < 60; i++) s.step(go());
+    const left = s.gadget!.remaining;
+    expect(left).toBeLessThan(1);
     expect(stepUntil(s, go({ right: 1, forward: 0 }), SessionEvent.Fell)).toBe(true);
-    expect(s.slot).toBe(1);
+    expect(s.gadget?.id).toBe(GadgetId.Rollerblades);
+    expect(s.gadget!.remaining).toBeLessThanOrEqual(left);
     expect(s.state).toBe(AttemptState.Running);
+    s.restart();
+    expect(s.gadget?.id).toBe(GadgetId.Grapple);
+    expect(s.gadgets.every((g) => g.remaining === 1)).toBe(true);
+  });
+
+  it('switching: 1/2/3 or scroll pick any time before the finish; scrolling skips used-up gadgets', () => {
+    const s = new RunSession(tiny, { loadout: [GadgetId.Grapple, GadgetId.LaunchPad, GadgetId.Rollerblades] });
+    expect(s.selectGadget(GadgetId.Rollerblades)).toBe(true);
+    expect(s.state).toBe(AttemptState.Ready);
+    s.step(go());
+    expect(s.cycleGadget(1)).toBe(true);
+    expect(s.gadget?.id).toBe(GadgetId.Grapple);
+    expect(s.cycleGadget(-1)).toBe(true);
+    expect(s.gadget?.id).toBe(GadgetId.Rollerblades);
+    // Spend the launch pad: scrolling goes past it.
+    (s.gadgets[1] as unknown as { launches: number }).launches = 1;
+    expect(s.cycleGadget(-1)).toBe(true);
+    expect(s.gadget?.id).toBe(GadgetId.Grapple);
+    expect(s.cycleGadget(1)).toBe(true);
+    expect(s.gadget?.id).toBe(GadgetId.Rollerblades);
+    // But picking it directly still works (it's just empty).
+    expect(s.selectGadget(GadgetId.LaunchPad)).toBe(true);
+    expect(s.step(go())).toContain(SessionEvent.GadgetSwitched);
   });
 });
 

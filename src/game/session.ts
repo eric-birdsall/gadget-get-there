@@ -26,7 +26,7 @@ export enum SessionEvent {
   Finished = 'finished',
   /** The player was placed at a spawn point; views should snap rather than glide there. */
   Spawned = 'spawned',
-  /** The current gadget ran out and the next slot (or none) took over. */
+  /** The gadget in hand changed (scroll wheel or 1/2/3). */
   GadgetSwitched = 'gadget-switched',
 }
 
@@ -98,7 +98,7 @@ export interface SessionOptions {
   loadout?: GadgetId[];
   /** Shortcut: this gadget first, the rest in default order. */
   gadget?: GadgetId;
-  /** Training: one gadget that never runs out (no switching). */
+  /** Training: gadgets never run out. */
   unlimited?: boolean;
   checkpointsEnabled?: boolean;
   movement?: MovementConfig;
@@ -121,10 +121,10 @@ export class RunSession {
   checkpoint = -1;
   /** Gadget order for the run (0 to MAX_SLOTS gadgets, each once). Locked once the clock starts. */
   readonly loadout: GadgetId[];
-  /** Index into `loadout` of the gadget in use; `loadout.length` once all are used up (or none chosen). */
+  /** Index into `loadout` of the gadget in hand. */
   slot = 0;
-  /** The gadget in use, or null on foot after all are spent. */
-  gadget: GadgetRuntime | null;
+  /** One runtime per chosen gadget, alive for the whole run so budgets and thrown pads persist. */
+  gadgets: GadgetRuntime[] = [];
   private readonly unlimited: boolean;
   /** Checkpoint rule for this attempt; a change mid-run waits in `queuedCheckpoints`. */
   checkpointsEnabled: boolean;
@@ -157,32 +157,65 @@ export class RunSession {
     const order = options.loadout ?? DEFAULT_LOADOUT;
     const picked = options.gadget ? [options.gadget, ...order.filter((g) => g !== options.gadget)] : [...order];
     this.loadout = [...new Set(picked)].slice(0, MAX_SLOTS);
-    this.gadget = this.createGadget(0);
     this.checkpointsEnabled = options.checkpointsEnabled ?? true;
     this.restart();
   }
 
-  private createGadget(slot: number): GadgetRuntime | null {
-    const id = this.loadout[slot];
-    if (!id) return null;
-    const g = gadgetDefinition(id).create();
-    g.limited = !this.unlimited;
-    return g;
+  /** The gadget in hand, or null with no gadgets chosen. */
+  get gadget(): GadgetRuntime | null {
+    return this.gadgets[this.slot] ?? null;
+  }
+
+  /** Fresh runtimes (full budgets) for every chosen gadget, slot 1 in hand. */
+  private refill(): void {
+    for (const g of this.gadgets) g.resetTransientState(this.player);
+    this.gadgets = this.loadout.map((id) => {
+      const g = gadgetDefinition(id).create();
+      g.limited = !this.unlimited;
+      return g;
+    });
+    this.slot = 0;
+  }
+
+  /** Switch the gadget in hand, any time before the finish. Returns false if nothing changed. */
+  selectSlot(index: number): boolean {
+    if (this.state === AttemptState.Finished || index === this.slot || !this.gadgets[index]) return false;
+    const current = this.gadget;
+    const wasSwinging = current instanceof GrappleGadget && current.attached;
+    current?.unequip(this.player);
+    if (wasSwinging) this.events.push(GadgetEvent.GrappleReleased);
+    this.slot = index;
+    this.events.push(SessionEvent.GadgetSwitched);
+    return true;
+  }
+
+  selectGadget(id: GadgetId): boolean {
+    return this.selectSlot(this.loadout.indexOf(id));
+  }
+
+  /** Scroll: the next (or previous) gadget in slot order that has budget left, wrapping round. */
+  cycleGadget(step: 1 | -1): boolean {
+    const n = this.gadgets.length;
+    for (let k = 1; k < n; k++) {
+      const j = (((this.slot + step * k) % n) + n) % n;
+      if (this.gadgets[j].remaining > 0) return this.selectSlot(j);
+    }
+    return false;
+  }
+
+  /** Events raised between ticks (switching gadgets from input). */
+  takeEvents(): AnyEvent[] {
+    const e = this.events;
+    this.events = [];
+    return e;
   }
 
   /** At the start line: empty every slot. Returns false if nothing changed. */
   clearGadgets(): boolean {
     if (this.state !== AttemptState.Ready || this.loadout.length === 0) return false;
-    this.gadget?.resetTransientState(this.player);
     this.loadout.length = 0;
-    this.slot = 0;
-    this.gadget = null;
+    this.refill();
     return true;
-  }
-
-  /** The gadget after the current one, or null. */
-  get nextGadget(): GadgetId | null {
-    return this.loadout[this.slot + 1] ?? null;
   }
 
   /**
@@ -195,19 +228,8 @@ export class RunSession {
     if (at >= 0) this.loadout.splice(at, 1);
     else if (this.loadout.length < MAX_SLOTS) this.loadout.push(id);
     else return false;
-    this.gadget?.resetTransientState(this.player);
-    this.slot = 0;
-    this.gadget = this.createGadget(0);
+    this.refill();
     return true;
-  }
-
-  /** Spent gadget: on to the next slot. */
-  private switchIfSpent(): void {
-    if (!this.gadget || this.gadget.remaining > 0) return;
-    this.gadget.resetTransientState(this.player);
-    this.slot++;
-    this.gadget = this.createGadget(this.slot);
-    this.events.push(SessionEvent.GadgetSwitched);
   }
 
   /** Applies now at the start line; otherwise from the next attempt, so rules never change mid-run. */
@@ -222,10 +244,8 @@ export class RunSession {
 
   /** A fresh attempt from the start line: clock zeroed, checkpoints cleared, queued choices applied. */
   restart(): AnyEvent[] {
-    this.gadget?.resetTransientState(this.player);
     // A full retry refills every gadget.
-    this.slot = 0;
-    this.gadget = this.createGadget(0);
+    this.refill();
     if (this.queuedCheckpoints !== null) this.checkpointsEnabled = this.queuedCheckpoints;
     this.queuedCheckpoints = null;
     resetPlayer(this.player, this.startPos);
@@ -242,8 +262,8 @@ export class RunSession {
 
   /** Back to the latest checkpoint (or the start) with the clock still running. */
   private respawn(): void {
-    // Gadgets stay as they were: spent ones stay spent.
-    this.gadget?.resetTransientState(this.player);
+    // Budgets and the gadget in hand stay as they were; ropes and thrown pads are cleared.
+    for (const g of this.gadgets) g.resetTransientState(this.player);
     const cp = this.checkpoint >= 0 ? this.course.checkpoints[this.checkpoint].respawn : null;
     const pos = cp ? new Vector3(...cp.pos) : this.startPos;
     resetPlayer(this.player, pos);
@@ -263,7 +283,7 @@ export class RunSession {
 
   /** Advances one fixed tick. */
   step(input: SessionInput): AnyEvent[] {
-    this.events = [];
+    // Events from switching gadgets since the last tick are delivered with this one.
     if (this.state === AttemptState.Ready && isMovementInput(input)) {
       this.state = AttemptState.Running;
       this.events.push(SessionEvent.AttemptStarted);
@@ -283,18 +303,19 @@ export class RunSession {
       },
       emit: this.emit,
     };
+    // Gadgets not in hand get no button, but keep working (a thrown pad still launches you).
+    const idle: GadgetContext = { ...ctx, input: { ...ctx.input, held: false, pressed: false } };
     const moveInput = live ? input : { ...input, forward: 0, right: 0, jump: false };
     const g = this.gadget;
     const cfg = g ? g.movement(this.movement, ctx) : this.movement;
-    g?.beforeMove(ctx);
+    for (const each of this.gadgets) each.beforeMove(each === g ? ctx : idle);
     stepPlayer(this.player, moveInput, this.boxes, cfg);
     if (this.player.justMantled && g instanceof GrappleGadget && g.attached) {
       // Pulling up onto a ledge ends the swing.
-      g.resetTransientState(this.player);
+      g.unequip(this.player);
       this.events.push(GadgetEvent.GrappleReleased);
     }
-    g?.afterMove(ctx);
-    if (live) this.switchIfSpent();
+    for (const each of this.gadgets) each.afterMove(each === g ? ctx : idle);
 
     const p = this.player;
     if (Math.hypot(p.vel.x, p.vel.z) > 0.5) this.facing = Math.atan2(-p.vel.x, -p.vel.z);
@@ -316,11 +337,12 @@ export class RunSession {
       else if (this.state === AttemptState.Running && this.checkpointsEnabled) this.respawn();
       else this.events.push(...this.restart());
     }
-    return this.events;
+    return this.takeEvents();
   }
 
   private grappleAnchor(): number {
-    return this.gadget instanceof GrappleGadget ? this.gadget.anchorIndex : -1;
+    const grapple = this.gadgets.find((g): g is GrappleGadget => g instanceof GrappleGadget);
+    return grapple ? grapple.anchorIndex : -1;
   }
 
   private checkTriggers(): void {
@@ -337,7 +359,7 @@ export class RunSession {
     if (inVolume(p, this.course.finish)) {
       this.state = AttemptState.Finished;
       this.recorder.sample(this.elapsed, p.pos, this.facing, this.grappleAnchor(), true);
-      this.gadget?.resetTransientState(p);
+      for (const g of this.gadgets) g.resetTransientState(p);
       this.result = {
         seconds: this.elapsed,
         loadout: [...this.loadout],

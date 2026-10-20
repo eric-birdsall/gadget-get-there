@@ -47,14 +47,18 @@ export interface GadgetRuntime {
   readonly id: GadgetId;
   /** False in training: the gadget never runs out. */
   limited: boolean;
-  /** Share of this gadget's use left, 1 … 0. */
+  /** Share of this gadget's budget left, 1 … 0. */
   readonly remaining: number;
+  /** Budget left, for the HUD: '3.2s', 'x1'. */
+  readonly usageLabel: string;
   /** The movement config to use this tick (the base, or a modified copy). */
   movement(base: MovementConfig, ctx: GadgetContext): MovementConfig;
   beforeMove(ctx: GadgetContext): void;
   afterMove(ctx: GadgetContext): void;
   /** Clears tethers, pads and timers: on retry, respawn, and finish. */
   resetTransientState(player: PlayerState): void;
+  /** The player switched to another gadget: let go of whatever this one was doing. */
+  unequip(player: PlayerState): void;
 }
 
 export interface GadgetDefinition {
@@ -64,5 +68,7 @@ export interface GadgetDefinition {
   actionHint: string;
   /** Hotkey number in the selector. */
   slot: number;
+  /** Full budget, for the menu: '5s', 'x2'. */
+  budgetLabel: string;
   create(): GadgetRuntime;
 }

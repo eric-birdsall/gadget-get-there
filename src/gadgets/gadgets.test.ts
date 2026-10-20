@@ -191,66 +191,92 @@ describe('launch pad', () => {
   });
 });
 
-describe('usage limits', () => {
+describe('budgets and switching', () => {
   const floor = slab(0, 0, 0, 2000, 2000);
   const anchor = new Vector3(0, 12, -15);
+  const anchors = [anchor.toArray() as [number, number, number]];
 
-  it('a grapple miss is free; one finished swing spends it and the next slot takes over', () => {
-    const s = new RunSession(course([floor], [anchor.toArray() as [number, number, number]]), {
-      loadout: [GadgetId.Grapple, GadgetId.LaunchPad, GadgetId.Rollerblades],
-    });
+  /** Latch on, swing briefly, let go. */
+  function swing(s: RunSession): string[] {
+    s.step(aimAt(s, anchor, { action: true, actionPressed: true }));
+    run(s, aimAt(s, anchor, { action: true }), 0.3);
+    return s.step(aimAt(s, anchor));
+  }
+
+  it('the grapple has two swings; misses are free; a used-up gadget stays in hand', () => {
+    const s = new RunSession(course([floor], anchors), { loadout: [GadgetId.Grapple, GadgetId.LaunchPad] });
     run(s, idleInput(), 0.1);
     s.step(aimAt(s, new Vector3(0, 0, 50), { action: true, actionPressed: true }));
+    expect(s.gadget?.usageLabel).toBe(`x${USAGE_CONFIG.grappleSwings}`);
+    for (let i = 0; i < USAGE_CONFIG.grappleSwings; i++) {
+      run(s, idleInput(), 1.5);
+      expect(swing(s)).toContain(GadgetEvent.GrappleReleased);
+    }
     expect(s.gadget?.id).toBe(GadgetId.Grapple);
-    s.step(aimAt(s, anchor, { action: true, actionPressed: true }));
-    run(s, aimAt(s, anchor, { action: true }), 0.4);
-    const ev = s.step(aimAt(s, anchor));
-    expect(ev).toContain('gadget-switched');
-    expect(s.gadget?.id).toBe(GadgetId.LaunchPad);
-    expect(s.slot).toBe(1);
+    expect(s.gadget?.usageLabel).toBe('x0');
+    // Out of swings: clicking does nothing.
+    run(s, idleInput(), 1.5);
+    expect(s.step(aimAt(s, anchor, { action: true, actionPressed: true }))).not.toContain(GadgetEvent.GrappleAttached);
   });
 
-  it('pads can be re-thrown freely; the launch spends it', () => {
-    const s = new RunSession(course([floor]), { loadout: [GadgetId.LaunchPad, GadgetId.Rollerblades, GadgetId.Grapple] });
+  it('switching away mid-swing lets go, and the swing counts', () => {
+    const s = new RunSession(course([floor], anchors), { loadout: [GadgetId.Grapple, GadgetId.LaunchPad] });
+    run(s, idleInput(), 0.1);
+    s.step(aimAt(s, anchor, { action: true, actionPressed: true }));
+    expect((s.gadget as GrappleGadget).attached).toBe(true);
+    s.cycleGadget(1);
+    expect(s.player.tethered).toBe(false);
+    expect(s.gadgets[0].usageLabel).toBe(`x${USAGE_CONFIG.grappleSwings - 1}`);
+    expect(s.step(idleInput())).toContain(GadgetEvent.GrappleReleased);
+  });
+
+  it('a thrown pad keeps working after switching to another gadget', () => {
+    const s = new RunSession(course([floor]), { loadout: [GadgetId.LaunchPad, GadgetId.Rollerblades] });
     run(s, idleInput(), 0.1);
     s.step(aimAt(s, new Vector3(0, 0, -20), { action: true, actionPressed: true }));
     run(s, idleInput(), LAUNCH_PAD_CONFIG.throwCooldown + 0.05);
+    // Re-throwing is free.
     s.step(aimAt(s, new Vector3(0, 0, -8), { action: true, actionPressed: true }));
-    expect(s.gadget?.id).toBe(GadgetId.LaunchPad);
+    s.selectGadget(GadgetId.Rollerblades);
     const ev = run(s, { ...idleInput(), forward: 1 }, 1.5);
     expect(ev).toContain(GadgetEvent.PadLaunched);
-    expect(ev).toContain('gadget-switched');
+    expect(s.gadgets[0].usageLabel).toBe('x0');
+    expect((s.gadgets[0] as LaunchPadGadget).pad).toBeNull();
     expect(s.gadget?.id).toBe(GadgetId.Rollerblades);
   });
 
-  it('rollerblades last 5 s on the ground from the click, not counting air time', () => {
-    const s = new RunSession(course([floor]), { loadout: [GadgetId.Rollerblades, GadgetId.Grapple, GadgetId.LaunchPad] });
+  it('rollerblades: 5 s on the ground once on; switching away takes them off and pauses the time', () => {
+    const s = new RunSession(course([floor]), { loadout: [GadgetId.Rollerblades, GadgetId.Grapple] });
     run(s, idleInput(), 0.1);
-    // Time before the click doesn't count.
-    run(s, { ...idleInput(), forward: 1 }, 3);
+    // Time before putting them on doesn't count.
+    run(s, { ...idleInput(), forward: 1 }, 2);
+    expect(s.gadget?.usageLabel).toBe(`${USAGE_CONFIG.rollerbladeSeconds.toFixed(1)}s`);
     s.step(click());
-    // Air time is free.
-    s.player.pos.y = 30;
-    s.player.grounded = false;
-    run(s, idleInput(), 1.5);
+    run(s, { ...idleInput(), forward: 1 }, 2);
+    const blades = s.gadget as RollerbladeGadget;
+    const afterTwo = blades.remaining;
+    s.selectGadget(GadgetId.Grapple);
+    expect(blades.active).toBe(false);
+    run(s, { ...idleInput(), forward: 1 }, 2);
+    expect(blades.remaining).toBe(afterTwo);
+    // Back to blades: E again to put them on, then the rest of the time.
+    s.selectGadget(GadgetId.Rollerblades);
+    run(s, { ...idleInput(), forward: 1 }, 1);
+    expect(blades.remaining).toBe(afterTwo);
+    s.step(click());
+    run(s, { ...idleInput(), forward: 1 }, USAGE_CONFIG.rollerbladeSeconds);
+    expect(blades.remaining).toBe(0);
+    expect(blades.active).toBe(false);
     expect(s.gadget?.id).toBe(GadgetId.Rollerblades);
-    run(s, { ...idleInput(), forward: 1 }, USAGE_CONFIG.rollerbladeSeconds - 0.2);
-    expect(s.gadget?.id).toBe(GadgetId.Rollerblades);
-    run(s, { ...idleInput(), forward: 1 }, 0.5);
-    expect(s.gadget?.id).toBe(GadgetId.Grapple);
+    // Air time is free: covered by the countdown only running on the ground.
   });
 
-  it('after all three, you go on foot; a retry refills them', () => {
-    const s = new RunSession(course([floor]), { loadout: [GadgetId.Rollerblades, GadgetId.Grapple, GadgetId.LaunchPad] });
-    s.step({ ...idleInput(), forward: 1 });
-    s.slot = 2;
-    (s as unknown as { gadget: unknown }).gadget = null;
-    run(s, { ...idleInput(), forward: 1 }, 0.5);
-    expect(s.gadget).toBeNull();
-    expect(Math.hypot(s.player.vel.x, s.player.vel.z)).toBeCloseTo(MOVEMENT_CONFIG.groundSpeed, 1);
+  it('a retry refills every budget', () => {
+    const s = new RunSession(course([floor], anchors), { loadout: [GadgetId.Grapple] });
+    run(s, idleInput(), 0.1);
+    swing(s);
     s.restart();
-    expect(s.slot).toBe(0);
-    expect(s.gadget?.id).toBe(GadgetId.Rollerblades);
+    expect(s.gadget?.remaining).toBe(1);
   });
 });
 

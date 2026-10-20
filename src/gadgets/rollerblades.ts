@@ -18,6 +18,19 @@ export class RollerbladeGadget implements GadgetRuntime {
   /** Seconds spent rolling on the ground; air time is free. */
   private rolled = 0;
 
+  get usageLabel(): string {
+    if (!this.limited) return '∞';
+    const left = Math.max(0, USAGE_CONFIG.rollerbladeSeconds - this.rolled);
+    return `${left.toFixed(1)}s`;
+  }
+
+  /** Switching away takes the skates off; switching back needs the button again. */
+  unequip(): void {
+    this.active = false;
+    this.tucking = false;
+    this.awaitingRelease = false;
+  }
+
   get remaining(): number {
     return this.limited ? Math.max(0, 1 - this.rolled / USAGE_CONFIG.rollerbladeSeconds) : 1;
   }
@@ -25,6 +38,11 @@ export class RollerbladeGadget implements GadgetRuntime {
 
   movement(base: MovementConfig, ctx: GadgetContext): MovementConfig {
     const r = ROLLERBLADE_CONFIG;
+    // Out of time: skates come off.
+    if (this.remaining <= 0) {
+      this.unequip();
+      return base;
+    }
     if (!this.active) {
       if (!ctx.input.pressed) return base;
       this.active = true;

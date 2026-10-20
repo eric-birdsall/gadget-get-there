@@ -35,6 +35,10 @@ export const DEFAULT_BINDINGS: Bindings = {
   [Action.ToggleDebug]: ['Backquote'],
 };
 
+/** Scroll needed for one gadget step, px; and the shortest time between steps, ms. */
+const WHEEL_STEP_PX = 40;
+const WHEEL_STEP_MS = 120;
+
 /** Keyboard and pointer-locked mouse. The game reads held state and one-shot presses each frame. */
 export class InputManager {
   yaw = 0;
@@ -50,6 +54,10 @@ export class InputManager {
   onLockError: (switchedToFreeCursor: boolean) => void = () => {};
 
   private held = new Set<string>();
+  /** Scroll-wheel notches since the last read: + down, − up. */
+  private wheelSteps = 0;
+  private wheelAccum = 0;
+  private lastWheelStep = 0;
   private pressed = new Set<string>();
   /**
    * Playing without pointer lock: ?nolock, or automatically when the browser refuses the lock
@@ -86,6 +94,23 @@ export class InputManager {
       const dy = e.movementY * CAMERA_CONFIG.verticalSensitivity * this.sensitivity * (this.invertY ? -1 : 1);
       this.pitch = Math.min(CAMERA_CONFIG.maxPitch, Math.max(CAMERA_CONFIG.minPitch, this.pitch + dy));
     });
+    document.addEventListener(
+      'wheel',
+      (e) => {
+        if (!this.locked) return;
+        e.preventDefault();
+        // Lines and pages to pixels; then one step per notch, so a trackpad fling isn't a dozen.
+        const px = e.deltaMode === 1 ? e.deltaY * 40 : e.deltaMode === 2 ? e.deltaY * 400 : e.deltaY;
+        this.wheelAccum += px;
+        const now = performance.now();
+        if (Math.abs(this.wheelAccum) >= WHEEL_STEP_PX && now - this.lastWheelStep > WHEEL_STEP_MS) {
+          this.wheelSteps += Math.sign(this.wheelAccum);
+          this.wheelAccum = 0;
+          this.lastWheelStep = now;
+        }
+      },
+      { passive: false },
+    );
     document.addEventListener('contextmenu', (e) => e.preventDefault());
     // Leaving the window keeps the last edge position, so pushing past the edge keeps turning.
     document.documentElement.addEventListener('mouseleave', (e) => {
@@ -162,6 +187,13 @@ export class InputManager {
     return hit;
   }
 
+  /** Scroll direction since the last call: 1 (down), −1 (up) or 0. */
+  consumeWheel(): number {
+    const s = Math.sign(this.wheelSteps);
+    this.wheelSteps = 0;
+    return s;
+  }
+
   /** Drops presses nobody consumed this frame, so they don't fire later. */
   endFrame(): void {
     this.pressed.clear();
@@ -174,5 +206,7 @@ export class InputManager {
   private releaseAll(): void {
     this.held.clear();
     this.pressed.clear();
+    this.wheelSteps = 0;
+    this.wheelAccum = 0;
   }
 }

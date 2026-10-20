@@ -92,3 +92,21 @@ Separate from gadgets: they work whichever gadget is equipped.
 
 ## Gadget button is E (built)
 - The gadget action moved from left click to **E**. (E no longer cycles gadgets; 1 2 3 add/remove them at the start line.)
+
+## Gadget budgets with free switching (built)
+Replaces "one use each, auto-switch in order".
+- **Fixed budgets, the same on every level:** Rollerblades **5 s**, Grapple **x2** swings, Launch Pad **x1** launch.
+  - Grapple misses are free; a swing counts on release.
+  - Pad re-throws are free; the launch counts.
+  - Blade seconds only run while the skates are on and you're on the ground.
+- **Pick up to 3 gadgets before the run** (click to fill slots, Clear slots), as now. Slot 1 is in your hand at the start; slot order is the scroll order.
+- **Switch freely mid-run, instantly:** the scroll wheel steps through the slots in order, wrapping and skipping used-up gadgets. 1/2/3 pick a gadget directly mid-run, and still add/remove gadgets at the start line.
+- **Switching mid-action:**
+  - Mid-swing: lets go of the rope, and the swing counts.
+  - A thrown, unlaunched pad stays and still launches you, using its charge. Throw a pad, switch to blades, skate onto it.
+  - Blades come off when you switch away. Switching back needs E again to put them on.
+- **Running out:** the gadget stays in your hand, greyed, until you scroll. No auto-switch.
+- **Checkpoint respawn:** budgets and the gadget in hand stay as they were; R refills everything.
+- **Display:**
+  - Menu gadget tiles show their budget ("5s", "x2", "x1").
+  - The HUD shows remaining budget under each square ("3.2s", "x1", "x0"). The gadget in hand is highlighted, and its outline counts down.

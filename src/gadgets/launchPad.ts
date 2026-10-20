@@ -39,6 +39,13 @@ export class LaunchPadGadget implements GadgetRuntime {
   private cooldown = 0;
   private launches = 0;
 
+  get usageLabel(): string {
+    return this.limited ? `x${Math.max(0, USAGE_CONFIG.padLaunches - this.launches)}` : '∞';
+  }
+
+  /** A thrown pad stays and still works after switching away. */
+  unequip(): void {}
+
   /** Re-throwing is free: only launches count. */
   get remaining(): number {
     return this.limited ? Math.max(0, 1 - this.launches / USAGE_CONFIG.padLaunches) : 1;
@@ -85,6 +92,8 @@ export class LaunchPadGadget implements GadgetRuntime {
     launchPlayer(p, launch);
     pad.rearm = c.rearmSeconds;
     this.launches++;
+    // Out of launches: the pad is done.
+    if (this.remaining <= 0) this.pad = null;
     ctx.emit(GadgetEvent.PadLaunched);
   }
 

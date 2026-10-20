@@ -1,6 +1,7 @@
 import { Vector3 } from 'three';
 import { DT } from '../config';
 import { handPosition } from '../gadgets/grapple';
+import type { GadgetId } from '../gadgets/types';
 import { type AnyEvent, AttemptState, type RunSession, type SessionInput, SessionEvent, idleInput } from '../game/session';
 import { raycast } from '../sim/collision';
 
@@ -20,6 +21,8 @@ export interface Waypoint {
   grapple?: { anchor: number; releaseZ: number };
   /** On becoming the target: throw a pad at this point. */
   pad?: [number, number, number];
+  /** Take this gadget in hand on becoming the target (before any press or throw). */
+  select?: GadgetId;
   /** Press the gadget button once on becoming the target (e.g. to put rollerblades on). */
   press?: boolean;
   /** Hold the gadget button (rollerblade tuck) while heading here. */
@@ -81,6 +84,7 @@ export function runRoute(session: RunSession, route: Waypoint[], maxSeconds = 12
     // Fresh target: fire whatever it asks for.
     if (entered !== target) {
       entered = target;
+      if (wp.select) session.selectGadget(wp.select);
       if (wp.jump && p.grounded) input.jump = true;
       if (wp.press) {
         input.action = true;

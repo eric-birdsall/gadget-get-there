@@ -141,7 +141,7 @@ describe('The Crossing', () => {
     expect(r.seconds).toBeLessThan(70);
   });
 
-  it('a three-slot run (one swing, one pad, 5 s of blades) finishes and beats plain running', () => {
+  it('a mixed run (swing, pad, then blades, switching between them) finishes and beats plain running', () => {
     const session = new RunSession(crossing, {
       loadout: [GadgetId.Grapple, GadgetId.LaunchPad, GadgetId.Rollerblades],
       checkpointsEnabled: false,
@@ -152,19 +152,19 @@ describe('The Crossing', () => {
       { x: 0, z: -80, grapple: { anchor: 0, releaseZ: -91 }, noJump: true },
       { x: 0, z: -107 },
       ...TO_HUB_A.slice(1),
-      { x: 0, z: -152, pad: [0, 30, -158] },
+      { x: 0, z: -152, select: GadgetId.LaunchPad, pad: [0, 30, -158] },
       { x: 0, z: -158, noJump: true },
       { x: 0, z: -192, maxSpeed: 14 },
-      { ...BYPASS[0], press: true },
+      { ...BYPASS[0], select: GadgetId.Rollerblades, press: true },
       ...BYPASS.slice(1),
       ...FINAL,
     ];
     const r = runRoute(session, route);
     expect(r.falls, `fell near (${r.last.toArray().map((n) => n.toFixed(1))}) heading for waypoint ${r.waypoint}`).toBe(0);
     expect(r.finished, `stuck near (${r.last.toArray().map((n) => n.toFixed(1))})`).toBe(true);
-    expect(r.events.filter((e) => e === 'gadget-switched').length).toBe(3);
-    expect(session.gadget).toBeNull();
-    results.set('three-slot run', r.seconds);
+    expect(r.events.filter((e) => e === 'gadget-switched').length).toBe(2);
+    expect(session.gadgets.map((g) => g.usageLabel)).toEqual(['x1', 'x0', '0.0s']);
+    results.set('mixed run', r.seconds);
     expect(r.seconds).toBeLessThan(results.get('running line, grapple equipped')!);
   });
 

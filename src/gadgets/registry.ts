@@ -1,3 +1,4 @@
+import { USAGE_CONFIG } from '../config';
 import { GrappleGadget } from './grapple';
 import { LaunchPadGadget } from './launchPad';
 import { RollerbladeGadget } from './rollerblades';
@@ -9,6 +10,7 @@ export const GADGETS: readonly GadgetDefinition[] = [
     displayName: 'Grappling Hook',
     actionHint: 'Hold E on a glowing anchor to swing · release to let go',
     slot: 1,
+    budgetLabel: `x${USAGE_CONFIG.grappleSwings}`,
     create: () => new GrappleGadget(),
   },
   {
@@ -16,6 +18,7 @@ export const GADGETS: readonly GadgetDefinition[] = [
     displayName: 'Rollerblades',
     actionHint: 'E to put the skates on · then hold E to tuck for speed',
     slot: 2,
+    budgetLabel: `${USAGE_CONFIG.rollerbladeSeconds}s`,
     create: () => new RollerbladeGadget(),
   },
   {
@@ -23,6 +26,7 @@ export const GADGETS: readonly GadgetDefinition[] = [
     displayName: 'Launch Pad',
     actionHint: 'E to throw a pad · it launches you the way you faced',
     slot: 3,
+    budgetLabel: `x${USAGE_CONFIG.padLaunches}`,
     create: () => new LaunchPadGadget(),
   },
 ];

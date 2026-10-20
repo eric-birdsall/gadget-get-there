@@ -92,8 +92,11 @@ export class Menu {
     for (const g of GADGETS) {
       const tile = document.createElement('button');
       tile.className = 'gadget-tile';
-      tile.innerHTML = `<span class="icon-square">${GADGET_ICONS[g.id]}<span class="badge"></span></span><span class="name"></span>`;
+      tile.innerHTML =
+        `<span class="icon-square">${GADGET_ICONS[g.id]}<span class="badge"></span>` +
+        `<span class="budget"></span></span><span class="name"></span>`;
       tile.querySelector('.name')!.textContent = g.displayName;
+      tile.querySelector('.budget')!.textContent = g.budgetLabel;
       tile.addEventListener('click', () => this.handlers.toggleGadget(g.id));
       this.tileEls.set(g.id, tile);
       palette.append(tile);
@@ -124,7 +127,9 @@ export class Menu {
       const id = loadout[i];
       slot.classList.toggle('empty', !id);
       if (id) {
-        slot.innerHTML = `<span class="n">${i + 1}</span><span class="icon-square">${GADGET_ICONS[id]}</span><span class="name"></span>`;
+        slot.innerHTML =
+          `<span class="n">${i + 1}</span><span class="icon-square">${GADGET_ICONS[id]}` +
+          `<span class="budget">${gadgetDefinition(id).budgetLabel}</span></span><span class="name"></span>`;
         slot.querySelector('.name')!.textContent = gadgetDefinition(id).displayName;
         slot.title = `Click to take ${gadgetDefinition(id).displayName} out`;
       } else {
@@ -141,7 +146,7 @@ export class Menu {
     el<HTMLButtonElement>('clear-slots').disabled = loadout.length === 0;
     el('menu-gadgets-hint').textContent = running
       ? 'Changing gadgets restarts the run'
-      : 'Click gadgets to fill the slots in order · click again to remove';
+      : 'Click gadgets to fill the slots · scroll to switch between them in the run';
   }
 
   setBest(seconds: number | null): void {
