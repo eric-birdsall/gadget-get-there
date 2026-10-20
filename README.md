@@ -38,6 +38,7 @@ Pick up to three of the five gadgets before a run. Each has a fixed budget on ev
 | Toggle ghost | G |
 | Debug readout (speed, grounded…) | ` |
 | Pause | Esc (a second Esc leaves fullscreen) |
+| Controller (Xbox layout) | Left stick move · right stick look · A jump · B slide/crouch · RT / LT / RB use slots 1 / 2 / 3 · Menu pause/resume · View retry. Click Play once for fullscreen; resuming from the controller plays on in the window with the cursor free. |
 | Settings | Settings button on the menu (Esc or Back returns); Tuning is in there |
 
 If the browser refuses to capture the mouse (embedded panes do), the game plays with a visible cursor instead: mouse look works inside the window, and holding the cursor at or past the left/right edge keeps turning. A normal browser tab gives full mouse look.

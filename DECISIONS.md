@@ -204,3 +204,12 @@ Replaces the gadget in hand, switching (scroll, F, 1–5 mid-run) and auto-switc
 - **Auto-level (on by default):** 0.6 s after letting go of up/down, the view eases back to the usual slight downward tilt. It never touches a tilt the mouse set.
 - **Settings:** keyboard look speed (0.4–2×) and the auto-level toggle; invert look applies to keys too.
 - Grapple aim assist only if playtesting shows keyboard aiming is too hard.
+
+## Xbox controller (built)
+- Through the browser's Gamepad API, alongside keyboard and mouse. Fixed mapping, not rebindable:
+  - Left stick move (analog; the outer 8% counts as full), right stick look (squared response, then the keyboard-look ramp and auto-level).
+  - A jump · B (hold) slide/crouch · RT slot 1 · LT slot 2 · RB slot 3 · View retry · Menu pause/resume.
+- Triggers count past 30% travel; sticks have an 18% round deadzone.
+- Browsers only allow fullscreen and mouse capture from a click or key, so Play is clicked once. Resuming with Menu plays on without capturing the mouse; the mouse then doesn't look.
+- The browser only reports the controller after a button press on the page.
+- Menus stay mouse/keyboard for now. Grapple aim assist only if stick aiming proves hard.

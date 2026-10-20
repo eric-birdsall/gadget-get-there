@@ -1,32 +1,10 @@
 import { CAMERA_CONFIG } from '../config';
+import { Action } from './actions';
+import { PAD_ACTIONS, PadButton, type PadState, firstPad, readPad } from './gamepad';
 import { type KeyLookState, newKeyLookState, stepKeyLook } from './keyLook';
 import { keyLabel, keyRangeLabel } from './keyNames';
 
-export enum Action {
-  Forward = 'forward',
-  Back = 'back',
-  Left = 'left',
-  Right = 'right',
-  Jump = 'jump',
-  Crouch = 'crouch',
-  /** Use the gadget in slot 1, 2 or 3. */
-  UseSlot1 = 'use-slot-1',
-  UseSlot2 = 'use-slot-2',
-  UseSlot3 = 'use-slot-3',
-  LookLeft = 'look-left',
-  LookRight = 'look-right',
-  LookUp = 'look-up',
-  LookDown = 'look-down',
-  Retry = 'retry',
-  /** At the start line: add or remove gadget N (palette order). */
-  PickGadget1 = 'slot-1',
-  PickGadget2 = 'slot-2',
-  PickGadget3 = 'slot-3',
-  PickGadget4 = 'slot-4',
-  PickGadget5 = 'slot-5',
-  ToggleGhost = 'toggle-ghost',
-  ToggleDebug = 'toggle-debug',
-}
+export { Action };
 
 /** Key codes (KeyboardEvent.code) or `Mouse0`..`Mouse4` per action: a main key and an alternate. Remappable. */
 export type Bindings = Record<Action, string[]>;
@@ -105,6 +83,11 @@ export class InputManager {
    */
   private freeCursor = new URLSearchParams(location.search).has('nolock');
   private fakeLocked = false;
+  /** Resumed from the controller: playing without the mouse captured (browsers only grant that to a click or key). */
+  private padLocked = false;
+  private pad: PadState | null = null;
+  private padDown = new Set<PadButton>();
+  private padPressed = new Set<PadButton>();
   /** Once a lock has worked, a later refusal is just the browser's re-lock cooldown after Esc. */
   private everLocked = false;
   /** Cursor x as a fraction of the window width, or null when unknown. */
@@ -129,7 +112,8 @@ export class InputManager {
     document.addEventListener('mouseup', (e) => this.held.delete(`Mouse${e.button}`));
     document.addEventListener('mousemove', (e) => {
       this.cursorX = e.clientX / window.innerWidth;
-      if (!this.locked) return;
+      // Resumed from the controller, the cursor is free: it doesn't look around.
+      if (!this.locked || this.padLocked) return;
       this.yaw -= e.movementX * CAMERA_CONFIG.horizontalSensitivity * this.sensitivity;
       const dy = e.movementY * CAMERA_CONFIG.verticalSensitivity * this.sensitivity * (this.invertY ? -1 : 1);
       // The mouse set the tilt: leave it where it is.
@@ -150,7 +134,7 @@ export class InputManager {
   }
 
   get locked(): boolean {
-    return this.freeCursor ? this.fakeLocked : document.pointerLockElement === this.target;
+    return this.freeCursor ? this.fakeLocked : this.padLocked || document.pointerLockElement === this.target;
   }
 
   get usingFreeCursor(): boolean {
@@ -158,6 +142,7 @@ export class InputManager {
   }
 
   lock(): void {
+    this.padLocked = false;
     if (this.freeCursor) {
       this.fakeLocked = true;
       document.dispatchEvent(new Event('pointerlockchange'));
@@ -184,11 +169,47 @@ export class InputManager {
     this.lock();
   }
 
-  /** Keyboard look and free-cursor edge turning; call once per frame while playing. */
+  /**
+   * Resume from the controller's Menu button. A controller press can't capture the mouse (or go
+   * fullscreen), so play carries on with the cursor free and the mouse not looking.
+   */
+  lockFromPad(): void {
+    if (this.freeCursor) return this.lock();
+    this.padLocked = true;
+    document.dispatchEvent(new Event('pointerlockchange'));
+  }
+
+  /**
+   * Reads the controller; call once per frame, paused or not. Returns true when its Menu
+   * button was pressed (pause or resume).
+   */
+  pollPad(): boolean {
+    const gp = firstPad();
+    this.pad = gp ? readPad(gp) : null;
+    const down = this.pad?.down ?? new Set<PadButton>();
+    for (const b of down) if (!this.padDown.has(b) && this.locked) this.padPressed.add(b);
+    const menu = down.has(PadButton.Menu) && !this.padDown.has(PadButton.Menu);
+    this.padDown = this.locked ? down : new Set([...down].filter((b) => b === PadButton.Menu));
+    return menu;
+  }
+
+  /** Movement from keys and the left stick: +1 forward, +1 right. */
+  get moveForward(): number {
+    return clamp1(this.axis(Action.Forward, Action.Back) + (this.locked ? (this.pad?.forward ?? 0) : 0));
+  }
+
+  get moveRight(): number {
+    return clamp1(this.axis(Action.Right, Action.Left) + (this.locked ? (this.pad?.right ?? 0) : 0));
+  }
+
+  /** Keyboard and right-stick look, and free-cursor edge turning; call once per frame while playing. */
   update(dt: number): void {
     const view = stepKeyLook(
       this.keyLook,
-      { turn: this.axis(Action.LookRight, Action.LookLeft), tilt: this.axis(Action.LookUp, Action.LookDown) },
+      {
+        turn: clamp1(this.axis(Action.LookRight, Action.LookLeft) + (this.pad?.turn ?? 0)),
+        tilt: clamp1(this.axis(Action.LookUp, Action.LookDown) + (this.pad?.tilt ?? 0)),
+      },
       this,
       dt,
       { speed: this.keyLookSpeed, invertY: this.invertY, autoLevel: this.autoLevel },
@@ -202,6 +223,11 @@ export class InputManager {
   }
 
   unlock(): void {
+    if (this.padLocked) {
+      this.padLocked = false;
+      document.dispatchEvent(new Event('pointerlockchange'));
+      return;
+    }
     if (this.freeCursor) {
       this.fakeLocked = false;
       document.dispatchEvent(new Event('pointerlockchange'));
@@ -214,12 +240,14 @@ export class InputManager {
   }
 
   isHeld(action: Action): boolean {
-    return this.bindings[action].some((code) => this.held.has(code));
+    if (this.bindings[action].some((code) => this.held.has(code))) return true;
+    return PAD_ACTIONS.some(([b, a]) => a === action && this.padDown.has(b));
   }
 
   /** True once per physical press; consumed by the call. */
   consumePress(action: Action): boolean {
     let hit = false;
+    for (const [b, a] of PAD_ACTIONS) if (a === action && this.padPressed.delete(b)) hit = true;
     for (const code of this.bindings[action]) {
       if (this.pressed.delete(code)) hit = true;
     }
@@ -229,6 +257,7 @@ export class InputManager {
   /** Drops presses nobody consumed this frame, so they don't fire later. */
   endFrame(): void {
     this.pressed.clear();
+    this.padPressed.clear();
   }
 
   axis(positive: Action, negative: Action): number {
@@ -238,5 +267,8 @@ export class InputManager {
   private releaseAll(): void {
     this.held.clear();
     this.pressed.clear();
+    this.padPressed.clear();
   }
 }
+
+const clamp1 = (v: number) => Math.max(-1, Math.min(1, v));

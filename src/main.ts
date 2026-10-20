@@ -320,8 +320,8 @@ input.onLockError = (switchedToFreeCursor) => {
 
 function readInput(jumpPressed: boolean, usePressed: boolean[]): SessionInput {
   return {
-    forward: input.axis(Action.Forward, Action.Back),
-    right: input.axis(Action.Right, Action.Left),
+    forward: input.moveForward,
+    right: input.moveRight,
     yaw: input.yaw,
     jump: input.isHeld(Action.Jump) || jumpPressed,
     crouch: input.isHeld(Action.Crouch),
@@ -367,6 +367,15 @@ function frame(now: number): void {
   aimOrigin.copy(cam.position);
   cam.getWorldDirection(aimDir);
 
+  // The controller's Menu button pauses and resumes (resuming can't capture the mouse or go
+  // fullscreen: browsers only allow those from a click or key).
+  if (input.pollPad()) {
+    if (!paused) input.unlock();
+    else if (!menu.capturing) {
+      audio.start();
+      input.lockFromPad();
+    }
+  }
   if (!paused) {
     handleKeys();
     input.update(dt);
