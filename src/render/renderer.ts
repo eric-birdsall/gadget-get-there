@@ -1,23 +1,18 @@
 import {
   ACESFilmicToneMapping,
-  BackSide,
   BoxGeometry,
   Color,
   DirectionalLight,
   EdgesGeometry,
   Fog,
   HemisphereLight,
-  IcosahedronGeometry,
   LineBasicMaterial,
   LineSegments,
   Mesh,
   MeshStandardMaterial,
   PCFSoftShadowMap,
   Scene,
-  ShaderMaterial,
-  SphereGeometry,
   SRGBColorSpace,
-  TorusGeometry,
   Vector3,
   WebGLRenderer,
 } from 'three';
@@ -29,6 +24,7 @@ import { type Box, SurfaceKind, raycast } from '../sim/collision';
 import { ThirdPersonCamera } from './camera';
 import { SURFACE_COLORS, gridMaterial } from './materials';
 import { BlobShadow, PlayerModel, type PlayerPose } from './playerModel';
+import { SPACE_COLOR, SpaceBackdrop } from './space';
 import { CheckpointFlags, GhostView, GrappleMarker, MARKER_COLORS, PadViews, RopeView, finishGate } from './worldViews';
 
 /** Everything the renderer needs to draw one frame. */
@@ -59,60 +55,9 @@ export interface RenderFrame {
 /** Below this camera distance the player model fades so it doesn't fill the screen. */
 const FADE_DISTANCE = 1.8;
 
-const SKY = { top: '#3d9bff', horizon: '#d4ecff', bottom: '#e8d6ff' };
 const SUN_DIRECTION = new Vector3(-0.45, 1, 0.35).normalize();
 /** Half-size of the area the sun's shadow map covers, centred on the player. */
 const SHADOW_EXTENT = 40;
-
-function skyDome(): Mesh {
-  const mat = new ShaderMaterial({
-    side: BackSide,
-    depthWrite: false,
-    fog: false,
-    uniforms: {
-      uTop: { value: new Color(SKY.top) },
-      uHorizon: { value: new Color(SKY.horizon) },
-      uBottom: { value: new Color(SKY.bottom) },
-    },
-    vertexShader: `varying vec3 vDir;
-void main() {
-  vDir = normalize(position);
-  vec4 p = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-  gl_Position = p.xyww;
-}`,
-    fragmentShader: `uniform vec3 uTop; uniform vec3 uHorizon; uniform vec3 uBottom;
-varying vec3 vDir;
-void main() {
-  float h = vDir.y;
-  vec3 c = h > 0.0 ? mix(uHorizon, uTop, pow(smoothstep(0.0, 0.7, h), 0.8)) : mix(uHorizon, uBottom, smoothstep(0.0, -0.5, h));
-  gl_FragColor = vec4(c, 1.0);
-}`,
-  });
-  const dome = new Mesh(new SphereGeometry(1000, 32, 16), mat);
-  dome.renderOrder = -1;
-  dome.frustumCulled = false;
-  return dome;
-}
-
-/** Big, distant, slowly turning shapes: parallax so speed and height read even over a void. */
-function scenery(scene: Scene): Mesh[] {
-  const shapes: Mesh[] = [];
-  const mat = (color: string) => new MeshStandardMaterial({ color, roughness: 0.9, transparent: true, opacity: 0.55 });
-  const specs: [Mesh, Vector3][] = [
-    [new Mesh(new TorusGeometry(30, 4, 12, 48), mat('#ffd2f0')), new Vector3(-120, 10, -150)],
-    [new Mesh(new IcosahedronGeometry(22, 0), mat('#c7f5ec')), new Vector3(140, -20, -90)],
-    [new Mesh(new IcosahedronGeometry(16, 0), mat('#d8d0ff')), new Vector3(60, 40, -320)],
-    [new Mesh(new TorusGeometry(18, 3, 10, 40), mat('#fff0c2')), new Vector3(-60, -45, 60)],
-    [new Mesh(new IcosahedronGeometry(28, 0), mat('#ffe0c7')), new Vector3(-200, -60, -300)],
-  ];
-  for (const [mesh, pos] of specs) {
-    mesh.position.copy(pos);
-    mesh.rotation.set(pos.x * 0.01, pos.z * 0.01, 0);
-    scene.add(mesh);
-    shapes.push(mesh);
-  }
-  return shapes;
-}
 
 /** Draws the course, the player and the sky. Owns the WebGL context and the camera. */
 export class Renderer {
@@ -122,7 +67,7 @@ export class Renderer {
   readonly player = new PlayerModel();
   private readonly shadow = new BlobShadow();
   private readonly sun: DirectionalLight;
-  private readonly scenery: Mesh[];
+  private readonly space: SpaceBackdrop;
   private readonly down = new Vector3(0, -1, 0);
   private readonly probe = new Vector3();
   private readonly hand = new Vector3();
@@ -145,10 +90,11 @@ export class Renderer {
     this.gl.shadowMap.type = PCFSoftShadowMap;
     document.body.prepend(this.gl.domElement);
 
-    this.scene.fog = new Fog(SKY.horizon, 140, 650);
-    this.scene.add(skyDome());
-    this.scene.add(new HemisphereLight('#e6f2ff', '#b7a6d8', 1.6));
-    this.sun = new DirectionalLight('#fff4e0', 2.4);
+    // Space: a dark fog so distant pieces fade into the sky, cool fill light and a bright sun.
+    this.scene.background = new Color(SPACE_COLOR);
+    this.scene.fog = new Fog(SPACE_COLOR, 220, 900);
+    this.scene.add(new HemisphereLight('#a9b8ff', '#2a2050', 1.25));
+    this.sun = new DirectionalLight('#fff6e8', 3.0);
     this.sun.castShadow = true;
     this.sun.shadow.mapSize.set(2048, 2048);
     const sc = this.sun.shadow.camera;
@@ -161,7 +107,7 @@ export class Renderer {
     this.scene.add(this.sun, this.sun.target);
 
     this.buildCourse();
-    this.scenery = scenery(this.scene);
+    this.space = new SpaceBackdrop(this.scene, this.boxes);
     this.flags = new CheckpointFlags(course.checkpoints);
     this.scene.add(this.flags.group, finishGate(course.finish), this.grappleMarker.group);
     this.scene.add(this.player.root, this.shadow.mesh, this.rope.mesh, this.pads.group, this.ghost.group);
@@ -246,7 +192,7 @@ export class Renderer {
     this.sun.target.position.copy(pose.feet);
     this.sun.position.copy(pose.feet).addScaledVector(SUN_DIRECTION, 100);
 
-    for (const [i, s] of this.scenery.entries()) s.rotation.y += dt * 0.02 * (i % 2 ? 1 : -1);
+    this.space.update(dt, this.view.camera.position);
 
     this.gl.render(this.scene, this.view.camera);
   }

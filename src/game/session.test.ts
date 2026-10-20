@@ -205,7 +205,7 @@ describe('gadget order', () => {
     expect(s.gadgets.every((g) => g.remaining === 1)).toBe(true);
   });
 
-  it('switching: 1/2/3 or scroll pick any time before the finish; scrolling skips used-up gadgets', () => {
+  it('switching: 1/2/3 or scroll pick any time before the finish, skipping used-up gadgets', () => {
     const s = new RunSession(tiny, { loadout: [GadgetId.Grapple, GadgetId.LaunchPad, GadgetId.Rollerblades] });
     expect(s.selectGadget(GadgetId.Rollerblades)).toBe(true);
     expect(s.state).toBe(AttemptState.Ready);
@@ -220,9 +220,9 @@ describe('gadget order', () => {
     expect(s.gadget?.id).toBe(GadgetId.Grapple);
     expect(s.cycleGadget(1)).toBe(true);
     expect(s.gadget?.id).toBe(GadgetId.Rollerblades);
-    // But picking it directly still works (it's just empty).
-    expect(s.selectGadget(GadgetId.LaunchPad)).toBe(true);
-    expect(s.step(go())).toContain(SessionEvent.GadgetSwitched);
+    // Picking it directly doesn't work either: used-up gadgets are out.
+    expect(s.selectGadget(GadgetId.LaunchPad)).toBe(false);
+    expect(s.gadget?.id).toBe(GadgetId.Rollerblades);
   });
 });
 

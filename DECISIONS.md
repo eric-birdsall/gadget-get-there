@@ -123,3 +123,14 @@ Replaces "one use each, auto-switch in order".
   - across the central gap, over both bypass routes and the final ramp;
   - above the final corner.
 - Ghost format v2 records where the rope is fixed; older ghosts are dropped (best times are kept).
+
+## Space look (built)
+- **Character:** an astronaut: white suit, gold mirrored visor, life-support backpack with twin tanks, orange suit stripe, glowing chest-panel lights.
+- **Setting:** deep space instead of a blue sky. A galaxy band with dust lanes, purple and teal nebulae, about 6,000 twinkling stars, a ringed gas giant and a moon.
+- **Space rocks:** about 160 tumbling asteroids around and below the course. They're kept at least 18 m from anything you can touch and are decoration only.
+- **Meteors:** one streaks across the sky every few seconds.
+- **Lighting and fog:** dark navy fog and a brighter, cooler light. Gameplay is unchanged.
+
+## Auto-switch when used up (built)
+- When the gadget in hand runs out, the next gadget (in slot order) with budget left takes over automatically. If none is left, you're on foot.
+- Used-up gadgets can't be picked again: the scroll wheel skips them and 1/2/3 ignore them.

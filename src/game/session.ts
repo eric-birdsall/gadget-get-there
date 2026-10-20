@@ -182,6 +182,8 @@ export class RunSession {
   /** Switch the gadget in hand, any time before the finish. Returns false if nothing changed. */
   selectSlot(index: number): boolean {
     if (this.state === AttemptState.Finished || index === this.slot || !this.gadgets[index]) return false;
+    // Used-up gadgets can't be picked again.
+    if (this.gadgets[index].remaining <= 0) return false;
     const current = this.gadget;
     const wasSwinging = current instanceof GrappleGadget && current.attached;
     current?.unequip(this.player);
@@ -317,6 +319,8 @@ export class RunSession {
       this.events.push(GadgetEvent.GrappleReleased);
     }
     for (const each of this.gadgets) each.afterMove(each === g ? ctx : idle);
+    // Used up: on to the next gadget with budget left (or stay, if none has any).
+    if (live && g && g.remaining <= 0) this.cycleGadget(1);
 
     const p = this.player;
     if (Math.hypot(p.vel.x, p.vel.z) > 0.5) this.facing = Math.atan2(-p.vel.x, -p.vel.z);

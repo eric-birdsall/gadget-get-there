@@ -1,4 +1,5 @@
 import {
+  BoxGeometry,
   CapsuleGeometry,
   CircleGeometry,
   Group,
@@ -8,6 +9,8 @@ import {
   MeshStandardMaterial,
   type MeshStandardMaterialParameters,
   SphereGeometry,
+  CylinderGeometry,
+  TorusGeometry,
   Vector3,
 } from 'three';
 import { PLAYER_SHAPE } from '../config';
@@ -26,8 +29,8 @@ export interface PlayerPose {
 }
 
 /**
- * The capsule-bot: a rounded body with a glowing visor. All motion is procedural: it faces
- * where it's going, leans into acceleration and turns, and squashes on landing.
+ * The astronaut: white suit, gold-visored helmet, life-support backpack. All motion is
+ * procedural: it faces where it's going, leans into acceleration and turns, and squashes on landing.
  */
 export class PlayerModel {
   readonly root = new Group();
@@ -52,53 +55,72 @@ export class PlayerModel {
 
   /** `ghost` makes a translucent, shadowless copy for the personal-best ghost. */
   constructor(ghost = false) {
-    const r = PLAYER_SHAPE.radius;
-    const h = PLAYER_SHAPE.height;
     const mat = (color: string, extra: MeshStandardMaterialParameters = {}) =>
       new MeshStandardMaterial({
         color: ghost ? '#bdf3ff' : color,
-        roughness: 0.5,
+        roughness: 0.6,
         ...(ghost ? { transparent: true, opacity: 0.35, depthWrite: false, emissive: '#5fd8ff', emissiveIntensity: 0.4 } : extra),
       });
-    const shell = mat('#ff5d8f', { roughness: 0.45, metalness: 0.05 });
-    const trim = mat('#2b2f45', { roughness: 0.6 });
-    const glow = mat('#7ff6ff', { emissive: '#3fe0ff', emissiveIntensity: 1.2, roughness: 0.2 });
-    this.materials = [shell, trim, glow];
+    const suit = mat('#f2f4f8', { roughness: 0.75 });
+    const pack = mat('#dfe3ec', { roughness: 0.7 });
+    const trim = mat('#3a3f55', { roughness: 0.6 });
+    const stripe = mat('#ff7a2f', { roughness: 0.5 });
+    const metal = mat('#aab3c7', { roughness: 0.3, metalness: 0.7 });
+    const visorMat = mat('#e3a63a', { roughness: 0.12, metalness: 0.9, emissive: '#6b3d00', emissiveIntensity: 0.25 });
+    const glow = mat('#7ff6ff', { emissive: '#3fe0ff', emissiveIntensity: 1.4, roughness: 0.2 });
+    const amber = mat('#ffb347', { emissive: '#ff8a00', emissiveIntensity: 1.2, roughness: 0.2 });
+    this.materials = [suit, pack, trim, stripe, metal, visorMat, glow, amber];
 
-    const torso = new Mesh(new CapsuleGeometry(r, h - 2 * r, 6, 16), shell);
-    torso.position.y = h / 2;
-    torso.castShadow = !ghost;
-    this.body.add(torso);
+    // The astronaut faces -Z. Every part hangs off `body`, so lean, squash and tuck move it all.
+    const add = (mesh: Mesh, x: number, y: number, z: number, shadow = true) => {
+      mesh.position.set(x, y, z);
+      mesh.castShadow = shadow && !ghost;
+      this.body.add(mesh);
+      return mesh;
+    };
 
-    // Visor: a flattened capsule across the front of the head.
-    const visor = new Mesh(new CapsuleGeometry(0.13, 0.42, 4, 12), glow);
-    visor.rotation.z = Math.PI / 2;
-    visor.scale.set(1, 1, 0.55);
-    visor.position.set(0, h - 0.48, -r + 0.06);
-    this.body.add(visor);
+    // Legs and boots.
+    for (const side of [-1, 1]) {
+      add(new Mesh(new CapsuleGeometry(0.15, 0.42, 4, 12), suit), side * 0.16, 0.44, 0);
+      const boot = add(new Mesh(new CapsuleGeometry(0.16, 0.1, 4, 12), trim), side * 0.16, 0.13, -0.04);
+      boot.scale.set(1, 0.9, 1.3);
+    }
 
-    // A belt and a backpack, where gadgets mount.
-    const belt = new Mesh(new CapsuleGeometry(r * 1.02, 0.06, 4, 16), trim);
-    belt.position.y = h * 0.45;
-    belt.scale.set(1, 0.3, 1);
-    this.body.add(belt);
-    const pack = new Mesh(new CapsuleGeometry(0.2, 0.35, 4, 10), trim);
-    pack.position.set(0, h * 0.6, r * 0.9);
-    pack.castShadow = !ghost;
-    this.body.add(pack);
+    // Torso, with an orange waist band and a chest control panel.
+    add(new Mesh(new CapsuleGeometry(0.36, 0.45, 6, 16), suit), 0, 1.0, 0);
+    add(new Mesh(new CapsuleGeometry(0.365, 0.02, 4, 16), stripe), 0, 0.78, 0, false).scale.set(1, 0.35, 1);
+    add(new Mesh(new BoxGeometry(0.26, 0.16, 0.05), trim), 0, 1.12, -0.35, false);
+    add(new Mesh(new BoxGeometry(0.045, 0.045, 0.02), glow), -0.07, 1.13, -0.38, false);
+    add(new Mesh(new BoxGeometry(0.045, 0.045, 0.02), amber), 0, 1.13, -0.38, false);
+    add(new Mesh(new BoxGeometry(0.045, 0.045, 0.02), glow), 0.07, 1.13, -0.38, false);
 
-    const antenna = new Mesh(new SphereGeometry(0.07, 10, 8), glow);
-    antenna.position.set(0.18, h + 0.12, 0.05);
-    this.body.add(antenna);
+    // Arms, slightly out from the body, with dark gloves.
+    for (const side of [-1, 1]) {
+      const arm = add(new Mesh(new CapsuleGeometry(0.11, 0.4, 4, 10), suit), side * 0.45, 1.06, 0);
+      arm.rotation.z = side * 0.18;
+      add(new Mesh(new SphereGeometry(0.12, 12, 10), trim), side * 0.5, 0.78, 0, false);
+    }
+
+    // Helmet: a white dome with a neck ring and a gold, mirrored visor across the front.
+    add(new Mesh(new TorusGeometry(0.24, 0.05, 8, 24), trim), 0, 1.25, 0, false).rotation.x = Math.PI / 2;
+    add(new Mesh(new SphereGeometry(0.3, 24, 18), suit), 0, 1.5, 0);
+    const visor = new Mesh(new SphereGeometry(0.306, 24, 16, Math.PI * 1.5 - 0.95, 1.9, 0.72, 1.0), visorMat);
+    add(visor, 0, 1.5, 0, false);
+
+    // Life-support backpack with twin tanks and an antenna; gadgets mount here.
+    add(new Mesh(new BoxGeometry(0.5, 0.62, 0.26), pack), 0, 1.06, 0.42);
+    for (const side of [-1, 1]) add(new Mesh(new CylinderGeometry(0.08, 0.08, 0.56, 12), metal), side * 0.13, 1.04, 0.6);
+    add(new Mesh(new CylinderGeometry(0.012, 0.012, 0.3, 6), trim), 0.17, 1.52, 0.46, false);
+    add(new Mesh(new SphereGeometry(0.035, 10, 8), amber), 0.17, 1.68, 0.46, false);
 
     // Rollerblades: two skate boots with glowing wheels, shown only when equipped.
     for (const side of [-1, 1]) {
       const boot = new Mesh(new CapsuleGeometry(0.1, 0.32, 4, 8), trim);
       boot.rotation.x = Math.PI / 2;
-      boot.position.set(side * 0.17, 0.12, -0.02);
+      boot.position.set(side * 0.16, 0.12, -0.02);
       const wheels = new Mesh(new CapsuleGeometry(0.05, 0.34, 4, 8), glow);
       wheels.rotation.x = Math.PI / 2;
-      wheels.position.set(side * 0.17, 0.03, -0.02);
+      wheels.position.set(side * 0.16, 0.03, -0.02);
       this.skates.add(boot, wheels);
     }
     this.skates.visible = false;

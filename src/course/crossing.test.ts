@@ -162,7 +162,8 @@ describe('The Crossing', () => {
     const r = runRoute(session, route);
     expect(r.falls, `fell near (${r.last.toArray().map((n) => n.toFixed(1))}) heading for waypoint ${r.waypoint}`).toBe(0);
     expect(r.finished, `stuck near (${r.last.toArray().map((n) => n.toFixed(1))})`).toBe(true);
-    expect(r.events.filter((e) => e === 'gadget-switched').length).toBe(2);
+    // Picked the pad; then each used-up gadget handed over to the next one automatically.
+    expect(r.events.filter((e) => e === 'gadget-switched').length).toBe(3);
     expect(session.gadgets.map((g) => g.usageLabel)).toEqual(['x1', 'x0', '0.0s']);
     results.set('mixed run', r.seconds);
     expect(r.seconds).toBeLessThan(results.get('running line, grapple equipped')!);

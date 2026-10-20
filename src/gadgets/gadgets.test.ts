@@ -214,20 +214,22 @@ describe('budgets and switching', () => {
     return s.step(aimAt(s, anchor));
   }
 
-  it('the grapple has two swings; misses are free; a used-up gadget stays in hand', () => {
+  it('the grapple has two swings; misses are free; when used up the next gadget takes over', () => {
     const s = new RunSession(course([floor], anchors), { loadout: [GadgetId.Grapple, GadgetId.LaunchPad] });
     run(s, idleInput(), 0.1);
     s.step(aimAt(s, new Vector3(0, 0, 50), { action: true, actionPressed: true }));
     expect(s.gadget?.usageLabel).toBe(`x${USAGE_CONFIG.grappleSwings}`);
-    for (let i = 0; i < USAGE_CONFIG.grappleSwings; i++) {
+    for (let i = 0; i < USAGE_CONFIG.grappleSwings - 1; i++) {
       run(s, idleInput(), 1.5);
       expect(swing(s)).toContain(GadgetEvent.GrappleReleased);
     }
     expect(s.gadget?.id).toBe(GadgetId.Grapple);
-    expect(s.gadget?.usageLabel).toBe('x0');
-    // Out of swings: clicking does nothing.
     run(s, idleInput(), 1.5);
-    expect(s.step(aimAt(s, anchor, { action: true, actionPressed: true }))).not.toContain(GadgetEvent.GrappleAttached);
+    expect(swing(s)).toContain('gadget-switched');
+    expect(s.gadgets[0].usageLabel).toBe('x0');
+    expect(s.gadget?.id).toBe(GadgetId.LaunchPad);
+    // And it can't be picked again.
+    expect(s.selectGadget(GadgetId.Grapple)).toBe(false);
   });
 
   it('switching away mid-swing lets go, and the swing counts', () => {
@@ -278,7 +280,8 @@ describe('budgets and switching', () => {
     run(s, { ...idleInput(), forward: 1 }, USAGE_CONFIG.rollerbladeSeconds);
     expect(blades.remaining).toBe(0);
     expect(blades.active).toBe(false);
-    expect(s.gadget?.id).toBe(GadgetId.Rollerblades);
+    // Used up: the grapple takes over.
+    expect(s.gadget?.id).toBe(GadgetId.Grapple);
     // Air time is free: covered by the countdown only running on the ground.
   });
 

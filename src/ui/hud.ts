@@ -137,7 +137,7 @@ export class Hud {
       : ready
         ? '1 2 3 add or remove gadgets · scroll to switch during the run'
         : (remaining[inHand] ?? 1) <= 0
-          ? `${gadgetDefinition(current).displayName} used up · scroll to switch`
+          ? 'Gadgets used up · finish on foot'
           : `${gadgetDefinition(current).actionHint} · scroll to switch`;
   }
 
