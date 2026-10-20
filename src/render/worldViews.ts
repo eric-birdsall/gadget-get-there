@@ -220,6 +220,10 @@ export class GhostView {
   readonly rope = new RopeView(MARKER_COLORS.ghostRope, 0.5);
   private readonly hand = new Vector3();
   private fade = 0;
+  /** Where it was last frame, for working out its velocity (the recording has none). */
+  private readonly prev = new Vector3();
+  private readonly vel = new Vector3();
+  private placed = false;
 
   constructor() {
     this.group.add(this.model.root, this.rope.mesh);
@@ -230,9 +234,35 @@ export class GhostView {
   update(dt: number, pose: { pos: Vector3; yaw: number; rope: Vector3 | null } | null, handHeight: number): void {
     this.fade += ((pose ? 1 : 0) - this.fade) * follow(8, dt);
     this.group.visible = this.fade > 0.02;
-    if (!pose) return;
-    this.model.place(pose.pos, pose.yaw);
+    if (!pose) {
+      this.placed = false;
+      return;
+    }
+    this.animate(dt, pose.pos, pose.yaw);
     this.hand.set(pose.pos.x, pose.pos.y + handHeight, pose.pos.z);
     this.rope.set(pose.rope ? this.hand : null, pose.rope);
   }
+
+  /**
+   * Runs the same animation as the player from the ghost's own movement. It counts as on the
+   * ground unless it's climbing or falling fast; a big jump in one frame (a respawn, the run
+   * starting over) snaps it there instead.
+   */
+  private animate(dt: number, pos: Vector3, yaw: number): void {
+    if (!this.placed || pos.distanceTo(this.prev) > GHOST_SNAP_DISTANCE) {
+      this.model.place(pos, yaw);
+      this.model.face(yaw);
+      this.prev.copy(pos);
+      this.placed = true;
+      return;
+    }
+    if (dt > 0) this.vel.subVectors(pos, this.prev).divideScalar(dt);
+    this.prev.copy(pos);
+    this.model.update(dt, { feet: pos, vel: this.vel, grounded: Math.abs(this.vel.y) < GHOST_GROUNDED_VY }, 0, false);
+  }
 }
+
+/** Moving farther than this in one frame is a teleport, not motion, m. */
+const GHOST_SNAP_DISTANCE = 5;
+/** Slower than this up or down, the ghost counts as on the ground, m/s. */
+const GHOST_GROUNDED_VY = 3;
