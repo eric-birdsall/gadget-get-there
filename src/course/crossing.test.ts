@@ -112,16 +112,31 @@ export const GRAPPLE_LINE: Waypoint[] = [
   ...FINAL,
 ];
 
-export const ROLLERBLADE_LINE: Waypoint[] = [
-  { x: -3, z: -5, press: true },
-  { x: -5, z: -30 },
-  { x: -9, z: -40, hold: true },
-  { x: -22, z: -80, hold: true },
-  { x: -22, z: -110 },
-  { x: -7, z: -143, maxSpeed: 12 },
-  { x: 0, z: -150, maxSpeed: 9 },
+/** Jetpack over the big gap in section 2 instead of the stepping stones. */
+export const JETPACK_LINE: Waypoint[] = [
+  ...START,
+  ...HOPS,
+  { x: 0, z: -79 },
+  { x: 0, z: -101, hold: true, noJump: true },
+  ...TO_HUB_A,
   ...ZIGZAG,
   ...BYPASS,
+  ...FINAL,
+];
+
+/** The running line, with dashes on the long straights. */
+export const DASH_LINE: Waypoint[] = [
+  ...START,
+  ...HOPS,
+  ...STONES,
+  { x: 0, z: -107 },
+  { x: 0, z: -118, press: true },
+  ...TO_HUB_A.slice(2),
+  ...ZIGZAG,
+  BYPASS[0],
+  { ...BYPASS[1], press: true },
+  { ...BYPASS[2], press: true },
+  BYPASS[3],
   ...FINAL,
 ];
 
@@ -150,10 +165,12 @@ describe('The Crossing', () => {
 
   it.each([
     ['running line, grapple equipped', GadgetId.Grapple, RUNNING_LINE],
-    ['running line, rollerblades', GadgetId.Rollerblades, [{ x: 0, z: -5, press: true }, ...RUNNING_LINE]],
+    ['running line, jetpack equipped', GadgetId.Jetpack, RUNNING_LINE],
+    ['running line, dash equipped', GadgetId.Dash, RUNNING_LINE],
     ['running line, launch pad equipped', GadgetId.LaunchPad, RUNNING_LINE],
     ['grapple line', GadgetId.Grapple, GRAPPLE_LINE],
-    ['rollerblade line', GadgetId.Rollerblades, ROLLERBLADE_LINE],
+    ['jetpack line', GadgetId.Jetpack, JETPACK_LINE],
+    ['dash line', GadgetId.Dash, DASH_LINE],
     ['launch pad line', GadgetId.LaunchPad, PAD_LINE],
     ['ability line (mantle + slide)', GadgetId.Grapple, ABILITY_LINE],
   ])('%s finishes without falling', (name, gadget, route) => {
@@ -165,9 +182,9 @@ describe('The Crossing', () => {
     expect(r.seconds).toBeLessThan(70);
   });
 
-  it('a mixed run (swing, pad, then blades, switching between them) finishes and beats plain running', () => {
+  it('a mixed run (swing, pad, then a dash, switching between them) finishes and beats plain running', () => {
     const session = new RunSession(crossing, {
-      loadout: [GadgetId.Grapple, GadgetId.LaunchPad, GadgetId.Rollerblades],
+      loadout: [GadgetId.Grapple, GadgetId.LaunchPad, GadgetId.Dash],
       checkpointsEnabled: false,
     });
     const route: Waypoint[] = [
@@ -179,16 +196,16 @@ describe('The Crossing', () => {
       { x: 0, z: -152, select: GadgetId.LaunchPad, pad: [0, 30, -158] },
       { x: 0, z: -158, noJump: true },
       { x: 0, z: -192, maxSpeed: 14 },
-      { ...BYPASS[0], select: GadgetId.Rollerblades, press: true },
+      { ...BYPASS[0], select: GadgetId.Dash, press: true },
       ...BYPASS.slice(1),
       ...FINAL,
     ];
     const r = runRoute(session, route);
     expect(r.falls, `fell near (${r.last.toArray().map((n) => n.toFixed(1))}) heading for waypoint ${r.waypoint}`).toBe(0);
     expect(r.finished, `stuck near (${r.last.toArray().map((n) => n.toFixed(1))})`).toBe(true);
-    // Picked the pad; then each used-up gadget handed over to the next one automatically.
-    expect(r.events.filter((e) => e === 'gadget-switched').length).toBe(3);
-    expect(session.gadgets.map((g) => g.usageLabel)).toEqual(['x1', 'x0', '0.0s']);
+    // Picked the pad; when it was used up the dash took over automatically.
+    expect(r.events.filter((e) => e === 'gadget-switched').length).toBe(2);
+    expect(session.gadgets.map((g) => g.usageLabel)).toEqual(['x1', 'x0', 'x2']);
     results.set('mixed run', r.seconds);
     expect(r.seconds).toBeLessThan(results.get('running line, grapple equipped')!);
   });
@@ -207,7 +224,8 @@ describe('The Crossing', () => {
     const base = results.get('running line, grapple equipped')!;
     console.info(Object.fromEntries([...results].map(([k, v]) => [k, v.toFixed(2)])));
     expect(results.get('grapple line')!).toBeLessThan(base);
-    expect(results.get('rollerblade line')!).toBeLessThan(base);
+    expect(results.get('jetpack line')!).toBeLessThan(base);
+    expect(results.get('dash line')!).toBeLessThan(base);
     expect(results.get('launch pad line')!).toBeLessThan(base);
     expect(results.get('ability line (mantle + slide)')!).toBeLessThan(base);
   });

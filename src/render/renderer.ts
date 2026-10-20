@@ -35,8 +35,9 @@ export interface RenderFrame {
   /** Landing speed this frame (0 if none), for squash. */
   landed: number;
   jumped: boolean;
-  skates: boolean;
-  tucking: boolean;
+  /** Jetpack burn 0…1 and dash flash 0…1, for the thruster flames. */
+  thrust: number;
+  dashFlash: number;
   sliding: boolean;
   crouching: boolean;
   /** Mantle progress 0 … 1, or -1. */
@@ -173,8 +174,7 @@ export class Renderer {
     this.view.update(dt, pose.feet, speed, f.yaw, f.pitch, this.boxes);
     this.player.setStance(f.sliding, f.crouching, f.mantle, dt);
     this.player.setWallRun(f.wallRunNormal, dt);
-    this.player.setSkates(f.skates);
-    this.player.setTuck(f.tucking, dt);
+    this.player.setThrusters(f.thrust, f.dashFlash, dt);
     this.player.update(dt, pose, f.landed, f.jumped);
     const camDist = this.view.camera.position.distanceTo(this.probe.set(pose.feet.x, pose.feet.y + 1, pose.feet.z));
     this.player.setOpacity(Math.min(1, Math.max(0.15, camDist / FADE_DISTANCE)));

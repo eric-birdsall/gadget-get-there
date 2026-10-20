@@ -11,11 +11,11 @@ import type { CourseDefinition } from './types';
  * 1. Start runway.
  * 2. First split: platform hops down the middle to a 20 m gap (a beam above it to grapple, a
  *    launch pad clears it, runners take stepping stones to the right), then a long ramp down to
- *    hub A; or a long smooth downhill on the left for rollerblades.
+ *    hub A; or a long smooth downhill on the left.
  * 3. Central gap: a 27 m drop-gap a launch pad crosses in one arc; the zigzag stones go around,
  *    and two blocks straight across are reachable only by mantling.
  * 4. Elevated bypass: two beams over the void to grapple across, or a long gently descending ramp loop
- *    to the right (good on rollerblades).
+ *    to the right.
  * 5. Final sprint: a steep down ramp, a broad platform with a barrier (slide under its middle
  *    or go round), a banked right turn (a block above the corner) and the finish gate.
  *
@@ -31,14 +31,14 @@ export const crossing: CourseDefinition = {
   environmentTheme: 'day',
   start: { pos: [0, 40, 4], yaw: 0 },
   medalThresholds: { goldSeconds: 32, silverSeconds: 40, bronzeSeconds: 55 },
-  availableGadgetIds: [GadgetId.Grapple, GadgetId.Rollerblades, GadgetId.LaunchPad],
+  availableGadgetIds: [GadgetId.Grapple, GadgetId.Jetpack, GadgetId.LaunchPad, GadgetId.Dash],
   referenceTargetDurationSeconds: 45,
 
   pieces: [
     // 1. Start runway.
     slab(0, 40, -12, 16, 44),
 
-    // 2. Middle hops (8 m deep, so they still work at rollerblade speed).
+    // 2. Middle hops (8 m deep, so they still work at dash speed).
     slab(0, 39, -41, 7, 8),
     slab(0, 38, -53, 7, 8),
     slab(0, 37, -65, 7, 8),

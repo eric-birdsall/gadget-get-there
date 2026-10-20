@@ -25,9 +25,9 @@ export interface Waypoint {
   pad?: [number, number, number];
   /** Take this gadget in hand on becoming the target (before any press or throw). */
   select?: GadgetId;
-  /** Press the gadget button once on becoming the target (e.g. to put rollerblades on). */
+  /** Press the gadget button once on becoming the target (e.g. to dash). */
   press?: boolean;
-  /** Hold the gadget button (rollerblade tuck) while heading here. */
+  /** Hold the gadget button (jetpack thrust) while heading here. */
   hold?: boolean;
   /** Hold slide/crouch while heading here. */
   crouch?: boolean;

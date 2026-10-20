@@ -29,7 +29,7 @@ export const DEFAULT_SETTINGS: Settings = {
   checkpoints: true,
   ghost: true,
   shadows: true,
-  loadout: 'grapple,launch-pad,rollerblades',
+  loadout: 'grapple,jetpack,dash',
 };
 
 export function readJson(key: string): unknown {

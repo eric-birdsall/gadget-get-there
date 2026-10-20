@@ -42,7 +42,7 @@ describe('medals', () => {
 });
 
 describe('personal bests', () => {
-  const ORDER = [GadgetId.Grapple, GadgetId.LaunchPad, GadgetId.Rollerblades];
+  const ORDER = [GadgetId.Grapple, GadgetId.LaunchPad, GadgetId.Jetpack];
   const run = (seconds: number, g: GhostData | null = null, checkpoints = false) => ({
     seconds,
     loadout: ORDER,
@@ -75,6 +75,16 @@ describe('personal bests', () => {
     expect(r.submit('c', run(30, null, true))).toBe(true);
     expect(r.best('c')?.checkpoints).toBe(true);
     expect(r.best('other')).toBeNull();
+  });
+
+  it('a saved best whose loadout used a removed gadget keeps its time; the gadget drops out', () => {
+    localStorage.setItem(
+      'gadget-get-there.records',
+      JSON.stringify({ version: 2, levels: { c: { seconds: 31, loadout: ['rollerblades', 'grapple'], checkpoints: false, date: 1, ghost: null } } }),
+    );
+    const b = new RecordStore().best('c');
+    expect(b?.seconds).toBe(31);
+    expect(b?.loadout).toEqual([GadgetId.Grapple]);
   });
 
   it('survive a reload', () => {

@@ -31,7 +31,7 @@ export const MOVEMENT_CONFIG = {
   steerAcceleration: 80,
   /** Slow-down when pulling against your travel above groundSpeed, m/s². */
   brakeDeceleration: 30,
-  /** Turning grip multiplier (rollerblades lower it). */
+  /** Turning grip multiplier (sliding lowers it). */
   turnGrip: 1,
   /** Hard cap on horizontal speed on the ground, m/s. */
   maximumSpeed: 45,
@@ -170,21 +170,24 @@ export const GRAPPLE_CONFIG = {
   handHeight: 1.1,
 };
 
-export const ROLLERBLADE_CONFIG = {
-  /** Top speed you can reach by pushing on flat ground, m/s. */
-  pushSpeed: 13,
-  pushAcceleration: 24,
-  /** Slow-down with no input: you coast, m/s². */
-  coastDeceleration: 3,
-  /** Rolling resistance above push speed, m/s². */
-  friction: 1.2,
-  slopeInfluence: 0.85,
-  turnGrip: 0.55,
-  brakeDeceleration: 14,
-  /** Hold the gadget button to tuck: no pushing, less drag, more downhill pull, little steering. */
-  tuckFriction: 0.25,
-  tuckSlopeInfluence: 1.05,
-  tuckTurnGrip: 0.2,
+export const JETPACK_CONFIG = {
+  /** Upward acceleration while thrusting, before gravity, m/s². */
+  thrust: 40,
+  /** Fastest climb, m/s. */
+  maxRiseSpeed: 8,
+  /** Upward speed when lifting off the ground, m/s. */
+  liftoffSpeed: 4,
+};
+
+export const DASH_CONFIG = {
+  /** Horizontal speed a dash sets, m/s… */
+  speed: 22,
+  /** …or this much on top of your current speed, if that's faster. */
+  boostOverCurrent: 8,
+  /** A dash never starts falling faster than this upward speed, m/s (so it stays level). */
+  minLift: 1,
+  /** Shortest time between dashes, s. */
+  cooldown: 0.35,
 };
 
 export const LAUNCH_PAD_CONFIG = {
@@ -209,8 +212,9 @@ export const LAUNCH_PAD_CONFIG = {
 export const USAGE_CONFIG = {
   grappleSwings: 2,
   padLaunches: 1,
-  /** Seconds of rolling on the ground. */
-  rollerbladeSeconds: 5,
+  /** Seconds of jetpack thrust. */
+  jetpackSeconds: 3,
+  dashes: 3,
 };
 
 export const GHOST_CONFIG = {

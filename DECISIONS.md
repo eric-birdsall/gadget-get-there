@@ -149,3 +149,13 @@ Replaces "one use each, auto-switch in order".
   - a test wall along the start runway's right edge;
   - one beside the big gap in section 2;
   - five overlapping walls zigzagging across the bypass void. The bot crosses it in about 43 s overall, against about 46 s for plain running.
+
+## Jetpack and Dash Thruster in; rollerblades out (built)
+- **Rollerblades removed** completely. Saved bests and gadget orders that included them keep everything else.
+- **Jetpack: 3 s of fuel.**
+  - Hold E to thrust upward: 40 m/s² before gravity, climbing at up to 8 m/s. It lifts off from the ground too, and you steer as normal.
+  - Fuel only burns while thrusting. Flames show under the backpack tanks, with a roar.
+- **Dash Thruster: x3.**
+  - Press E for a burst the way you're going (or looking, if standing still): 22 m/s, or your speed plus 8 if that's faster.
+  - A dash never starts by dropping. There's a 0.35 s cooldown between dashes, and the flames flash blue.
+- **Keys:** 1 Grapple, 2 Jetpack, 3 Launch Pad, 4 Dash; still up to 3 per run. Default loadout: Grapple, Jetpack, Dash.

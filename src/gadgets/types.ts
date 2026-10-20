@@ -4,7 +4,8 @@ import type { MovementConfig, PlayerState } from '../sim/player';
 
 export enum GadgetId {
   Grapple = 'grapple',
-  Rollerblades = 'rollerblades',
+  Jetpack = 'jetpack',
+  Dash = 'dash',
   LaunchPad = 'launch-pad',
 }
 
@@ -15,9 +16,9 @@ export enum GadgetEvent {
   PadPlaced = 'pad-placed',
   PadInvalid = 'pad-invalid',
   PadLaunched = 'pad-launched',
-  SkatesOn = 'skates-on',
-  TuckStarted = 'tuck-started',
-  TuckEnded = 'tuck-ended',
+  JetpackOn = 'jetpack-on',
+  JetpackOff = 'jetpack-off',
+  Dashed = 'dashed',
 }
 
 /** The gadget button and the crosshair ray for one tick. */

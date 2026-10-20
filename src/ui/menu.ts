@@ -1,6 +1,7 @@
 import { GADGETS, gadgetDefinition } from '../gadgets/registry';
 import type { GadgetId } from '../gadgets/types';
 import { type Settings, saveSettings } from '../storage/settings';
+import { MAX_SLOTS } from '../game/session';
 import { formatTime } from './hud';
 import { GADGET_ICONS } from './icons';
 
@@ -107,7 +108,7 @@ export class Menu {
     el('clear-slots').addEventListener('click', () => this.handlers.clearGadgets());
 
     const row = el('menu-gadgets');
-    for (let i = 0; i < GADGETS.length; i++) {
+    for (let i = 0; i < MAX_SLOTS; i++) {
       const slot = document.createElement('button');
       slot.className = 'loadout-slot';
       slot.addEventListener('click', () => {

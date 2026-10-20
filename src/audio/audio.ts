@@ -17,7 +17,7 @@ export enum Sfx {
   Respawn = 'respawn',
   Slide = 'slide',
   Mantle = 'mantle',
-  SkatesOn = 'skates-on',
+  Dash = 'dash',
   SlideJump = 'slide-jump',
   SlideReady = 'slide-ready',
   WallRun = 'wall-run',
@@ -48,7 +48,7 @@ export class GameAudio {
   private musicBus!: GainNode;
   private noise!: AudioBuffer;
   private wind!: { gain: GainNode; filter: BiquadFilterNode };
-  private roll!: { gain: GainNode; filter: BiquadFilterNode };
+  private jet!: { gain: GainNode; filter: BiquadFilterNode };
   private sfxVolume = 0.8;
   private musicVolume = 0.5;
   private nextBeat = 0;
@@ -77,7 +77,7 @@ export class GameAudio {
     const data = this.noise.getChannelData(0);
     for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
     this.wind = this.loopNoise('bandpass', 600);
-    this.roll = this.loopNoise('lowpass', 900);
+    this.jet = this.loopNoise('lowpass', 420);
     this.nextBeat = ctx.currentTime + 0.1;
   }
 
@@ -95,7 +95,7 @@ export class GameAudio {
     this.musicBus.gain.setTargetAtTime(paused ? 0 : this.musicVolume * 0.35, t, 0.1);
     if (paused) {
       this.wind.gain.gain.setTargetAtTime(0, t, 0.05);
-      this.roll.gain.gain.setTargetAtTime(0, t, 0.05);
+      this.jet.gain.gain.setTargetAtTime(0, t, 0.05);
     }
   }
 
@@ -122,19 +122,17 @@ export class GameAudio {
   }
 
   /**
-   * Per frame: wind rises with speed; the rollerblade roll hums while skating on the ground.
+   * Per frame: wind rises with speed; the jetpack roars while it burns.
    * Also keeps the music scheduled.
    */
-  update(speed: number, rolling: boolean, groundSpeed: number): void {
+  update(speed: number, jetpack: boolean): void {
     const ctx = this.ctx;
     if (!ctx || this.paused) return;
     const t = ctx.currentTime;
     const w = Math.min(1, Math.max(0, (speed - 8) / 30));
     this.wind.gain.gain.setTargetAtTime(w * w * 0.35, t, 0.15);
     this.wind.filter.frequency.setTargetAtTime(400 + w * 1400, t, 0.15);
-    const r = rolling ? Math.min(1, groundSpeed / 20) : 0;
-    this.roll.gain.gain.setTargetAtTime(r * 0.12, t, 0.08);
-    this.roll.filter.frequency.setTargetAtTime(300 + r * 900, t, 0.08);
+    this.jet.gain.gain.setTargetAtTime(jetpack ? 0.22 : 0, t, jetpack ? 0.04 : 0.12);
     this.scheduleMusic();
   }
 
@@ -278,10 +276,9 @@ export class GameAudio {
         this.tone(440, t, 0.18, 'sawtooth', 0.05, undefined, 0.003, 0.12, 880);
         this.burst(t, 0.25, 'bandpass', 1500, 0.12, undefined, 4000);
         break;
-      case Sfx.SkatesOn:
-        this.tone(330, t, 0.08, 'square', 0.06);
-        this.tone(660, t + 0.07, 0.12, 'square', 0.06);
-        this.burst(t, 0.2, 'highpass', 3000, 0.08);
+      case Sfx.Dash:
+        this.burst(t, 0.3, 'bandpass', 900, 0.22, undefined, 4200);
+        this.tone(220, t, 0.18, 'sawtooth', 0.05, undefined, 0.003, 0.12, 660);
         break;
       case Sfx.Respawn:
         this.tone(600, t, 0.2, 'sine', 0.1, undefined, 0.003, 0.15, 300);

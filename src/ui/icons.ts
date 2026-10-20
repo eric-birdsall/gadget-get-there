@@ -17,15 +17,19 @@ export const GADGET_ICONS: Record<GadgetId, string> = {
       '<path d="M13.4 14.5l4.6 3 .6 3.2-2.3-1.6"/>' +
       '<circle cx="12" cy="11.7" r="0.6" fill="currentColor" stroke="none"/>',
   ),
-  // A sleek angular skate with a fin, glowing hub wheels and speed lines.
-  [GadgetId.Rollerblades]: svg(
-    '<path d="M7 3.5h4l1 5.5 6 2.5c1.2.5 2 1.4 2 2.5V16H6.5L7 3.5z"/>' +
-      '<path d="M8.5 8h2.6M8.5 11h3.5"/>' +
-      '<path d="M1.5 9.5h3M1 12.5h3.5M2 15.5h2.5"/>' +
-      '<circle cx="8.5" cy="19.5" r="1.9"/><circle cx="13" cy="19.5" r="1.9"/><circle cx="17.5" cy="19.5" r="1.9"/>' +
-      '<circle cx="8.5" cy="19.5" r="0.5" fill="currentColor" stroke="none"/>' +
-      '<circle cx="13" cy="19.5" r="0.5" fill="currentColor" stroke="none"/>' +
-      '<circle cx="17.5" cy="19.5" r="0.5" fill="currentColor" stroke="none"/>',
+  // A twin-tank thruster pack with flames at the nozzles.
+  [GadgetId.Jetpack]: svg(
+    '<rect x="8" y="3" width="8" height="11" rx="1.6"/>' +
+      '<rect x="4.5" y="4.5" width="3.5" height="10" rx="1.6"/><rect x="16" y="4.5" width="3.5" height="10" rx="1.6"/>' +
+      '<path d="M5.2 14.5l.5 1.8h1.6l.5-1.8M16.7 14.5l.5 1.8h1.6l.5-1.8"/>' +
+      '<path d="M6.5 17.6c-1 1.4-.6 3 0 4 .7-1 1.3-2.4 0-4zM18 17.6c-1 1.4-.6 3 0 4 .7-1 1.3-2.4 0-4z" fill="currentColor" fill-opacity="0.6"/>' +
+      '<circle cx="12" cy="7.5" r="1.1" fill="currentColor" stroke="none"/><path d="M10 11h4"/>',
+  ),
+  // Stacked chevrons with speed lines: a burst forward.
+  [GadgetId.Dash]: svg(
+    '<path d="M9 5.5l6.5 6.5L9 18.5"/><path d="M14 5.5l6.5 6.5-6.5 6.5" opacity="0.55"/>' +
+      '<path d="M1.5 8.5h5M1 12h6M1.5 15.5h5"/>' +
+      '<circle cx="9" cy="12" r="0.9" fill="currentColor" stroke="none"/>',
   ),
   // A hexagonal launch plate with an energy ring and stacked thrust chevrons.
   [GadgetId.LaunchPad]: svg(

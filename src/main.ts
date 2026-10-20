@@ -5,7 +5,8 @@ import { crossing } from './course/crossing';
 import { GrappleGadget, findGrappleTarget } from './gadgets/grapple';
 import { LaunchPadGadget, padPlacement } from './gadgets/launchPad';
 import { DEFAULT_LOADOUT, GADGETS, isGadgetId } from './gadgets/registry';
-import { RollerbladeGadget } from './gadgets/rollerblades';
+import { DashGadget } from './gadgets/dash';
+import { JetpackGadget } from './gadgets/jetpack';
 import { GadgetEvent, type GadgetId } from './gadgets/types';
 import { type GhostPose, GhostPlayer } from './game/ghost';
 import { medalFor } from './game/medals';
@@ -24,11 +25,11 @@ loadTuning();
 const course = crossing;
 const settings = loadSettings();
 const records = new RecordStore();
-/** The saved gadget order (possibly empty), if it's valid: known gadgets, each at most once. */
+/** The saved gadget order (possibly empty). Gadgets that no longer exist drop out. */
 function savedLoadout(): GadgetId[] {
-  const ids = settings.loadout === '' ? [] : settings.loadout.split(',');
-  const valid = ids.length <= MAX_SLOTS && ids.every(isGadgetId) && new Set(ids).size === ids.length;
-  return valid ? (ids as GadgetId[]) : [...DEFAULT_LOADOUT];
+  if (settings.loadout === '') return [];
+  const ids = [...new Set(settings.loadout.split(',').filter(isGadgetId))].slice(0, MAX_SLOTS);
+  return ids.length > 0 ? ids : [...DEFAULT_LOADOUT];
 }
 
 const session = new RunSession(course, {
@@ -201,8 +202,8 @@ function handle(events: AnyEvent[]): void {
       case GadgetEvent.GrappleReleased:
         audio.play(Sfx.GrappleRelease);
         break;
-      case GadgetEvent.SkatesOn:
-        audio.play(Sfx.SkatesOn);
+      case GadgetEvent.Dashed:
+        audio.play(Sfx.Dash);
         break;
       case GadgetEvent.PadPlaced:
         audio.play(Sfx.PadThrow);
@@ -324,9 +325,9 @@ function handleKeys(): void {
     menu.syncCheckbox('ghost');
     hud.showToast(settings.ghost ? 'Ghost on' : 'Ghost off', 0.8);
   }
-  // 1 2 3: at the start line, add that gadget to the next free slot or take it out; mid-run,
+  // 1 2 3 4: at the start line, add that gadget to the next free slot or take it out; mid-run,
   // take it in hand. The scroll wheel steps through the slots, skipping used-up gadgets.
-  const slots = [Action.Slot1, Action.Slot2, Action.Slot3];
+  const slots = [Action.Slot1, Action.Slot2, Action.Slot3, Action.Slot4];
   slots.forEach((a, i) => {
     if (!input.consumePress(a) || !GADGETS[i]) return;
     if (session.state === AttemptState.Ready) toggleGadget(GADGETS[i].id);
@@ -384,8 +385,8 @@ function frame(now: number): void {
     pitch: input.pitch,
     landed: landedSpeed,
     jumped,
-    skates: g instanceof RollerbladeGadget && g.active,
-    tucking: g instanceof RollerbladeGadget && g.tucking && p.grounded,
+    thrust: g instanceof JetpackGadget && g.thrusting ? 1 : 0,
+    dashFlash: g instanceof DashGadget ? Math.max(0, 1 - g.sinceDash / 0.3) : 0,
     sliding: p.stance === Stance.Slide,
     crouching: p.stance === Stance.Crouch,
     mantle: p.mantle ? p.mantle.t / ABILITY_CONFIG.mantleDuration : -1,
@@ -413,7 +414,7 @@ function frame(now: number): void {
     fps,
     y: p.pos.y,
   });
-  audio.update(p.vel.length(), g instanceof RollerbladeGadget && g.active && p.grounded, Math.hypot(p.vel.x, p.vel.z));
+  audio.update(p.vel.length(), g instanceof JetpackGadget && g.thrusting);
   requestAnimationFrame(frame);
 }
 

@@ -1,5 +1,7 @@
 import {
+  AdditiveBlending,
   BoxGeometry,
+  ConeGeometry,
   CapsuleGeometry,
   CircleGeometry,
   Group,
@@ -44,8 +46,9 @@ export class PlayerModel {
   private readonly prevVel = new Vector3();
 
   private readonly materials: MeshStandardMaterial[];
-  private readonly skates = new Group();
-  private tuck = 0;
+  private readonly flames = new Group();
+  private readonly flameMat = new MeshBasicMaterial({ color: '#ffb347', transparent: true, opacity: 0.9, blending: AdditiveBlending, depthWrite: false });
+  private flicker = 0;
   /** 0 standing … 1 fully low (slide or crouch). */
   private low = 0;
   /** 0 … 1 lean back (sliding feet-first). */
@@ -73,7 +76,7 @@ export class PlayerModel {
     const amber = mat('#ffb347', { emissive: '#ff8a00', emissiveIntensity: 1.2, roughness: 0.2 });
     this.materials = [suit, pack, trim, stripe, metal, visorMat, glow, amber];
 
-    // The astronaut faces -Z. Every part hangs off `body`, so lean, squash and tuck move it all.
+    // The astronaut faces -Z. Every part hangs off `body`, so lean and squash move it all.
     const add = (mesh: Mesh, x: number, y: number, z: number, shadow = true) => {
       mesh.position.set(x, y, z);
       mesh.castShadow = shadow && !ghost;
@@ -115,24 +118,37 @@ export class PlayerModel {
     add(new Mesh(new CylinderGeometry(0.012, 0.012, 0.3, 6), trim), 0.17, 1.52, 0.46, false);
     add(new Mesh(new SphereGeometry(0.035, 10, 8), amber), 0.17, 1.68, 0.46, false);
 
-    // Rollerblades: two skate boots with glowing wheels, shown only when equipped.
+    // Thruster flames under the backpack tanks: the jetpack burns them, a dash flashes them.
     for (const side of [-1, 1]) {
-      const boot = new Mesh(new CapsuleGeometry(0.1, 0.32, 4, 8), trim);
-      boot.rotation.x = Math.PI / 2;
-      boot.position.set(side * 0.16, 0.12, -0.02);
-      const wheels = new Mesh(new CapsuleGeometry(0.05, 0.34, 4, 8), glow);
-      wheels.rotation.x = Math.PI / 2;
-      wheels.position.set(side * 0.16, 0.03, -0.02);
-      this.skates.add(boot, wheels);
+      const flame = new Mesh(new ConeGeometry(0.08, 0.5, 10, 1, true), this.flameMat);
+      flame.rotation.x = Math.PI;
+      flame.position.set(side * 0.13, 0.5, 0.6);
+      this.flames.add(flame);
     }
-    this.skates.visible = false;
-    this.body.add(this.skates);
+    this.flames.visible = false;
+    this.body.add(this.flames);
 
     this.root.add(this.body);
   }
 
-  setSkates(on: boolean): void {
-    this.skates.visible = on;
+  /**
+   * Thruster flames: `thrust` 0…1 for the jetpack's steady burn, `dash` 0…1 for a dash's flash
+   * (blue, pointing back).
+   */
+  setThrusters(thrust: number, dash: number, dt: number): void {
+    this.flicker += dt * 40;
+    const level = Math.max(thrust, dash);
+    this.flames.visible = level > 0.02;
+    if (!this.flames.visible) return;
+    this.flameMat.color.set(dash > thrust ? '#7ff6ff' : '#ffb347');
+    const len = 0.6 + 0.9 * level + 0.15 * Math.sin(this.flicker);
+    for (const f of this.flames.children) {
+      f.scale.set(1 + 0.4 * level, len, 1 + 0.4 * level);
+      // Down for the jetpack; swept back for a dash.
+      f.rotation.x = Math.PI - (dash > thrust ? 1.2 : 0);
+      f.position.y = 0.72 - 0.25 * len * (dash > thrust ? 0.4 : 1);
+      f.position.z = 0.6 + (dash > thrust ? 0.25 * len : 0);
+    }
   }
 
   /** Fades the model, e.g. when the camera is pressed up against it. */
@@ -165,11 +181,6 @@ export class PlayerModel {
       target = 0.45 * (normal.x * rx + normal.z * rz);
     }
     this.wallLean += (target - this.wallLean) * follow(14, dt);
-  }
-
-  /** Rollerblade tuck: crouch and lean further in. */
-  setTuck(on: boolean, dt: number): void {
-    this.tuck += ((on ? 1 : 0) - this.tuck) * follow(10, dt);
   }
 
   /** Puts the model at a recorded pose with no dynamics: for the ghost. */
@@ -209,8 +220,8 @@ export class PlayerModel {
     this.root.rotation.set(0, this.yaw, 0);
     // Mantle: reach forward over the lip early, straighten as you pull up.
     const reachLean = this.reach >= 0 ? 0.7 * Math.sin(Math.PI * Math.min(1, this.reach)) : 0;
-    this.body.rotation.set(-this.lean - this.tuck * 0.35 + this.slideLean * 0.9 - reachLean, 0, this.bank + this.wallLean);
-    const sy = 1 + this.squash - this.tuck * 0.18 - this.low * 0.45;
+    this.body.rotation.set(-this.lean + this.slideLean * 0.9 - reachLean, 0, this.bank + this.wallLean);
+    const sy = 1 + this.squash - this.low * 0.45;
     const sxz = 1 / Math.sqrt(sy);
     this.body.scale.set(sxz, sy, sxz);
   }

@@ -456,7 +456,7 @@ function stanceConfig(p: PlayerState, cfg: MovementConfig): MovementConfig {
     return lowCfg;
   }
   // Sliding: no pushing, little drag, slopes pull hard, limited steering. Whichever of the
-  // gadget's numbers (rollerblades) or the slide's is slicker wins.
+  // gadget's numbers or the slide's is slicker wins.
   lowCfg.groundAcceleration = 0;
   lowCfg.groundedFriction = Math.min(cfg.groundedFriction, c.slideFriction);
   lowCfg.groundDeceleration = Math.min(cfg.groundDeceleration, c.slideFriction);

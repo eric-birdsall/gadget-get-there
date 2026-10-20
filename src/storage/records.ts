@@ -28,8 +28,7 @@ function isValidBest(v: unknown): v is PersonalBest {
     typeof b.seconds === 'number' &&
     Number.isFinite(b.seconds) &&
     b.seconds > 0 &&
-    Array.isArray(b.loadout) &&
-    b.loadout.every(isGadgetId)
+    Array.isArray(b.loadout)
   );
 }
 
@@ -42,7 +41,8 @@ function load(): RecordTable {
     if (!isValidBest(best)) continue;
     out[level] = {
       seconds: best.seconds,
-      loadout: best.loadout,
+      // Gadgets that no longer exist (rollerblades) drop out; the time stays.
+      loadout: best.loadout.filter(isGadgetId),
       checkpoints: best.checkpoints === true,
       date: typeof best.date === 'number' ? best.date : 0,
       ghost: isValidGhost(best.ghost) ? best.ghost : null,

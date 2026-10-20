@@ -1,13 +1,13 @@
 import { Vector3 } from 'three';
 import { describe, expect, it } from 'vitest';
-import { DT, GRAPPLE_CONFIG, LAUNCH_PAD_CONFIG, MOVEMENT_CONFIG, ROLLERBLADE_CONFIG, USAGE_CONFIG } from '../config';
-import { slab, ramp } from '../course/build';
+import { DASH_CONFIG, DT, GRAPPLE_CONFIG, JETPACK_CONFIG, LAUNCH_PAD_CONFIG, USAGE_CONFIG } from '../config';
+import { slab } from '../course/build';
 import type { CourseDefinition } from '../course/types';
 import { crossing } from '../course/crossing';
 import { AttemptState, RunSession, type SessionInput, idleInput } from '../game/session';
 import { GrappleGadget, handPosition } from './grapple';
 import { LaunchPadGadget } from './launchPad';
-import { RollerbladeGadget } from './rollerblades';
+import { JetpackGadget } from './jetpack';
 import { GadgetEvent, GadgetId } from './types';
 
 type Point = [number, number, number];
@@ -97,61 +97,83 @@ describe('grappling hook', () => {
   });
 });
 
-/** One click: puts rollerblades on (and fires other gadgets' actions). */
+/** One press of the gadget button. */
 const click = (over: Partial<SessionInput> = {}): SessionInput => ({ ...idleInput(), action: true, actionPressed: true, ...over });
 
-describe('rollerblades', () => {
-  it('do nothing until clicked; the switch-on click is not a tuck', () => {
-    const s = new RunSession(course([slab(0, 0, 0, 2000, 2000)]), { gadget: GadgetId.Rollerblades });
-    run(s, { ...idleInput(), forward: 1 }, 3);
-    const blades = s.gadget as RollerbladeGadget;
-    expect(blades.active).toBe(false);
-    expect(blades.remaining).toBe(1);
-    expect(Math.hypot(s.player.vel.x, s.player.vel.z)).toBeCloseTo(MOVEMENT_CONFIG.groundSpeed, 1);
-    // Click and keep holding: skates on, but no tuck until the button is let go and held again.
-    expect(s.step(click({ forward: 1 }))).toContain(GadgetEvent.SkatesOn);
-    run(s, { ...idleInput(), forward: 1, action: true }, 0.5);
-    expect(blades.active).toBe(true);
-    expect(blades.tucking).toBe(false);
-    run(s, { ...idleInput(), forward: 1 }, 0.1);
-    run(s, { ...idleInput(), forward: 1, action: true }, 0.1);
-    expect(blades.tucking).toBe(true);
-  });
+describe('jetpack', () => {
+  const floor = slab(0, 0, 0, 2000, 2000);
 
-  it('top out faster than running on flat ground, but not without limit', () => {
-    const s = new RunSession(course([slab(0, 0, 0, 2000, 2000)]), { gadget: GadgetId.Rollerblades, unlimited: true });
-    s.step(click());
-    run(s, { ...idleInput(), forward: 1 }, 5);
-    const speed = Math.hypot(s.player.vel.x, s.player.vel.z);
-    expect(speed).toBeGreaterThan(MOVEMENT_CONFIG.groundSpeed);
-    expect(speed).toBeCloseTo(ROLLERBLADE_CONFIG.pushSpeed, 1);
-  });
-
-  it('gain far more speed downhill than running', () => {
-    const hill = [ramp([0, 40, 0], [0, 0, -200], 12)];
-    const speedAfter = (gadget: GadgetId) => {
-      const s = new RunSession({ ...course(hill), start: { pos: [0, 39.9, -1], yaw: 0 } }, { gadget, unlimited: true });
-      if (gadget === GadgetId.Rollerblades) s.step(click());
-      run(s, { ...idleInput(), forward: 1 }, 5);
-      return Math.hypot(s.player.vel.x, s.player.vel.z);
-    };
-    expect(speedAfter(GadgetId.Rollerblades)).toBeGreaterThan(speedAfter(GadgetId.LaunchPad) + 8);
-  });
-
-  it('tucking with the button held reports a tuck and coasts', () => {
-    const s = new RunSession(course([slab(0, 0, 0, 2000, 2000)]), { gadget: GadgetId.Rollerblades, unlimited: true });
-    s.step(click());
-    run(s, { ...idleInput(), forward: 1 }, 2);
-    const ev = run(s, { ...idleInput(), forward: 1, action: true }, 1);
-    expect(ev).toContain(GadgetEvent.TuckStarted);
-    expect((s.gadget as RollerbladeGadget).tucking).toBe(true);
-  });
-
-  it('can still jump', () => {
-    const s = new RunSession(course([slab(0, 0, 0, 200, 200)]), { gadget: GadgetId.Rollerblades, unlimited: true });
+  it('holding the button lifts off the ground and climbs', () => {
+    const s = new RunSession(course([floor]), { gadget: GadgetId.Jetpack, unlimited: true });
     run(s, idleInput(), 0.1);
-    s.step({ ...idleInput(), jump: true });
-    expect(s.player.vel.y).toBeGreaterThan(5);
+    const ev = run(s, { ...idleInput(), action: true }, 1);
+    expect(ev).toContain(GadgetEvent.JetpackOn);
+    expect(s.player.grounded).toBe(false);
+    expect(s.player.pos.y).toBeGreaterThan(3);
+    expect(s.player.vel.y).toBeLessThanOrEqual(JETPACK_CONFIG.maxRiseSpeed + 1e-6);
+  });
+
+  it('lets go: you fall again; fuel only burns while thrusting', () => {
+    const s = new RunSession(course([floor]), { gadget: GadgetId.Jetpack });
+    run(s, idleInput(), 0.1);
+    run(s, { ...idleInput(), action: true }, 1);
+    const jet = s.gadget as JetpackGadget;
+    const left = jet.remaining;
+    expect(left).toBeCloseTo(1 - 1 / USAGE_CONFIG.jetpackSeconds, 1);
+    const ev = run(s, idleInput(), 2);
+    expect(ev).toContain(GadgetEvent.JetpackOff);
+    expect(s.player.grounded).toBe(true);
+    expect(jet.remaining).toBe(left);
+  });
+
+  it('runs out after its fuel, then the next gadget takes over', () => {
+    const s = new RunSession(course([floor]), { loadout: [GadgetId.Jetpack, GadgetId.Dash] });
+    run(s, idleInput(), 0.1);
+    run(s, { ...idleInput(), action: true }, USAGE_CONFIG.jetpackSeconds + 0.1);
+    expect(s.gadgets[0].usageLabel).toBe('0.0s');
+    expect(s.gadget?.id).toBe(GadgetId.Dash);
+  });
+});
+
+describe('dash thruster', () => {
+  const floor = slab(0, 0, 0, 2000, 2000);
+
+  it('bursts you forward the way you are going, on the ground', () => {
+    const s = new RunSession(course([floor]), { gadget: GadgetId.Dash, unlimited: true });
+    run(s, idleInput(), 0.1);
+    run(s, { ...idleInput(), forward: 1 }, 0.5);
+    expect(s.step(click({ forward: 1 }))).toContain(GadgetEvent.Dashed);
+    expect(Math.hypot(s.player.vel.x, s.player.vel.z)).toBeGreaterThanOrEqual(DASH_CONFIG.speed - 0.5);
+    expect(s.player.vel.z).toBeLessThan(0);
+  });
+
+  it('standing still, dashes the way you are looking; in the air it never starts by dropping', () => {
+    const s = new RunSession(course([floor]), { gadget: GadgetId.Dash, unlimited: true });
+    run(s, idleInput(), 0.1);
+    s.step(click({ yaw: Math.PI / 2 }));
+    // Yaw 90° faces −X.
+    expect(s.player.vel.x).toBeLessThan(-DASH_CONFIG.speed + 1);
+    s.player.pos.y = 20;
+    s.player.vel.set(0, -12, -5);
+    s.player.grounded = false;
+    run(s, idleInput(), DASH_CONFIG.cooldown + 0.05);
+    s.step(click());
+    expect(s.player.vel.y).toBeGreaterThanOrEqual(DASH_CONFIG.minLift - 1);
+  });
+
+  it('has three dashes, with a short cooldown between them', () => {
+    const s = new RunSession(course([floor]), { loadout: [GadgetId.Dash, GadgetId.Grapple] });
+    run(s, idleInput(), 0.1);
+    expect(s.step(click({ forward: 1 }))).toContain(GadgetEvent.Dashed);
+    // Too soon: nothing.
+    expect(s.step(click({ forward: 1 }))).not.toContain(GadgetEvent.Dashed);
+    for (let i = 1; i < USAGE_CONFIG.dashes; i++) {
+      run(s, { ...idleInput(), forward: 1 }, DASH_CONFIG.cooldown + 0.05);
+      expect(s.step(click({ forward: 1 }))).toContain(GadgetEvent.Dashed);
+    }
+    // All used: the grapple takes over.
+    expect(s.gadgets[0].usageLabel).toBe('x0');
+    expect(s.gadget?.id).toBe(GadgetId.Grapple);
   });
 });
 
@@ -244,45 +266,32 @@ describe('budgets and switching', () => {
   });
 
   it('a thrown pad keeps working after switching to another gadget', () => {
-    const s = new RunSession(course([floor]), { loadout: [GadgetId.LaunchPad, GadgetId.Rollerblades] });
+    const s = new RunSession(course([floor]), { loadout: [GadgetId.LaunchPad, GadgetId.Dash] });
     run(s, idleInput(), 0.1);
     s.step(aimAt(s, new Vector3(0, 0, -20), { action: true, actionPressed: true }));
     run(s, idleInput(), LAUNCH_PAD_CONFIG.throwCooldown + 0.05);
     // Re-throwing is free.
     s.step(aimAt(s, new Vector3(0, 0, -8), { action: true, actionPressed: true }));
-    s.selectGadget(GadgetId.Rollerblades);
+    s.selectGadget(GadgetId.Dash);
     const ev = run(s, { ...idleInput(), forward: 1 }, 1.5);
     expect(ev).toContain(GadgetEvent.PadLaunched);
     expect(s.gadgets[0].usageLabel).toBe('x0');
     expect((s.gadgets[0] as LaunchPadGadget).pad).toBeNull();
-    expect(s.gadget?.id).toBe(GadgetId.Rollerblades);
+    expect(s.gadget?.id).toBe(GadgetId.Dash);
   });
 
-  it('rollerblades: 5 s on the ground once on; switching away takes them off and pauses the time', () => {
-    const s = new RunSession(course([floor]), { loadout: [GadgetId.Rollerblades, GadgetId.Grapple] });
+  it('switching away from the jetpack stops the burn and keeps the fuel that is left', () => {
+    const s = new RunSession(course([floor]), { loadout: [GadgetId.Jetpack, GadgetId.Grapple] });
     run(s, idleInput(), 0.1);
-    // Time before putting them on doesn't count.
-    run(s, { ...idleInput(), forward: 1 }, 2);
-    expect(s.gadget?.usageLabel).toBe(`${USAGE_CONFIG.rollerbladeSeconds.toFixed(1)}s`);
-    s.step(click());
-    run(s, { ...idleInput(), forward: 1 }, 2);
-    const blades = s.gadget as RollerbladeGadget;
-    const afterTwo = blades.remaining;
+    run(s, { ...idleInput(), action: true }, 1);
+    const jet = s.gadget as JetpackGadget;
+    const left = jet.remaining;
     s.selectGadget(GadgetId.Grapple);
-    expect(blades.active).toBe(false);
-    run(s, { ...idleInput(), forward: 1 }, 2);
-    expect(blades.remaining).toBe(afterTwo);
-    // Back to blades: E again to put them on, then the rest of the time.
-    s.selectGadget(GadgetId.Rollerblades);
-    run(s, { ...idleInput(), forward: 1 }, 1);
-    expect(blades.remaining).toBe(afterTwo);
-    s.step(click());
-    run(s, { ...idleInput(), forward: 1 }, USAGE_CONFIG.rollerbladeSeconds);
-    expect(blades.remaining).toBe(0);
-    expect(blades.active).toBe(false);
-    // Used up: the grapple takes over.
-    expect(s.gadget?.id).toBe(GadgetId.Grapple);
-    // Air time is free: covered by the countdown only running on the ground.
+    run(s, { ...idleInput(), action: true }, 1);
+    expect(jet.thrusting).toBe(false);
+    expect(jet.remaining).toBe(left);
+    s.selectGadget(GadgetId.Jetpack);
+    expect(s.gadget?.id).toBe(GadgetId.Jetpack);
   });
 
   it('a retry refills every budget', () => {
