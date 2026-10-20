@@ -170,6 +170,16 @@ export class RunSession {
     return g;
   }
 
+  /** At the start line: empty every slot. Returns false if nothing changed. */
+  clearGadgets(): boolean {
+    if (this.state !== AttemptState.Ready || this.loadout.length === 0) return false;
+    this.gadget?.resetTransientState(this.player);
+    this.loadout.length = 0;
+    this.slot = 0;
+    this.gadget = null;
+    return true;
+  }
+
   /** The gadget after the current one, or null. */
   get nextGadget(): GadgetId | null {
     return this.loadout[this.slot + 1] ?? null;

@@ -218,6 +218,14 @@ const menu = new Menu(settings, {
   },
   tuning: () => tuning.toggle(),
   toggleGadget: (id) => toggleGadget(id, true),
+  clearGadgets: () => {
+    if (session.state !== AttemptState.Ready) restart();
+    if (!session.clearGadgets()) return;
+    settings.loadout = '';
+    saveSettings(settings);
+    refreshGadget();
+    audio.play(Sfx.Select);
+  },
   settingsChanged: applySettings,
 });
 

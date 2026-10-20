@@ -12,6 +12,8 @@ export interface MenuHandlers {
   tuning: () => void;
   /** Add `id` to the next free slot, or remove it if it's already in one. Mid-run this restarts. */
   toggleGadget: (id: GadgetId) => void;
+  /** Empty every slot. Mid-run this restarts. */
+  clearGadgets: () => void;
   settingsChanged: () => void;
 }
 
@@ -97,6 +99,8 @@ export class Menu {
       palette.append(tile);
     }
 
+    el('clear-slots').addEventListener('click', () => this.handlers.clearGadgets());
+
     const row = el('menu-gadgets');
     for (let i = 0; i < GADGETS.length; i++) {
       const slot = document.createElement('button');
@@ -134,6 +138,7 @@ export class Menu {
       tile.querySelector('.badge')!.textContent = at >= 0 ? String(at + 1) : '';
       tile.title = at >= 0 ? `In slot ${at + 1} · click to take it out` : 'Click to add to the next free slot';
     }
+    el<HTMLButtonElement>('clear-slots').disabled = loadout.length === 0;
     el('menu-gadgets-hint').textContent = running
       ? 'Changing gadgets restarts the run'
       : 'Click gadgets to fill the slots in order · click again to remove';

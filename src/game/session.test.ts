@@ -158,6 +158,18 @@ describe('gadget order', () => {
     expect(s.nextGadget).toBe(GadgetId.Rollerblades);
   });
 
+  it('clearing empties every slot, only at the start line', () => {
+    const s = new RunSession(tiny, { loadout: [GadgetId.Grapple, GadgetId.LaunchPad] });
+    expect(s.clearGadgets()).toBe(true);
+    expect(s.loadout).toEqual([]);
+    expect(s.gadget).toBeNull();
+    expect(s.clearGadgets()).toBe(false);
+    s.toggleGadget(GadgetId.Rollerblades);
+    s.step(go());
+    expect(s.clearGadgets()).toBe(false);
+    expect(s.loadout).toEqual([GadgetId.Rollerblades]);
+  });
+
   it('allows fewer than three gadgets, or none', () => {
     const s = new RunSession(tiny, { loadout: [GadgetId.Rollerblades] });
     expect(s.loadout).toEqual([GadgetId.Rollerblades]);
