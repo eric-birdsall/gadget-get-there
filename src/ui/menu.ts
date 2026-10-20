@@ -332,7 +332,8 @@ export class Menu {
         : `Click gadgets to fill the slots · ${useKeysName(this.bindings)} use them in the run`;
   }
 
-  private syncInputToggle(): void {
+  /** Lights the Play-with button for the current choice (also after it changes by use). */
+  syncInputToggle(): void {
     for (const b of el('input-toggle').querySelectorAll<HTMLButtonElement>('button')) {
       b.setAttribute('aria-checked', String(b.dataset.mode === this.settings.inputMode));
     }

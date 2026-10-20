@@ -297,3 +297,7 @@ Replaces the gadget in hand, switching (scroll, F, 1–5 mid-run) and auto-switc
 
 ## Crouch pressed in the air slides on landing (built)
 - Toggle mode: a crouch press in the air tucks (as before), then stays on through the landing, so you land straight into a slide, if you're at slide speed (12.5 m/s); slower, it lets go and you land standing. Replaces "landing after an in-air tuck lets go". Decided once per press: a later landing (sliding off an edge) doesn't let go.
+
+## Menus take both devices (built)
+- In the menus the controller always works (navigate, A, B, Y), whatever Play with says, and so does the mouse. Using one picks it: a controller button switches to Controller, a keyboard key (not Esc, not one being captured for rebinding) to Mouse & keyboard; mouse clicks don't switch, so a controller player can still click Play for fullscreen. The toggle shows the result and it's saved.
+- In play, the device not chosen is still ignored. Replaces the "Controller detected" hint.

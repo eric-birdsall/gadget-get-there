@@ -365,6 +365,21 @@ const padNav = new PadNav({
   back: () => void menuBack(),
 });
 
+/** The player picked a device by using it in the menus: save it and show it on the toggle. */
+function chooseInput(d: 'keys' | 'pad'): void {
+  if (settings.inputMode === d) return;
+  settings.inputMode = d;
+  saveSettings(settings);
+  setInputMode(d);
+  menu.syncInputToggle();
+}
+
+// In the menus, a keyboard key switches to mouse and keyboard (mouse clicks don't: a controller
+// player still clicks Play for fullscreen). Esc and key rebinding don't count.
+document.addEventListener('keydown', (e) => {
+  if (paused && e.code !== 'Escape' && !menu.capturing && !e.defaultPrevented) chooseInput('keys');
+});
+
 /** Plays with the controller or with mouse and keyboard; the other is ignored. Labels follow. */
 function setInputMode(d: 'keys' | 'pad'): void {
   if (input.device === d) return;
@@ -480,6 +495,8 @@ function frame(now: number): void {
   // The controller's Menu button pauses and resumes (resuming can't capture the mouse or go
   // fullscreen: browsers only allow those from a click or key).
   input.pollPad();
+  // In the menus, a controller button switches to playing with the controller.
+  if (paused && input.device === 'keys' && input.padEdges.size > 0 && !menu.capturing) chooseInput('pad');
   // Rebinding on the Controls page: the controller's buttons go there (Menu cancels).
   if (paused && menu.capturing) menu.onPadEdges(input.padEdges);
   else if (input.padEdges.has(PadButton.Menu)) {
@@ -489,11 +506,6 @@ function frame(now: number): void {
       input.lockFromPad();
     }
   } else if (paused) padNav.update(dt, input.padState, input.padEdges);
-  // A controller pressed while set to mouse and keyboard: say where to switch.
-  if (paused && input.padIgnored) {
-    input.padIgnored = false;
-    menu.showNote('Controller detected · to play with it, choose Controller under Play with');
-  }
   if (!paused) {
     handleKeys();
     input.update(dt);
