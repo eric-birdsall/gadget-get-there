@@ -162,6 +162,15 @@ function stepSelect(el: HTMLSelectElement, step: number): void {
   el.dispatchEvent(new Event('change', { bubbles: true }));
 }
 
+/**
+ * Where a control sits for moving between controls: its whole row when it's inside a label (a
+ * setting with its name on the left and the checkbox, slider or dropdown on the right), so up
+ * and down go row by row and reach controls at the far side too; otherwise the control itself.
+ */
+function area(el: HTMLElement): DOMRect {
+  return (el.closest('label') ?? el).getBoundingClientRect();
+}
+
 /** Controls within this much of the nearest one ahead count as the same next row (or column), px. */
 const ROW_SLACK = 90;
 
@@ -172,14 +181,14 @@ const ROW_SLACK = 90;
  * in line does it move off to the side, to the nearest weighing sideways distance heavily.
  */
 export function nearest(from: HTMLElement, list: readonly HTMLElement[], dir: Dir): HTMLElement | null {
-  const a = from.getBoundingClientRect();
+  const a = area(from);
   const horizontal = dir === 'left' || dir === 'right';
   const inLine: { el: HTMLElement; gap: number; across: number }[] = [];
   let side: HTMLElement | null = null;
   let sideScore = Infinity;
   for (const el of list) {
     if (el === from) continue;
-    const b = el.getBoundingClientRect();
+    const b = area(el);
     // Gap from this control's edge to the other's, in the direction of travel.
     const gap = dir === 'right' ? b.left - a.right : dir === 'left' ? a.left - b.right : dir === 'down' ? b.top - a.bottom : a.top - b.bottom;
     // The other's centre must lie that way, and it must not sit mostly behind this one's edge.
