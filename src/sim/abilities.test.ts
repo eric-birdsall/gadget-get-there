@@ -293,6 +293,28 @@ describe('sprint', () => {
     expect(r.sprinting).toBe(true);
     expect(r.stamina).toBe(before);
   });
+
+  it('a jump while sprinting costs its share of stamina up front', () => {
+    const p = running();
+    toggle(p);
+    const before = p.stamina;
+    stepPlayer(p, { ...NO_INPUT, forward: 1, jump: true }, [FLOOR]);
+    expect(p.justJumped).toBe(true);
+    expect(p.stamina).toBeCloseTo(before - A.sprintJumpStamina, 2);
+  });
+
+  it('hopping on every landing runs it dry about as fast as running does', () => {
+    const p = running();
+    toggle(p);
+    // Jump tapped every other tick: each landing jumps again straight away.
+    let jumps = 0;
+    for (let t = 0, i = 0; t < A.sprintStaminaSeconds * 1.25; t += DT, i++) {
+      stepPlayer(p, { ...NO_INPUT, forward: 1, jump: i % 2 === 0 }, [FLOOR]);
+      if (p.justJumped) jumps++;
+    }
+    expect(jumps).toBeGreaterThan(3);
+    expect(p.sprinting).toBe(false);
+  });
 });
 
 describe('tuck', () => {
