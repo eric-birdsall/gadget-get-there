@@ -67,6 +67,11 @@ export const ABILITY_CONFIG = {
   sprintSpeed: 13,
   /** Seconds of sprinting a full stamina bar gives (it drains only while sprint-running on the ground). */
   sprintStaminaSeconds: 4,
+  /**
+   * A jump while sprinting costs this share of stamina: about what running through a jump's
+   * airtime (≈0.73 s) would, so hopping along drains it like running instead of for free.
+   */
+  sprintJumpStamina: 0.18,
   /** After sprinting stops, stamina starts refilling after this long, s… */
   sprintRegenDelay: 0.6,
   /** …and refills from empty to full in this long, s. */

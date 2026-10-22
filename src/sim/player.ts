@@ -490,7 +490,7 @@ function updateStance(p: PlayerState, input: PlayerInput, boxes: readonly Box[])
 
 /**
  * Sprint: a press toggles it (on only with enough stamina). It drains stamina while running on
- * the ground and switches off when stamina runs out, you stop moving, or you crouch. A slide holds
+ * the ground, and each jump costs a share up front (see the jump), and switches off when stamina runs out, you stop moving, or you crouch. A slide holds
  * it: still on, nothing spent or refilled, so you come out of the slide sprinting.
  * Off, stamina refills after a short wait.
  */
@@ -816,6 +816,12 @@ export function stepPlayer(p: PlayerState, input: PlayerInput, boxes: readonly B
     p.airTime = cfg.coyoteTime + 1;
     p.jumpQueued = Infinity;
     p.justJumped = true;
+    // Sprint doesn't drain in the air, so a sprint jump pays for its airtime up front (a slide's
+    // burst has already paid). Run dry, sprint switches off next tick.
+    if (p.sprinting && !p.justSlideBurst) {
+      p.stamina = Math.max(0, p.stamina - ABILITY_CONFIG.sprintJumpStamina);
+      p.staminaDelay = ABILITY_CONFIG.sprintRegenDelay;
+    }
   }
 
   if (p.tethered || p.stance !== Stance.Stand) p.wallRun = null;
