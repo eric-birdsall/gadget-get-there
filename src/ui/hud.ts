@@ -169,7 +169,7 @@ export class Hud {
           : `${useKeysName(b, loadout.length)} use your gadgets`;
   }
 
-  /** Sprint stamina just above the crosshair: shown while sprinting or refilling, hidden when full. */
+  /** Sprint stamina, upright just right of the crosshair: shown while sprinting or refilling, hidden when full. */
   setStamina(stamina: number, sprinting: boolean): void {
     const key = Math.round(stamina * 200) * 2 + (sprinting ? 1 : 0);
     if (key === this.lastStaminaKey) return;
@@ -178,7 +178,7 @@ export class Hud {
     this.stamina.classList.toggle('sprinting', sprinting);
     this.stamina.classList.toggle('low', stamina < ABILITY_CONFIG.sprintMinToStart);
     this.speedLines.classList.toggle('show', sprinting);
-    this.staminaFill.style.transform = `scaleX(${stamina})`;
+    this.staminaFill.style.transform = `scaleY(${stamina})`;
   }
 
   /** Ring round the crosshair while sliding: 0…1 fills, 1 glows (jump now for a burst), −1 hides. */

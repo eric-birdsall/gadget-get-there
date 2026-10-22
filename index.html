@@ -103,23 +103,23 @@
         background: #7ff6ff; color: #141833; font-size: 10px; font-weight: 800; text-shadow: none; white-space: nowrap;
       }
       /*
-       * Sprint stamina: a thin bar just above the crosshair (clear of the slide ring, and of the
-       * runner below it), where the eye already is; there while sprinting or refilling.
+       * Sprint stamina: an upright bar just right of the crosshair (clear of the slide ring), where
+       * the eye already is, filling from the bottom; there while sprinting or refilling.
        */
       #stamina {
-        left: 50%; top: 50%; display: flex; align-items: center; gap: 6px; transform: translate(-50%, -56px);
-        opacity: 0; transition: opacity 0.3s;
+        left: 50%; top: 50%; display: flex; flex-direction: column; align-items: center; gap: 4px;
+        transform: translate(30px, -50%); opacity: 0; transition: opacity 0.3s;
       }
       #stamina.show { opacity: 0.9; }
       #stamina .bar {
-        width: 110px; height: 5px; border-radius: 3px; overflow: hidden; background: rgba(255, 255, 255, 0.2);
+        width: 5px; height: 64px; border-radius: 3px; overflow: hidden; background: rgba(255, 255, 255, 0.2);
         box-shadow: 0 0 0 1px rgba(20, 24, 48, 0.45);
       }
-      #stamina .fill { height: 100%; background: rgba(255, 255, 255, 0.75); transform-origin: left; }
+      #stamina .fill { height: 100%; background: rgba(255, 255, 255, 0.75); transform-origin: bottom; }
       #stamina.sprinting .fill { background: #7ff6ff; box-shadow: 0 0 8px rgba(127, 246, 255, 0.8); }
       #stamina.low .fill { background: #ff8a7a; }
       /* The sprint marker: a chevron that lights up while sprinting. */
-      #stamina .chev { font: 800 16px/1 var(--font-display); color: rgba(255, 255, 255, 0.35); transition: color 0.2s, text-shadow 0.2s; }
+      #stamina .chev { font: 800 16px/1 var(--font-display); transform: rotate(-90deg); color: rgba(255, 255, 255, 0.35); transition: color 0.2s, text-shadow 0.2s; }
       #stamina.sprinting .chev { color: #7ff6ff; text-shadow: 0 0 8px #7ff6ff; }
       /* Sprinting: faint speed streaks at the screen edges, flickering. */
       #speed-lines {
