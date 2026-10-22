@@ -169,7 +169,7 @@ export class Hud {
           : `${useKeysName(b, loadout.length)} use your gadgets`;
   }
 
-  /** Sprint stamina above the gadgets: shown while sprinting or refilling, hidden when full. */
+  /** Sprint stamina just above the crosshair: shown while sprinting or refilling, hidden when full. */
   setStamina(stamina: number, sprinting: boolean): void {
     const key = Math.round(stamina * 200) * 2 + (sprinting ? 1 : 0);
     if (key === this.lastStaminaKey) return;
