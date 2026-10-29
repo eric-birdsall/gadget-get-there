@@ -78,10 +78,18 @@ function applySettings(): void {
   input.autoLevel = settings.autoLevel;
   renderer.view.baseFov = settings.fov;
   renderer.setShadows(settings.shadows);
+  // A new world look redraws the level picker's previews in it.
+  if (renderer.theme !== worldTheme()) menu.resetLevelPreviews();
+  renderer.setTheme(worldTheme());
   hud.setDebugVisible(settings.showDebug);
   audio.setVolumes(settings.sfxVolume, settings.musicVolume);
   session.setCheckpointsEnabled(settings.checkpoints);
   refreshCategory();
+}
+
+/** The world look the settings ask for. */
+function worldTheme(): 'space' | 'city' {
+  return settings.theme === 'space' ? 'space' : 'city';
 }
 
 /** PB line, menu best and ghost for this level, and every level's best for the selector. */
@@ -302,8 +310,8 @@ const menu = new Menu(settings, bindings, padBindings, {
   tuning: () => tuning.toggle(),
   toggleGadget,
   selectLevel,
-  levelPreviews: () => renderCoursePreviews(COURSES),
-  createFlyThrough: () => new FlyThrough(COURSES),
+  levelPreviews: () => renderCoursePreviews(COURSES, worldTheme()),
+  createFlyThrough: () => new FlyThrough(COURSES, worldTheme()),
   clearGadgets: () => {
     if (session.state !== AttemptState.Ready) restart();
     if (!session.clearGadgets()) return;

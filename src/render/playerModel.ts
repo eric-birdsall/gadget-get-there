@@ -19,15 +19,43 @@ import {
   Vector3,
 } from 'three';
 import { PLAYER_SHAPE } from '../config';
+import type { Theme } from './theme';
 
 const follow = (rate: number, dt: number) => 1 - Math.exp(-rate * dt);
 
 /** How far a tuck squashes the model, as a share of the slide/crouch squash. */
 const TUCK_LOW = 0.6;
 
-/** Heights of the leg and arm pivots above the feet. */
-const HIP_HEIGHT = 0.72;
-const SHOULDER_HEIGHT = 1.28;
+/**
+ * Where a body's limbs pivot and where the gadgets attach to it, so both bodies share one run
+ * cycle, one set of thruster flames and one wingsuit. Heights are above the feet; the model faces −Z.
+ */
+interface Rig {
+  hip: { x: number; y: number };
+  shoulder: { x: number; y: number; tilt: number };
+  /** Flame nozzles: sideways offset, height of the nozzle, depth behind the body, cone radius. */
+  flame: { x: number; y: number; z: number; radius: number };
+  /** Wingsuit corners: shoulder, wrist tip and hip, as sideways offset and height. */
+  wing: { shoulder: [number, number]; tip: [number, number]; hip: [number, number] };
+}
+
+const ASTRONAUT_RIG: Rig = {
+  hip: { x: 0.16, y: 0.72 },
+  shoulder: { x: 0.4, y: 1.28, tilt: 0.18 },
+  flame: { x: 0.13, y: 0.72, z: 0.6, radius: 0.08 },
+  wing: { shoulder: [0.32, 1.3], tip: [1.15, 0.95], hip: [0.24, 0.3] },
+};
+
+// Longer legs, narrow shoulders and a slim pack sitting close to the back.
+const RUNNER_RIG: Rig = {
+  hip: { x: 0.11, y: 0.84 },
+  shoulder: { x: 0.25, y: 1.42, tilt: 0.12 },
+  flame: { x: 0.08, y: 0.94, z: 0.27, radius: 0.055 },
+  wing: { shoulder: [0.24, 1.4], tip: [1.05, 1.02], hip: [0.14, 0.4] },
+};
+
+/** The runner's neon trim: cyan down the limbs, magenta across the chest and helmet. */
+const NEON = { cyan: '#3fe6ff', magenta: '#ff4fd8', intensity: 1.8 };
 
 /** Run cycle feel. */
 const RUN = {
@@ -48,6 +76,10 @@ function angleDelta(a: number, b: number): number {
   return Math.atan2(Math.sin(b - a), Math.cos(b - a));
 }
 
+type MaterialMaker = (color: string, extra?: MeshStandardMaterialParameters) => MeshStandardMaterial;
+type Placer = (mesh: Mesh, x: number, y: number, z: number, shadow?: boolean) => Mesh;
+type Hanger = (pivot: Group, mesh: Mesh, x: number, y: number, z: number, shadow?: boolean) => Mesh;
+
 export interface PlayerPose {
   feet: Vector3;
   vel: Vector3;
@@ -55,7 +87,7 @@ export interface PlayerPose {
 }
 
 /**
- * The astronaut: white suit, gold-visored helmet, life-support backpack. All motion is
+ * The player's body: the astronaut in space, a neon-trimmed city runner at night. All motion is
  * procedural: it faces where it's going, leans into acceleration and turns, and squashes on landing.
  */
 export class PlayerModel {
@@ -69,7 +101,12 @@ export class PlayerModel {
   private squashVel = 0;
   private readonly prevVel = new Vector3();
 
-  private readonly materials: MeshStandardMaterial[];
+  private readonly ghost: boolean;
+  private theme: Theme = 'space';
+  private rig = ASTRONAUT_RIG;
+  /** Everything the camera fade touches; rebuilt with the body. */
+  private materials: MeshStandardMaterial[] = [];
+  private wingMat: MeshStandardMaterial | null = null;
   private readonly flames = new Group();
   private readonly wings = new Group();
   /** 0 … 1: how far into the belly-down glide pose. */
@@ -100,24 +137,46 @@ export class PlayerModel {
   private sprint = 0;
 
   /** `ghost` makes a translucent, shadowless copy for the personal-best ghost. */
-  constructor(ghost = false) {
-    const mat = (color: string, extra: MeshStandardMaterialParameters = {}) =>
-      new MeshStandardMaterial({
+  constructor(ghost = false, theme: Theme = 'space') {
+    this.ghost = ghost;
+    this.body.add(this.flames, this.wings);
+    this.root.add(this.body);
+    this.build(theme);
+  }
+
+  /** The astronaut in space, the city runner at night. Keeps the pose; only the body changes. */
+  setLook(theme: Theme): void {
+    if (theme !== this.theme) this.build(theme);
+  }
+
+  /** Throws away the current body and builds the one for `theme` on the same pivots. */
+  private build(theme: Theme): void {
+    this.theme = theme;
+    this.rig = theme === 'city' ? RUNNER_RIG : ASTRONAUT_RIG;
+    for (const part of [...this.body.children]) {
+      if (part === this.flames || part === this.wings) continue;
+      part.traverse((o) => {
+        if (o instanceof Mesh) o.geometry.dispose();
+      });
+      this.body.remove(part);
+    }
+    for (const m of this.materials) m.dispose();
+    this.materials = [];
+    this.legs.length = 0;
+    this.arms.length = 0;
+
+    const ghost = this.ghost;
+    const mat = (color: string, extra: MeshStandardMaterialParameters = {}) => {
+      const m = new MeshStandardMaterial({
         color: ghost ? '#bdf3ff' : color,
         roughness: 0.6,
         ...(ghost ? { transparent: true, opacity: 0.35, depthWrite: false, emissive: '#5fd8ff', emissiveIntensity: 0.4 } : extra),
       });
-    const suit = mat('#f2f4f8', { roughness: 0.75 });
-    const pack = mat('#dfe3ec', { roughness: 0.7 });
-    const trim = mat('#3a3f55', { roughness: 0.6 });
-    const stripe = mat('#ff7a2f', { roughness: 0.5 });
-    const metal = mat('#aab3c7', { roughness: 0.3, metalness: 0.7 });
-    const visorMat = mat('#e3a63a', { roughness: 0.12, metalness: 0.9, emissive: '#6b3d00', emissiveIntensity: 0.25 });
-    const glow = mat('#7ff6ff', { emissive: '#3fe0ff', emissiveIntensity: 1.4, roughness: 0.2 });
-    const amber = mat('#ffb347', { emissive: '#ff8a00', emissiveIntensity: 1.2, roughness: 0.2 });
-    this.materials = [suit, pack, trim, stripe, metal, visorMat, glow, amber];
+      this.materials.push(m);
+      return m;
+    };
 
-    // The astronaut faces -Z. Every part hangs off `body`, so lean and squash move it all.
+    // Every part hangs off `body`, so lean and squash move it all.
     const add = (mesh: Mesh, x: number, y: number, z: number, shadow = true) => {
       mesh.position.set(x, y, z);
       mesh.castShadow = shadow && !ghost;
@@ -133,15 +192,77 @@ export class PlayerModel {
       return mesh;
     };
 
-    // Legs and boots, swinging from the hips.
+    // Hips and shoulders, left then right; each body hangs its own limbs from them.
+    const rig = this.rig;
     for (const side of [-1, 1]) {
       const hip = new Group();
-      hip.position.set(side * 0.16, HIP_HEIGHT, 0);
+      hip.position.set(side * rig.hip.x, rig.hip.y, 0);
+      this.legs.push(hip);
+      const shoulder = new Group();
+      shoulder.position.set(side * rig.shoulder.x, rig.shoulder.y, 0);
+      // Tilted out; the run cycle swings it forward and back about X.
+      shoulder.rotation.z = side * rig.shoulder.tilt;
+      this.arms.push(shoulder);
+      this.body.add(hip, shoulder);
+    }
+
+    if (theme === 'city') this.buildRunner(mat, add, hang);
+    else this.buildAstronaut(mat, add, hang);
+
+    // Thruster flames under the pack's nozzles: the jetpack burns them, a dash flashes them.
+    this.flames.clear();
+    for (const side of [-1, 1]) {
+      const flame = new Mesh(new ConeGeometry(rig.flame.radius, 0.5, 10, 1, true), this.flameMat);
+      flame.rotation.x = Math.PI;
+      flame.position.set(side * rig.flame.x, rig.flame.y, rig.flame.z);
+      this.flames.add(flame);
+    }
+    this.flames.visible = false;
+
+    // Wingsuit membranes, wrist to hip on each side; spread only while gliding.
+    for (const w of this.wings.children) (w as Mesh).geometry.dispose();
+    this.wings.clear();
+    // Kept out of `materials` so the camera fade leaves the membranes at their own opacity.
+    this.wingMat?.dispose();
+    const city = theme === 'city';
+    const wingMat = new MeshStandardMaterial({
+      color: ghost ? '#bdf3ff' : city ? NEON.magenta : '#ff7a2f',
+      emissive: !ghost && city ? NEON.magenta : '#000000',
+      emissiveIntensity: 0.5,
+      side: DoubleSide,
+      transparent: true,
+      opacity: ghost ? 0.25 : city ? 0.7 : 0.85,
+      depthWrite: !ghost,
+      roughness: 0.6,
+    });
+    this.wingMat = wingMat;
+    const { shoulder, tip, hip } = rig.wing;
+    for (const side of [-1, 1]) {
+      const g = new BufferGeometry();
+      g.setAttribute('position', new Float32BufferAttribute([side * shoulder[0], shoulder[1], 0, side * tip[0], tip[1], 0.02, side * hip[0], hip[1], 0], 3));
+      g.computeVertexNormals();
+      this.wings.add(new Mesh(g, wingMat));
+    }
+    this.wings.visible = this.glide > 0.05;
+  }
+
+  /** White suit, gold-visored helmet, life-support backpack with twin tanks. */
+  private buildAstronaut(mat: MaterialMaker, add: Placer, hang: Hanger): void {
+    const suit = mat('#f2f4f8', { roughness: 0.75 });
+    const pack = mat('#dfe3ec', { roughness: 0.7 });
+    const trim = mat('#3a3f55', { roughness: 0.6 });
+    const stripe = mat('#ff7a2f', { roughness: 0.5 });
+    const metal = mat('#aab3c7', { roughness: 0.3, metalness: 0.7 });
+    const visorMat = mat('#e3a63a', { roughness: 0.12, metalness: 0.9, emissive: '#6b3d00', emissiveIntensity: 0.25 });
+    const glow = mat('#7ff6ff', { emissive: '#3fe0ff', emissiveIntensity: 1.4, roughness: 0.2 });
+    const amber = mat('#ffb347', { emissive: '#ff8a00', emissiveIntensity: 1.2, roughness: 0.2 });
+
+    // Legs and boots, swinging from the hips.
+    this.legs.forEach((hip, i) => {
+      const side = i === 0 ? -1 : 1;
       hang(hip, new Mesh(new CapsuleGeometry(0.15, 0.42, 4, 12), suit), side * 0.16, 0.44, 0);
       hang(hip, new Mesh(new CapsuleGeometry(0.16, 0.1, 4, 12), trim), side * 0.16, 0.13, -0.04).scale.set(1, 0.9, 1.3);
-      this.legs.push(hip);
-      this.body.add(hip);
-    }
+    });
 
     // Torso, with an orange waist band and a chest control panel.
     add(new Mesh(new CapsuleGeometry(0.36, 0.45, 6, 16), suit), 0, 1.0, 0);
@@ -152,58 +273,81 @@ export class PlayerModel {
     add(new Mesh(new BoxGeometry(0.045, 0.045, 0.02), glow), 0.07, 1.13, -0.38, false);
 
     // Arms, slightly out from the body, with dark gloves, swinging from the shoulders.
-    for (const side of [-1, 1]) {
-      const shoulder = new Group();
-      shoulder.position.set(side * 0.4, SHOULDER_HEIGHT, 0);
-      // Tilted out; the run cycle swings it forward and back about X.
-      shoulder.rotation.z = side * 0.18;
+    this.arms.forEach((shoulder, i) => {
+      const side = i === 0 ? -1 : 1;
       hang(shoulder, new Mesh(new CapsuleGeometry(0.11, 0.4, 4, 10), suit), side * 0.42, 1.06, 0);
       hang(shoulder, new Mesh(new SphereGeometry(0.12, 12, 10), trim), side * 0.42, 0.78, 0, false);
-      this.arms.push(shoulder);
-      this.body.add(shoulder);
-    }
+    });
 
     // Helmet: a white dome with a neck ring and a gold, mirrored visor across the front.
     add(new Mesh(new TorusGeometry(0.24, 0.05, 8, 24), trim), 0, 1.25, 0, false).rotation.x = Math.PI / 2;
     add(new Mesh(new SphereGeometry(0.3, 24, 18), suit), 0, 1.5, 0);
-    const visor = new Mesh(new SphereGeometry(0.306, 24, 16, Math.PI * 1.5 - 0.95, 1.9, 0.72, 1.0), visorMat);
-    add(visor, 0, 1.5, 0, false);
+    add(new Mesh(new SphereGeometry(0.306, 24, 16, Math.PI * 1.5 - 0.95, 1.9, 0.72, 1.0), visorMat), 0, 1.5, 0, false);
 
     // Life-support backpack with twin tanks and an antenna; gadgets mount here.
     add(new Mesh(new BoxGeometry(0.5, 0.62, 0.26), pack), 0, 1.06, 0.42);
     for (const side of [-1, 1]) add(new Mesh(new CylinderGeometry(0.08, 0.08, 0.56, 12), metal), side * 0.13, 1.04, 0.6);
     add(new Mesh(new CylinderGeometry(0.012, 0.012, 0.3, 6), trim), 0.17, 1.52, 0.46, false);
     add(new Mesh(new SphereGeometry(0.035, 10, 8), amber), 0.17, 1.68, 0.46, false);
+  }
 
-    // Thruster flames under the backpack tanks: the jetpack burns them, a dash flashes them.
-    for (const side of [-1, 1]) {
-      const flame = new Mesh(new ConeGeometry(0.08, 0.5, 10, 1, true), this.flameMat);
-      flame.rotation.x = Math.PI;
-      flame.position.set(side * 0.13, 0.5, 0.6);
-      this.flames.add(flame);
-    }
-    this.flames.visible = false;
-    this.body.add(this.flames);
+  /**
+   * The city runner: a courier in a fitted dark tech suit with neon trim, a close helmet with a
+   * glowing visor strip, and a slim pack whose twin nozzles carry the jetpack and dash.
+   */
+  private buildRunner(mat: MaterialMaker, add: Placer, hang: Hanger): void {
+    const suit = mat('#343b56', { roughness: 0.55, metalness: 0.15 });
+    const panel = mat('#4f5a80', { roughness: 0.45, metalness: 0.3 });
+    const shell = mat('#1e2232', { roughness: 0.25, metalness: 0.5 });
+    const cyan = mat(NEON.cyan, { emissive: NEON.cyan, emissiveIntensity: NEON.intensity, roughness: 0.3 });
+    const magenta = mat(NEON.magenta, { emissive: NEON.magenta, emissiveIntensity: NEON.intensity, roughness: 0.3 });
+    const visorMat = mat('#9ff8ff', { emissive: NEON.cyan, emissiveIntensity: 2.2, roughness: 0.1 });
 
-    // Wingsuit membranes, wrist to hip on each side; spread only while gliding.
-    const wingMat = new MeshStandardMaterial({
-      color: ghost ? '#bdf3ff' : '#ff7a2f',
-      side: DoubleSide,
-      transparent: true,
-      opacity: ghost ? 0.25 : 0.85,
-      depthWrite: !ghost,
-      roughness: 0.6,
+    // Legs: thigh and shin, a cyan stripe down the outside, and low trainers with glowing soles.
+    this.legs.forEach((hip, i) => {
+      const side = i === 0 ? -1 : 1;
+      const x = side * RUNNER_RIG.hip.x;
+      hang(hip, new Mesh(new CapsuleGeometry(0.085, 0.3, 4, 10), suit), x, 0.62, 0);
+      hang(hip, new Mesh(new CapsuleGeometry(0.068, 0.3, 4, 10), suit), x, 0.27, 0);
+      hang(hip, new Mesh(new SphereGeometry(0.07, 10, 8), panel), x, 0.44, -0.04, false).scale.set(1, 0.8, 0.7);
+      hang(hip, new Mesh(new BoxGeometry(0.015, 0.62, 0.03), cyan), x + side * 0.08, 0.46, 0, false);
+      hang(hip, new Mesh(new BoxGeometry(0.12, 0.08, 0.26), panel), x, 0.06, -0.04);
+      hang(hip, new Mesh(new BoxGeometry(0.125, 0.02, 0.265), cyan), x, 0.015, -0.04, false);
     });
-    for (const side of [-1, 1]) {
-      const g = new BufferGeometry();
-      g.setAttribute('position', new Float32BufferAttribute([side * 0.32, 1.3, 0, side * 1.15, 0.95, 0.02, side * 0.24, 0.3, 0], 3));
-      g.computeVertexNormals();
-      this.wings.add(new Mesh(g, wingMat));
-    }
-    this.wings.visible = false;
-    this.body.add(this.wings);
 
-    this.root.add(this.body);
+    // Torso: a flattened capsule, magenta chevrons on the chest and a magenta belt.
+    add(new Mesh(new CapsuleGeometry(0.2, 0.36, 6, 16), suit), 0, 1.16, 0).scale.set(1.1, 1, 0.8);
+    add(new Mesh(new CapsuleGeometry(0.17, 0.06, 4, 14), panel), 0, 0.88, 0).scale.set(1.1, 1, 0.85);
+    add(new Mesh(new CylinderGeometry(0.205, 0.205, 0.035, 18), magenta), 0, 0.95, 0, false).scale.set(1.08, 1, 0.82);
+    for (const side of [-1, 1]) {
+      const chevron = add(new Mesh(new BoxGeometry(0.17, 0.022, 0.02), magenta), side * 0.065, 1.27, -0.155, false);
+      chevron.rotation.z = side * -0.5;
+    }
+    add(new Mesh(new BoxGeometry(0.02, 0.2, 0.02), cyan), 0, 1.1, -0.165, false);
+
+    // Arms: slim sleeves with a cyan cuff, dark gloves.
+    this.arms.forEach((shoulder, i) => {
+      const side = i === 0 ? -1 : 1;
+      const x = side * RUNNER_RIG.shoulder.x;
+      hang(shoulder, new Mesh(new SphereGeometry(0.072, 12, 10), panel), x, 1.4, 0);
+      hang(shoulder, new Mesh(new CapsuleGeometry(0.06, 0.44, 4, 10), suit), x, 1.14, 0);
+      hang(shoulder, new Mesh(new CylinderGeometry(0.064, 0.064, 0.04, 12), cyan), x, 0.95, 0, false);
+      hang(shoulder, new Mesh(new SphereGeometry(0.068, 12, 10), shell), x, 0.87, 0, false);
+    });
+
+    // Helmet: a close, glossy shell with a magenta crest and a glowing visor band across the eyes.
+    add(new Mesh(new CylinderGeometry(0.07, 0.085, 0.1, 12), suit), 0, 1.52, 0, false);
+    add(new Mesh(new SphereGeometry(0.145, 24, 18), shell), 0, 1.66, 0).scale.set(0.95, 1.05, 1.1);
+    add(new Mesh(new SphereGeometry(0.15, 24, 6, Math.PI * 1.5 - 1.0, 2.0, 1.32, 0.3), visorMat), 0, 1.66, 0, false).scale.set(0.95, 1.05, 1.1);
+    add(new Mesh(new BoxGeometry(0.022, 0.03, 0.2), magenta), 0, 1.8, 0.01, false);
+
+    // Slim pack close to the back, a cyan spine strip, twin nozzles at the bottom; gadgets mount here.
+    add(new Mesh(new BoxGeometry(0.28, 0.4, 0.13), panel), 0, 1.16, 0.22);
+    add(new Mesh(new BoxGeometry(0.29, 0.025, 0.14), magenta), 0, 1.35, 0.22, false);
+    add(new Mesh(new BoxGeometry(0.03, 0.26, 0.02), cyan), 0, 1.16, 0.295, false);
+    for (const side of [-1, 1]) {
+      add(new Mesh(new CylinderGeometry(0.04, 0.05, 0.08, 10), shell), side * RUNNER_RIG.flame.x, 0.96, RUNNER_RIG.flame.z, false);
+    }
   }
 
   /**
@@ -221,8 +365,8 @@ export class PlayerModel {
       f.scale.set(1 + 0.4 * level, len, 1 + 0.4 * level);
       // Down for the jetpack; swept back for a dash.
       f.rotation.x = Math.PI - (dash > thrust ? 1.2 : 0);
-      f.position.y = 0.72 - 0.25 * len * (dash > thrust ? 0.4 : 1);
-      f.position.z = 0.6 + (dash > thrust ? 0.25 * len : 0);
+      f.position.y = this.rig.flame.y - 0.25 * len * (dash > thrust ? 0.4 : 1);
+      f.position.z = this.rig.flame.z + (dash > thrust ? 0.25 * len : 0);
     }
   }
 

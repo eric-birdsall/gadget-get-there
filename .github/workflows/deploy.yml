@@ -1,10 +1,8 @@
 name: Test and deploy to GitHub Pages
 
-# One Pages site, two builds: main at the root, and the city-at-night reskin (the city-reskin
-# branch) under /city/. A push to either branch rebuilds and redeploys both.
 on:
   push:
-    branches: [main, city-reskin]
+    branches: [main]
   workflow_dispatch:
 
 permissions:
@@ -21,34 +19,16 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        with:
-          ref: main
-          path: main
-      - uses: actions/checkout@v4
-        with:
-          ref: city-reskin
-          path: city
       - uses: actions/setup-node@v4
         with:
           node-version: 24
           cache: npm
-          cache-dependency-path: |
-            main/package-lock.json
-            city/package-lock.json
-      - name: Build main
-        working-directory: main
-        run: npm ci && npm test && npm run build
-      - name: Build city-reskin
-        working-directory: city
-        run: npm ci && npm test && npm run build
-      - name: Put the city build under /city/
-        run: |
-          mkdir -p site/city
-          cp -R main/dist/. site/
-          cp -R city/dist/. site/city/
+      - run: npm ci
+      - run: npm test
+      - run: npm run build
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: site
+          path: dist
 
   deploy:
     needs: build

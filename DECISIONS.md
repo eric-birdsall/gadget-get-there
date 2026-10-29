@@ -243,7 +243,8 @@ Replaces the gadget in hand, switching (scroll, F, 1–5 mid-run) and auto-switc
 
 ## Sprint (built): an ability, not a gadget
 - **Toggle:** a press switches it on (with at least 20% stamina) and another switches it off. Top running speed 13 m/s instead of 10. It also switches off when stamina runs out, when you stop moving on the ground, and when you crouch or slide. It stays on through jumps.
-- **Stamina:** 4 s of sprinting when full, drained only while sprint-running on the ground; refills from 0.6 s after sprint stops, empty to full in 3 s. A thin bar above the gadgets shows it while sprinting or refilling (cyan while sprinting, red below 20%).
+- **Stamina:** 4 s of sprinting when full, drained only while sprint-running on the ground; refills from 0.6 s after sprint stops, empty to full in 3 s. A thin upright bar just right of the crosshair shows it while sprinting or refilling, filling from the bottom (cyan while sprinting, red below 20%).
+- **Sprint jumps cost stamina:** stamina doesn't drain in the air (so gliding, jetpack and falls don't burn it), so each jump while sprinting costs 0.18 of the bar up front, about what running through its ~0.73 s airtime would. Hopping on every landing drains it like running. A jump out of a full slide has already paid for its burst and costs nothing more.
 - **Defaults:** Shift sprints and C crouches/slides on the keyboard; clicking the left stick sprints on the controller. A saved crouch still on the old Shift default moves to C; one the player changed stays. A controller save from before sprint gets L3 for it if that's free.
 - A sprint press waits for the next sim tick, so on fast displays a toggle is never dropped.
 
@@ -290,6 +291,12 @@ Replaces the gadget in hand, switching (scroll, F, 1–5 mid-run) and auto-switc
 - Hovering a level card (or the controller's highlight on it) plays a live fly-through over its still picture: the camera flies 7 m above a smooth path from the start through each checkpoint to the finish, eased, in 9 s, on a loop, looking a little ahead. Leaving the card shows the still again.
 - One small renderer (480×270) holds every course while the picker is open and is freed when it closes, so play isn't slowed.
 
+## City at night (built; the default world)
+- Settings → Graphics → World: City at night (the default) or Space. Same courses and physics; only the look changes. Built on the city-reskin branch and merged into main; the notes below follow it as it grew.
+- **Sky:** near black overhead, violet, a magenta-orange dusk glow at the horizon, faint stars. Purple haze.
+- **Skyline:** ~500 towers around and below the course (kept 24 m clear of it), muted so it sits back: about 1 in 7 windows lit, dim and desaturated, dark windows close to the wall colour, and fewer, dimmer neon crowns. Glowing orange streets in a 46 m grid 160 m down. The buildings under the course keep the livelier windows.
+- **Buildings under the course:** every flat platform and stepping stone gets a window-lit building down to the street. For looks only: no collision, so every tested route plays the same (you can't wall-run on them yet).
+- **Course pieces:** first neon (glowing cyan grid roofs, teal glass ramps, magenta-edged glass walls); now a real city, see "City: billboards, brick and concrete" below.
 ## Grapple aim assist with the controller (built)
 - Playing with the controller: with nothing to hook under the crosshair, the grapple takes the hook point nearest to it within 7°; with a wall or floor under it, a grapple beam within 4° still wins (beams are almost always what you meant). Searched in rings of directions round the crosshair; the innermost ring with a hit wins, beams counting as a little nearer.
 - The hook marker shows the assisted point, so you see exactly where it will catch.
@@ -307,3 +314,29 @@ Replaces the gadget in hand, switching (scroll, F, 1–5 mid-run) and auto-switc
 - **Falls:** the hidden early check (8 m below your last footing over nothing) is gone; the only fall is the kill boundary, 25 m below the course's lowest point (now its true lowest point, not a bounding sphere). So you can dip far below platforms and recover (jetpack, zip, glide).
 - **Kill boundary drawn:** a red hazard grid at that height, following the player, faint from high up and brighter as you near it, pulsing slightly, fading out at its edges.
 - The Crossing's second bypass beam moved up and on (y 47, z −268) so a zip to it, let go just before, carries onto the next platform. Route tests retuned.
+
+### City backdrop calmed further
+- ~220 skyline towers (was ~500), at least 45 m from the course unless far below it. Near the course, towers stay at least 14 m below the nearest rooftop, so the course looks out over open sky; only towers 200 m+ away may rise above it.
+- Windows: background ~1 in 12 lit, dim and grey; the buildings under the course ~1 in 6, softer than before. Haze starts sooner (90–560 m), so distant towers fade into the purple.
+
+### City dressing and life (built, city-reskin)
+- **Tower cranes:** each grapple beam is a crane jib: a yellow lattice mast down to the street at whichever end has nothing of the course below it (neither: the jib floats), an operator's cab with a lit window, and a counter-jib with its weight. Look only.
+- **Helipads:** a yellow-ringed H painted on each checkpoint rooftop, just ahead of the respawn spot.
+- **Flying traffic:** 18 lanes of cars along the street lines, 25–110 m below the streets of the courses' area, white headlights and red tail-lights, 18–40 m/s, wrapping round.
+- **Aircraft lights:** red lights blinking together on the tallest skyline towers and on crane tops.
+- **Level picker:** previews and fly-throughs draw the current world (city: colours, light, haze, dusk sky, buildings, cranes and helipads); changing the world redraws them.
+
+### City runner (built)
+- In the city the player is a courier in a fitted navy tech suit with cyan and magenta trim, a close helmet with a glowing visor band, and a slim pack with twin nozzles; the astronaut stays for Space. Same pivots and run cycle, so every pose (run, tuck, slide, wall-run lean, mantle, glide) works on both; the jetpack flames and wingsuit attach to each body's own mounts. The ghost follows the world too. Changing the world swaps the body without a reload. Look only: the capsule is unchanged.
+
+### City: billboards, brick and concrete (built)
+- Nothing on the course glows in the city; the neon is in the skyline. Roofs are weathered concrete with faint paving seams and pale parapet edges, ramps steel, water-tower stones brick, crane beams yellow.
+- **Thin walls are billboards:** a made-up advert on each face (noodles, soda, metro, pizza, radio, coffee; neighbouring boards differ), a steel frame, lamps along the top, and poles down to the street where nothing of the course is below. **Thick walls are brick.**
+- The streets far below are dimmer and patchier, with some blocks run together, so they don't read as a grid.
+- The game and the level previews build course pieces the same way (`PieceKit`). Look only: every piece keeps its box.
+
+### Controller in the settings (built)
+- Up and down move row by row through every setting: a control inside a label counts as its whole row, so checkboxes and dropdowns at the right of their rows are reached and A toggles them.
+
+### GitHub Pages
+- Pushing main deploys it to https://eric-birdsall.github.io/gadget-get-there/. While the city reskin lived on its own branch it was also published under /city/; that ended with the merge.

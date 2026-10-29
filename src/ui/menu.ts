@@ -164,6 +164,12 @@ export class Menu {
     this.checkbox('set-checkpoints', 'checkpoints');
     this.checkbox('set-ghost', 'ghost');
     this.checkbox('set-shadows', 'shadows');
+    const theme = el<HTMLSelectElement>('set-theme');
+    theme.value = settings.theme;
+    theme.addEventListener('change', () => {
+      this.settings.theme = theme.value;
+      this.changed();
+    });
     const crouchMode = el<HTMLSelectElement>('set-crouch');
     crouchMode.value = settings.crouchMode;
     crouchMode.addEventListener('change', () => {
@@ -362,6 +368,11 @@ export class Menu {
     el('level-modal').classList.remove('hidden');
     // With the controller, start on the current level (its highlight flies it, like a hover).
     if (device.current === 'pad') el<HTMLElement>('level-list').querySelector<HTMLElement>('.current')?.focus({ preventScroll: true });
+  }
+
+  /** Forgets the level previews (the world look changed), so they're drawn again on next open. */
+  resetLevelPreviews(): void {
+    this.previews = null;
   }
 
   closeLevels(): void {
